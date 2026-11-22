@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# .agents/githooks/pre-commit - the harness-neutral commit gate. Git runs it for every
+# commit, whichever harness (or human) made the change, so it backs up the controls a
+# harness may lack (Codex has no per-agent tool fences; hooks may be untrusted).
+# Install once per clone: git config core.hooksPath .agents/githooks
+# Checks: generated adapters match sources (render.sh --check); the agent-file validator;
+# the test marker is newer than every staged source change; no secret files or
+# credential strings are staged.
+# Owner: factory-engineer (constitutional). Checks may be added, never removed.
+set -uo pipefail
+root=$(git rev-parse --show-toplevel); cd "$root"
+fail=0
+say() { echo "pre-commit: $*" >&2; }
+
+# 1. Generated adapters match their sources, and every tier is mapped.
+if [ -x .agents/render.sh ]; then
+  .agents/render.sh --check >&2 || { say "adapters are stale; run .agents/render.sh"; fail=1; }
+else
+  say ".agents/render.sh is missing or not executable"; fail=1
+fi
+
+# 2. Agent files, JSON and TOML, hooks, fences, registration, one writer per file.
+if [ -x .claude/hooks/validate-agent-files.sh ]; then
+  .claude/hooks/validate-agent-files.sh >&2 || { say "agent-file validation failed"; fail=1; }
+else
+  say ".claude/hooks/validate-agent-files.sh is missing or not executable"; fail=1
+fi
+
+# 3. Tests passed after the newest staged source change (same marker as the Stop hook).
+staged=$(git diff --cached --name-only --diff-filter=ACMRD -- \
+  '*.scala' '*.sbt' '*.java' 'project/*' 'modules/*/src/main/resources/*' 'prompts/*')
+if [ -n "$staged" ]; then
+  marker=".claude/.last-test-run"
+  stale=0
+  if [ ! -f "$marker" ]; then stale=1; else
+    # A deleted file counts too: its nearest existing ancestor directory holds the time.
+    while IFS= read -r f; do
+      p=$f; while [ ! -e "$p" ]; do p=$(dirname "$p"); done
+      [ "$p" -nt "$marker" ] && stale=1
+    done <<< "$staged"
+  fi
+  [ "$stale" -eq 1 ] && { say "source changed since the last green 'sbt check'; run it first"; fail=1; }
+fi
+
+# 4. No secret files or credential strings in the staged change.
+# The file-name filter matches the settings.json Read deny list (repair round 3): .env,
+# .env.*, *.env, .envrc, *.tfvars, *.tfvars.json, secrets/, keys, id_* keys,
+# credentials.json, *.tfstate and *.tfstate.*, .netrc, and the test marker. The round 2
+# -var-file exemption is about terraform reading a tfvars file, not committing one, so
+# it does not apply here; a placeholder file such as dev.tfvars.example still commits.
+secret_files='(^|/)\.env(\.|$)|\.env$|\.envrc$|(^|/)secrets/|\.(pem|key|p12|pfx|tfvars)$|\.tfvars\.json$|\.tfstate(\.|$)|id_rsa|id_ed25519|id_ecdsa|credentials\.json$|(^|/)\.netrc$|\.last-test-run$'
+if git diff --cached --name-only | grep -Eq "$secret_files"; then
+  say "a secret, state or marker file is staged; unstage it and add it to .gitignore"; fail=1
+fi
+if git diff --cached -U0 | grep -E '^\+' | grep -Eq \
+  'AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|aws_secret_access_key *=|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}'; then
+  say "the staged diff contains what looks like a credential; remove it"; fail=1
+fi
+
+[ "$fail" -eq 0 ] || say "commit blocked. Fix the items above; never bypass with --no-verify."
+exit "$fail"

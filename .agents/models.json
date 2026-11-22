@@ -1,0 +1,13 @@
+{
+  "_comment": "Owner: factory-engineer (constitutional). The only place model IDs live; roles name a tier (high or standard), never a model. The low tier is no role's default: the routing suite runs on it, and the orchestrator may step a standard-tier role down to it for a small mechanical task (AGENTS.md). After a change, run .agents/render.sh and get ratification.",
+  "claude": {
+    "high": { "model": "opus", "effort": "high" },
+    "standard": { "model": "sonnet", "effort": "medium" },
+    "low": { "model": "haiku", "effort": "high" }
+  },
+  "codex": {
+    "high": { "model": "gpt-6.2-sol", "model_reasoning_effort": "high" },
+    "standard": { "model": "gpt-6.1-terra", "model_reasoning_effort": "medium" },
+    "low": { "model": "gpt-6-luna", "model_reasoning_effort": "high" }
+  }
+}

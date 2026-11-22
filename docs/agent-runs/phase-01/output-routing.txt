@@ -1,0 +1,153 @@
+PASS | R001 | Add a new agent role for an OpenSearch engineer | expected factory-engineer | got factory-engineer | claude haiku
+PASS | R002 | Add a guard pattern that blocks aws glue delete-database | expected factory-engineer | got factory-engineer | claude haiku
+PASS | R003 | Change the model tier of hadoop-engineer to high | expected factory-engineer | got factory-engineer | claude haiku
+PASS | R004 | Register a new MCP server for CloudWatch log reads | expected factory-engineer | got factory-engineer | claude haiku
+PASS | R005 | Fix a misroute by rewording the rag-engineer description | expected factory-engineer | got factory-engineer | claude haiku
+PASS | R006 | Create build.sbt with the seven ScholarChain sbt projects | expected build-engineer | got build-engineer | claude haiku
+PASS | R007 | Add the check, fmt, packageJobs and dockerLocal aliases | expected build-engineer | got build-engineer | claude haiku
+PASS | R008 | Make Spark a Provided dependency of sparkAnalytics | expected build-engineer | got build-engineer | claude haiku
+PASS | R009 | Add sbt-native-packager and a non-root Docker image | expected build-engineer | got build-engineer | claude haiku
+PASS | R010 | Compile tests/module-unit/spark as sparkAnalytics tests | expected build-engineer | got build-engineer | claude haiku
+PASS | R011 | Bump the AWS SDK v2 library to its latest patch | expected dependency-updater | got dependency-updater | claude haiku
+PASS | R012 | A CVE was published for the logback version we use | expected dependency-updater | got dependency-updater | claude haiku
+PASS | R013 | Upgrade ScalaTest to the newest minor release | expected dependency-updater | got dependency-updater | claude haiku
+PASS | R014 | Check our library versions for security advisories | expected dependency-updater | got dependency-updater | claude haiku
+PASS | R015 | Bump the uPickle version in project/Versions.scala | expected dependency-updater | got dependency-updater | claude haiku
+PASS | R016 | Install the scalafmt CLI so the format hook works | expected toolchain-engineer | got toolchain-engineer | claude haiku
+PASS | R017 | Pin the Terraform CLI version and record why | expected toolchain-engineer | got toolchain-engineer | claude haiku
+PASS | R018 | Write a no-sudo install script for the JDK and sbt | expected toolchain-engineer | got toolchain-engineer | claude haiku
+PASS | R019 | Install uv so the uvx MCP servers can start | expected toolchain-engineer | got toolchain-engineer | claude haiku
+PASS | R020 | Install terraform-mcp-server 1.4.1 for the MCP config | expected toolchain-engineer | got toolchain-engineer | claude haiku
+PASS | R021 | Add a schema version to the CoauthorEdge record | expected domain-engineer | got domain-engineer | claude haiku
+PASS | R022 | Define the stable researcher ID function | expected domain-engineer | got domain-engineer | claude haiku
+PASS | R023 | Freeze the JSON wire example for EvidenceBundle | expected domain-engineer | got domain-engineer | claude haiku
+PASS | R024 | Reject time windows whose start year is after the end | expected domain-engineer | got domain-engineer | claude haiku
+PASS | R025 | Create the configuration loader for bucket names | expected domain-engineer | got domain-engineer | claude haiku
+PASS | R026 | Create datasets/dataset-manifest.yaml for DBLP | expected dataset-engineer | got dataset-engineer | claude haiku
+PASS | R027 | Record the OpenAlex snapshot date, license and checksum | expected dataset-engineer | got dataset-engineer | claude haiku
+PASS | R028 | Write a bounded sample script for the ORCID data file | expected dataset-engineer | got dataset-engineer | claude haiku
+PASS | R029 | Is the Crossref public data file still downloadable? | expected dataset-engineer | got dataset-engineer | claude haiku
+PASS | R030 | Add a small legal DBLP sample under datasets/samples | expected dataset-engineer | got dataset-engineer | claude haiku
+PASS | R031 | Write the DBLP XML input format that keeps records whole | expected hadoop-engineer | got hadoop-engineer | claude haiku
+PASS | R032 | Emit coauthor pair candidates from publication teams | expected hadoop-engineer | got hadoop-engineer | claude haiku
+PASS | R033 | Add Hadoop counters for rejected and oversize records | expected hadoop-engineer | got hadoop-engineer | claude haiku
+PASS | R034 | Implement the OpenAlex normalizer as a MapReduce job | expected hadoop-engineer | got hadoop-engineer | claude haiku
+PASS | R035 | Add a partitioner that splits giant blocking keys | expected hadoop-engineer | got hadoop-engineer | claude haiku
+PASS | R036 | Tune the accept and reject thresholds for author matching | expected entity-resolution-engineer | got entity-resolution-engineer | claude haiku
+PASS | R037 | Output CONFLICT when two ORCID identifiers disagree | expected entity-resolution-engineer | got entity-resolution-engineer | claude haiku
+PASS | R038 | Write the LLM adjudication prompt with an abstain option | expected entity-resolution-engineer | got entity-resolution-engineer | claude haiku
+PASS | R039 | Calibrate the match scoring policy on the gold set | expected entity-resolution-engineer | got entity-resolution-engineer | claude haiku
+PASS | R040 | Normalize author initials and name order for matching | expected entity-resolution-engineer | got entity-resolution-engineer | claude haiku
+PASS | R041 | Compute distinct coauthor counts per researcher | expected spark-engineer | got spark-engineer | claude haiku
+PASS | R042 | Add k-core decomposition to the collaboration graph | expected spark-engineer | got spark-engineer | claude haiku
+PASS | R043 | Find connected components without collecting the graph | expected spark-engineer | got spark-engineer | claude haiku
+PASS | R044 | Implement label propagation for research communities | expected spark-engineer | got spark-engineer | claude haiku
+PASS | R045 | Export Parquet edges and the Neptune load manifest | expected spark-engineer | got spark-engineer | claude haiku
+PASS | R046 | Write the Neptune bulk loader for COAUTHORED_WITH edges | expected storage-engineer | got storage-engineer | claude haiku
+PASS | R047 | Add conditional writes to the RunLedger DynamoDB table | expected storage-engineer | got storage-engineer | claude haiku
+PASS | R048 | Batch vector writes into the researcher-profile-v1 index | expected storage-engineer | got storage-engineer | claude haiku
+PASS | R049 | Skip re-embedding unchanged text by content hash | expected storage-engineer | got storage-engineer | claude haiku
+PASS | R050 | Design the DynamoDB keys for the EvidenceBundle table | expected storage-engineer | got storage-engineer | claude haiku
+PASS | R051 | Build the QueryPlannerAgent with allowlisted operations | expected rag-engineer | got rag-engineer | claude haiku
+PASS | R052 | Implement the claim verifier for numerical claims | expected rag-engineer | got rag-engineer | claude haiku
+PASS | R053 | Version the answer synthesis prompt in prompts/ | expected rag-engineer | got rag-engineer | claude haiku
+PASS | R054 | Fuse graph and vector retrieval into one evidence bundle | expected rag-engineer | got rag-engineer | claude haiku
+PASS | R055 | Make the resolver abstain on ambiguous researcher names | expected rag-engineer | got rag-engineer | claude haiku
+PASS | R056 | Add GET /v1/evidence/{evidenceId} with trace IDs | expected service-engineer | got service-engineer | claude haiku
+PASS | R057 | Handle Idempotency-Key on POST /v1/query | expected service-engineer | got service-engineer | claude haiku
+PASS | R058 | Separate /healthz from /readyz in the query service | expected service-engineer | got service-engineer | claude haiku
+PASS | R059 | Paginate GET /v1/graph/nodes/{nodeId}/neighbors | expected service-engineer | got service-engineer | claude haiku
+PASS | R060 | Map downstream timeouts to the typed API error model | expected service-engineer | got service-engineer | claude haiku
+PASS | R061 | Write adversarial tests for truncated DBLP XML | expected test-engineer | got test-engineer | claude haiku
+PASS | R062 | Add an end-to-end test from query to evidence with fakes | expected test-engineer | got test-engineer | claude haiku
+PASS | R063 | Test prompt injection hidden in paper abstracts | expected test-engineer | got test-engineer | claude haiku
+PASS | R064 | Write cross-module contract tests for Spark to Neptune IDs | expected test-engineer | got test-engineer | claude haiku
+PASS | R065 | Rerun the adversarial suite after the hadoop repair | expected test-engineer | got test-engineer | claude haiku
+PASS | R066 | Review the phase 6 diff before I commit it | expected code-reviewer | got code-reviewer | claude haiku
+PASS | R067 | Is this failing test-engineer test fair against the spec? | expected code-reviewer | got code-reviewer | claude haiku
+PASS | R068 | Check this diff for ownership violations and secrets | expected code-reviewer | got code-reviewer | claude haiku
+PASS | R069 | Write a repair brief for the failing pair-count test | expected code-reviewer | got code-reviewer | claude haiku
+PASS | R070 | Do a final read-only review of the whole repository | expected code-reviewer | got code-reviewer | claude haiku
+PASS | R071 | Write Terraform for the S3 Vectors bucket and indexes | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R072 | Create scripts/deploy.sh that checks the plan SHA-256 | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R073 | Add EMR managed scaling with bounded capacity | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R074 | Write least-privilege IAM roles for the ECS tasks | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R075 | Run terraform plan for the dev environment | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R076 | Deploy the approved commit to dev | expected deploy-engineer | got deploy-engineer | claude haiku
+PASS | R077 | Roll back the query service to the previous revision | expected deploy-engineer | got deploy-engineer | claude haiku
+PASS | R078 | Run the bounded pipeline on EMR for the sample snapshot | expected deploy-engineer | got deploy-engineer | claude haiku
+PASS | R079 | Ship the approved release and record it in releases/ | expected deploy-engineer | got deploy-engineer | claude haiku
+PASS | R080 | Apply the saved plan whose SHA-256 I signed | expected deploy-engineer | got deploy-engineer | claude haiku
+PASS | R081 | Run the query load experiment at 1, 10, 50 and 100 clients | expected experiment-engineer | got experiment-engineer | claude haiku
+PASS | R082 | Write the manifest for the EMR burst experiment | expected experiment-engineer | got experiment-engineer | claude haiku
+PASS | R083 | Measure SQS backlog drain time for embedding workers | expected experiment-engineer | got experiment-engineer | claude haiku
+PASS | R084 | Compare graph-only, vector-only and fused retrieval | expected experiment-engineer | got experiment-engineer | claude haiku
+PASS | R085 | Plot p95 latency from the raw load-test results | expected experiment-engineer | got experiment-engineer | claude haiku
+PASS | R086 | Write docs/data-lineage.md from source to answer | expected documentation-engineer | got documentation-engineer | claude haiku
+PASS | R087 | Update STATUS.md after the phase 4 hadoop step | expected documentation-engineer | got documentation-engineer | claude haiku
+PASS | R088 | Write the threat model covering prompt injection | expected documentation-engineer | got documentation-engineer | claude haiku
+PASS | R089 | Update modules/spark/MODULE.md with the new API | expected documentation-engineer | got documentation-engineer | claude haiku
+PASS | R090 | Write reports/final-report.md from the evidence | expected documentation-engineer | got documentation-engineer | claude haiku
+PASS | R091 | Write the handoff note into STATUS.md before the cut-off | expected documentation-engineer | got documentation-engineer | claude haiku
+PASS | R092 | CloudWatch says the query service 5xx rate spiked | expected incident-responder | got incident-responder | claude haiku
+PASS | R093 | ECS tasks keep restarting after the deploy | expected incident-responder | got incident-responder | claude haiku
+PASS | R094 | The embedding dead-letter queue is filling up | expected incident-responder | got incident-responder | claude haiku
+PASS | R095 | Neptune queries are timing out in production | expected incident-responder | got incident-responder | claude haiku
+PASS | R096 | Diagnose why the smoke test failed after the deploy | expected incident-responder | got incident-responder | claude haiku
+PASS | R097 | Write the architecture overview in docs/architecture.md | expected documentation-engineer | got documentation-engineer | claude haiku
+PASS | R098 | Add a CI workflow that runs the agent validation script | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R099 | Pin the Codex CLI version in the toolchain ledger | expected toolchain-engineer | got toolchain-engineer | claude haiku
+PASS | R100 | Bump uPickle to the next patch in Versions.scala | expected dependency-updater | got dependency-updater | claude haiku
+PASS | R101 | Install sbt and a JDK 21 in user space | expected toolchain-engineer | got toolchain-engineer | claude haiku
+PASS | R102 | Write the Terraform module for the ECR repositories | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R103 | Add a new JSON schema validation library to the build | expected build-engineer | got build-engineer | claude haiku
+PASS | R104 | Update the pinned Terraform CLI on this machine | expected toolchain-engineer | got toolchain-engineer | claude haiku
+PASS | R105 | Upgrade the sbt version in project/build.properties | expected build-engineer | got build-engineer | claude haiku
+PASS | R106 | Pin the scalafmt version in .scalafmt.conf | expected build-engineer | got build-engineer | claude haiku
+PASS | R107 | Bump the Hadoop client library version | expected dependency-updater | got dependency-updater | claude haiku
+PASS | R108 | Add a Terraform AWS provider version constraint | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R109 | Write the dataset schema notes for OpenAlex works | expected dataset-engineer | got dataset-engineer | claude haiku
+PASS | R110 | Design the DynamoDB key schema for QuerySession | expected storage-engineer | got storage-engineer | claude haiku
+PASS | R111 | Write adversarial tests that attack WorkRecord decoding | expected test-engineer | got test-engineer | claude haiku
+PASS | R112 | Parse the DBLP XML records in a MapReduce job | expected hadoop-engineer | got hadoop-engineer | claude haiku
+PASS | R113 | Decide the match threshold for ORCID-linked authors | expected entity-resolution-engineer | got entity-resolution-engineer | claude haiku
+PASS | R114 | Create the S3 raw-zone bucket for DBLP snapshots | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R115 | Write the bounded EMR smoke-run script for Hadoop | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R116 | Aggregate pair candidates into weighted coauthor edges | expected spark-engineer | got spark-engineer | claude haiku
+PASS | R117 | Run the Hadoop jobs on EMR with the sample snapshot | expected deploy-engineer | got deploy-engineer | claude haiku
+PASS | R118 | Emit blocking keys for common author names in MapReduce | expected hadoop-engineer | got hadoop-engineer | claude haiku
+PASS | R119 | Resolve a user-typed researcher name at query time | expected rag-engineer | got rag-engineer | claude haiku
+PASS | R120 | Run the final evaluation of entity-match quality | expected experiment-engineer | got experiment-engineer | claude haiku
+PASS | R121 | Bump the Spark library to the next patch release | expected dependency-updater | got dependency-updater | claude haiku
+PASS | R122 | Load the Spark edge Parquet files into Neptune | expected storage-engineer | got storage-engineer | claude haiku
+PASS | R123 | Write the shortest-path Neptune query for PathFinder | expected rag-engineer | got rag-engineer | claude haiku
+PASS | R124 | Create the DynamoDB tables in Terraform | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R125 | Write the researcher profile text template for embedding | expected rag-engineer | got rag-engineer | claude haiku
+PASS | R126 | Test S3 Vectors throttling with adversarial cases | expected test-engineer | got test-engineer | claude haiku
+PASS | R127 | Expose POST /v1/query as an HTTP route | expected service-engineer | got service-engineer | claude haiku
+PASS | R128 | Write the entity-resolution adjudication prompt | expected entity-resolution-engineer | got entity-resolution-engineer | claude haiku
+PASS | R129 | Load the embeddings into the S3 Vectors indexes | expected storage-engineer | got storage-engineer | claude haiku
+PASS | R130 | Write API attack tests for malformed bodies and auth | expected test-engineer | got test-engineer | claude haiku
+PASS | R131 | Create the API Gateway HTTP API, VPC link and ECS services | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R132 | Deploy the query service image to the dev environment | expected deploy-engineer | got deploy-engineer | claude haiku
+PASS | R133 | Add a unit test for the pair generator in modules/hadoop | expected hadoop-engineer | got hadoop-engineer | claude haiku
+PASS | R134 | Write the smoke-test script for the deployed services | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R135 | Run the smoke test against dev after the deploy | expected deploy-engineer | got deploy-engineer | claude haiku
+PASS | R136 | Fix the defect the reviewer found in the Spark job | expected spark-engineer | got spark-engineer | claude haiku
+PASS | R137 | Fix the reviewer finding in the match thresholds | expected entity-resolution-engineer | got entity-resolution-engineer | claude haiku
+PASS | R138 | Check the dataset licenses at the source and record them | expected dataset-engineer | got dataset-engineer | claude haiku
+PASS | R139 | Apply the approved plan to the dev environment | expected deploy-engineer | got deploy-engineer | claude haiku
+PASS | R140 | A CloudWatch alarm fired for the query service | expected incident-responder | got incident-responder | claude haiku
+PASS | R141 | Install the Terraform CLI on this machine | expected toolchain-engineer | got toolchain-engineer | claude haiku
+PASS | R142 | Fix the deploy script so it refuses dirty trees | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R143 | The deploy failed, find out why the tasks crash | expected incident-responder | got incident-responder | claude haiku
+PASS | R144 | Write the rollback script for the ECS services | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R145 | Write the evaluation section of the final report | expected documentation-engineer | got documentation-engineer | claude haiku
+PASS | R146 | Tune the fusion weights to improve the benchmark | expected rag-engineer | got rag-engineer | claude haiku
+PASS | R147 | Write Terraform autoscaling for the embedding workers | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R148 | Change the ownership map in docs/agents.md | expected factory-engineer | got factory-engineer | claude haiku
+PASS | R149 | Write the incident report for the Neptune timeout | expected incident-responder | got incident-responder | claude haiku
+PASS | R150 | Add Scaladoc comments to the storage adapters | expected storage-engineer | got storage-engineer | claude haiku
+PASS | R151 | Add a CloudWatch alarm for SQS queue age in Terraform | expected infra-engineer | got infra-engineer | claude haiku
+PASS | R152 | Roll back the deploy to the previous revision | expected deploy-engineer | got deploy-engineer | claude haiku
+PASS | R153 | Run the failure-recovery experiment with a poison message | expected experiment-engineer | got experiment-engineer | claude haiku

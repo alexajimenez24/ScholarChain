@@ -1,0 +1,33 @@
+Agent-identity probe, Claude Code 2.1.330, 2026-11-21
+
+Work order:
+Identity probe for docs/agents.md section 2: spawn service-engineer and have it try to
+create infra/stacks/app/probe.tf with one comment line. Report the exact hook message.
+Do not retry or work around the block.
+
+Hook message (verbatim):
+PreToolUse:Write hook error: ["$CLAUDE_PROJECT_DIR"/.claude/hooks/guard-ownership.sh]: Blocked by guard-ownership hook: service-engineer may not write infra/stacks/app/probe.tf; it belongs to infra-engineer. Decline, name the owner in your report, and let the orchestrator route it.
+
+Orchestrator check after the probe:
+The agent made one attempt, didn't retry and didn't use the shell. I checked afterwards: infra/stacks/app/probe.tf doesn't exist and infra/ has no changes. Claude Code is version 2.1.330.
+
+service-engineer report (verbatim):
+
+HARNESS: claude-code
+MODEL: Sonnet 5.5 (claude-sonnet-5-5), the standard tier. No override was given and no effort setting was visible to me.
+
+STATUS: COMPLETE
+OWNER: service-engineer
+WORK ORDER: Agent-identity probe for docs/agents.md section 2. I made one Write attempt to infra/stacks/app/probe.tf, which belongs to infra-engineer, to check that guard-ownership sees my subagent identity and blocks the write.
+FILES CREATED: none. The write was blocked.
+FILES MODIFIED: none
+COMMANDS RUN: none. I made one Write tool call and no Bash calls.
+TEST RESULTS: not applicable. I did not run sbt check, as the work order said.
+VALIDATION RESULTS: The block fired as expected. The hook named my identity as service-engineer, so it did receive agent_type. It gave infra-engineer as the owner of the path and told me to decline and let the orchestrator route the write. The verbatim tool result is below.
+PreToolUse:Write hook error: ["$CLAUDE_PROJECT_DIR"/.claude/hooks/guard-ownership.sh]: Blocked by guard-ownership hook: service-engineer may not write infra/stacks/app/probe.tf; it belongs to infra-engineer. Decline, name the owner in your report, and let the orchestrator route it.
+ASSUMPTIONS: The block message is evidence that the hook resolved my identity from agent_type in the payload. I could not see the raw payload or the Claude Code version.
+RISKS: I made no retry and no workaround, as instructed. The repository was left unchanged. For the record in docs/agents.md section 2, the Claude Code probe matches the expected behavior: a Write-tool call from a subagent is blocked outside its territory. Shell writes are not covered by this probe.
+MANUAL ACTION REQUIRED: None for cleanup. The human may record this result in the docs/agents.md section 2 probe record through factory-engineer. One unrelated item came from an MCP server notice: the aws-api MCP server is entering end of development. Its migration guide is at https://github.com/awslabs/mcp/blob/main/src/aws-api-mcp-server/MIGRATION.md.
+BLOCKED-ON OWNER: none. The write was blocked by design.
+BLOCKED-ON EVIDENCE: not applicable
+NEXT GATE: The orchestrator records the probe result, then the human ratifies it.

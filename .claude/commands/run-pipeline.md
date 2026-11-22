@@ -1,0 +1,29 @@
+---
+description: Run one bounded ScholarChain data pipeline (Hadoop, entity resolution, Spark, loaders) on EMR through deploy-engineer and scripts/run-bounded-pipeline.sh, after the human's cost sign-off.
+allowed-tools: Read, Grep, Glob
+---
+<!-- GENERATED from .agents/skills/run-pipeline/SKILL.md by .agents/render.sh - do not edit; edit the source and re-run. -->
+
+<argument> = the environment and dataset snapshot the user named with this skill.
+
+Responsible agent: **deploy-engineer** (executes the approved script; authored by
+infra-engineer).
+The orchestrator only delegates and reports.
+
+Gates, all verified before delegating:
+1. `docs/agent-runs/phase-NN/human-gate.md` approves this bounded run: environment,
+   dataset snapshot, input bound, EMR capacity and the cost estimate counted against
+   the remaining $25 budget.
+2. `sbt check` is green on the approved commit and the tree is clean.
+3. The packaged job artifacts match the commit.
+
+If any gate is missing, stop and tell the human which one; do not delegate.
+
+Use the **deploy-engineer** agent to run `scripts/run-bounded-pipeline.sh` with
+<argument>, confirm the EMR cluster auto-terminated after evidence was archived, and
+record dataset snapshot, run IDs, configuration and output locations.
+
+Report: run IDs, Hadoop and Spark counters, output paths, duration, estimated cost and
+anything left running.
+
+Arguments given by the user: $ARGUMENTS

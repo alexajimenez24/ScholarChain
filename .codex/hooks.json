@@ -1,0 +1,41 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|mcp__aws-api__call_aws",
+        "hooks": [
+          { "type": "command", "command": "sh -c 'exec \"$(git rev-parse --show-toplevel)/.claude/hooks/guard-dangerous.sh\"'", "timeout": 10 }
+        ]
+      },
+      {
+        "matcher": "apply_patch|Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "sh -c 'exec \"$(git rev-parse --show-toplevel)/.claude/hooks/guard-ownership.sh\"'", "timeout": 10 }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "apply_patch|Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "sh -c 'exec \"$(git rev-parse --show-toplevel)/.claude/hooks/format-scala.sh\"'", "timeout": 120 },
+          { "type": "command", "command": "sh -c 'exec \"$(git rev-parse --show-toplevel)/.claude/hooks/validate-agent-files.sh\" --hook'", "timeout": 60 }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "sh -c 'exec \"$(git rev-parse --show-toplevel)/.claude/hooks/verify-tests-ran.sh\"'", "timeout": 30 }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "sh -c 'exec \"$(git rev-parse --show-toplevel)/.claude/hooks/verify-tests-ran.sh\"'", "timeout": 30 }
+        ]
+      }
+    ]
+  }
+}

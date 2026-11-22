@@ -1,0 +1,42 @@
+{
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/readonly",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_PAT}",
+        "X-MCP-Readonly": "true",
+        "X-MCP-Lockdown": "true"
+      }
+    },
+    "aws-api": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["awslabs.aws-api-mcp-server@1.6.1"],
+      "env": {
+        "AWS_REGION": "us-east-2",
+        "READ_OPERATIONS_ONLY": "true",
+        "REQUIRE_MUTATION_CONSENT": "true",
+        "AWS_API_MCP_TELEMETRY": "false",
+        "AWS_API_MCP_PROFILE_NAME": "${AWS_API_MCP_PROFILE_NAME:-scholarchain-readonly}"
+      }
+    },
+    "terraform": {
+      "type": "stdio",
+      "command": "terraform-mcp-server",
+      "args": ["stdio", "--toolsets=registry"],
+      "env": {
+        "LOG_LEVEL": "error"
+      }
+    },
+    "aws-docs": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["awslabs.aws-documentation-mcp-server@1.2.6"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR",
+        "AWS_DOCUMENTATION_PARTITION": "aws"
+      }
+    }
+  }
+}

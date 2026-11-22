@@ -1,0 +1,30 @@
+## render --check
+render --check OK: 44 generated files match their sources
+## validate-agent-files
+validate-agent-files OK: 19 roles, 19 Claude agents, 19 Codex agents, 4 MCP servers, 106 files with one writer
+## bash -n on every hook
+ok .claude/hooks/format-scala.sh
+ok .claude/hooks/guard-dangerous.sh
+ok .claude/hooks/guard-ownership.sh
+ok .claude/hooks/validate-agent-files.sh
+ok .claude/hooks/verify-tests-ran.sh
+ok .agents/render.sh
+ok .agents/routing-suite.sh
+ok .agents/githooks/pre-commit
+## JSON parse
+ok .claude/settings.json
+ok .claude/settings.local.json
+ok .mcp.json
+ok .codex/hooks.json
+## guard-dangerous unit test
+Ran 45 tests in 132.016s
+
+OK
+## guard probes
+terraform destroy -> exit 2
+aws s3 rm s3://x --recursive -> exit 2
+git push --force -> exit 2
+ls -> exit 0
+## ownership probes
+service-engineer -> build.sbt: exit 2
+build-engineer -> build.sbt: exit 0
