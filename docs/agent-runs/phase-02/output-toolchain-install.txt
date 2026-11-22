@@ -1,0 +1,19 @@
+==> JDK Corretto 17.0.21.1.2
+    sha256 ok: d8a350b5988f58e6186ddc1db584af170e9d56862816d4a578e9570d85307e2c
+==> sbt launcher 1.13.1
+    sha256 ok: 4a20e36c1642b6d5be34ef641d2ed6c8c0d464e6145283730d5566716e4083be
+==> scalafmt CLI 3.11.5
+    sha256 ok: 4a29c3651f64fbaf9adcca01c6ac2ba0e8281a3d20e08c12b152582139fae290
+==> verify-only tools (pre-installed by the human, never reinstalled)
+    record   uv (no pin yet), observed: uv 0.13.9 (x86_64-unknown-linux-gnu) 
+    record   uvx (no pin yet), observed: uvx 0.13.9 (x86_64-unknown-linux-gnu) 
+    MISMATCH terraform-mcp-server expected 1.4.1, observed: not on PATH
+    record   aws-cli (no pin yet), observed: aws-cli/2.35.21 Python/3.14.6 Linux/5.15.167.4-microsoft-standard-WSL2 exe/x86_64.ubuntu.24 
+    record   claude (no pin yet), observed: 2.1.330 (Claude Code) 
+    record   terraform (no pin yet), observed: Terraform v1.17.2 on linux_amd64  
+    record   python3 (no pin yet), observed: Python 3.12.3 
+==> installed versions
+    openjdk version "17.0.21.1" 2026-11-17 LTS
+    sbt 1.13.1
+    scalafmt 3.11.5
+==> 1 verify-only mismatch(es)

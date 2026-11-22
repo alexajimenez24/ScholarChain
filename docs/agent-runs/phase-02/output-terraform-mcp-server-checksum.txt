@@ -1,0 +1,16 @@
+terraform-mcp-server 1.4.1 checksum evidence, recorded by the human on 2026-11-22 10:34 CST
+
+$ curl -fsSLO https://releases.hashicorp.com/terraform-mcp-server/1.4.1/terraform-mcp-server_1.4.1_linux_amd64.zip && curl -fsSLO https://releases.hashicorp.com/terraform-mcp-server/1.4.1/terraform-mcp-server_1.4.1_SHA256SUMS
+downloaded
+
+$ grep linux_amd64.zip terraform-mcp-server_1.4.1_SHA256SUMS | sha256sum -c -
+terraform-mcp-server_1.4.1_linux_amd64.zip: OK
+
+$ unzip the release and compare the binary with the installed one
+release binary:   82fc6f10ae4d9cb0a406b254fa21f5e5d11d8b1369757446da4f6f02c3d15c8d
+installed binary: 82fc6f10ae4d9cb0a406b254fa21f5e5d11d8b1369757446da4f6f02c3d15c8d  (/home/ajcreator/.local/bin/terraform-mcp-server)
+result: installed binary is identical to the verified release binary
+
+$ terraform-mcp-server --version
+Terraform MCP Server
+Version: 1.4.1

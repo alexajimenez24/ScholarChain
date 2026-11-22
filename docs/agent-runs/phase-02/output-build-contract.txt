@@ -1,0 +1,63 @@
+$ TMPDIR=<scratchpad>/bc bash tests/build/check-contract.sh   (orchestrator, 2026-11-22 ~10:08 CST, after sbt check finished)
+build-contract: repository /home/ajcreator/scholarchain
+build-contract: temp dir /tmp/claude-1000/-home-ajcreator-scholarchain/d5e0fa5a-7b55-44f5-9599-2d444a068812/scratchpad/bc/scholarchain-build-contract.UITqmY
+build-contract: scenarios: pass fail-contract fail-unit fail-format
+
+== scenario pass
+  running: sbt -batch check in /tmp/claude-1000/-home-ajcreator-scholarchain/d5e0fa5a-7b55-44f5-9599-2d444a068812/scratchpad/bc/scholarchain-build-contract.UITqmY/pass (log /tmp/claude-1000/-home-ajcreator-scholarchain/d5e0fa5a-7b55-44f5-9599-2d444a068812/scratchpad/bc/scholarchain-build-contract.UITqmY/pass.log)
+  sbt exit code 0; marker mtime before 978328800, after 1795363672
+  ok:   no tool touched a resources/ .scala file
+  ok:   no tool touched a stale target/ source
+  ok:   no tool touched a module base-folder source
+  ok:   sbt check exited 0
+  ok:   marker touched by this run
+  ok:   top-level contracts suite ran once (BCT-RAN-contracts-top seen 1 times)
+  ok:   top-level adversarial suite ran once (BCT-RAN-adversarial-top seen 1 times)
+  ok:   module unit suite ran once (BCT-RAN-core-unit seen 1 times)
+  ok:   markTestRun ran once (markTestRun: seen 1 times)
+  ok:   no test failed
+  PASS pass
+
+== scenario fail-contract
+  running: sbt -batch check in /tmp/claude-1000/-home-ajcreator-scholarchain/d5e0fa5a-7b55-44f5-9599-2d444a068812/scratchpad/bc/scholarchain-build-contract.UITqmY/fail-contract (log /tmp/claude-1000/-home-ajcreator-scholarchain/d5e0fa5a-7b55-44f5-9599-2d444a068812/scratchpad/bc/scholarchain-build-contract.UITqmY/fail-contract.log)
+  sbt exit code 1; marker mtime before 978328800, after 978328800
+  ok:   no tool touched a resources/ .scala file
+  ok:   no tool touched a stale target/ source
+  ok:   no tool touched a module base-folder source
+  ok:   sbt check failed (exit 1)
+  ok:   marker mtime unchanged
+  ok:   the failing test ran exactly once (BCT-RAN-failing-contract seen 1 times)
+  ok:   sbt reported a test failure, not a compile error
+  ok:   sbt raised TestsFailedException
+  ok:   markTestRun body did not run
+  PASS fail-contract
+
+== scenario fail-unit
+  running: sbt -batch check in /tmp/claude-1000/-home-ajcreator-scholarchain/d5e0fa5a-7b55-44f5-9599-2d444a068812/scratchpad/bc/scholarchain-build-contract.UITqmY/fail-unit (log /tmp/claude-1000/-home-ajcreator-scholarchain/d5e0fa5a-7b55-44f5-9599-2d444a068812/scratchpad/bc/scholarchain-build-contract.UITqmY/fail-unit.log)
+  sbt exit code 1; marker mtime before 978328800, after 978328800
+  ok:   no tool touched a resources/ .scala file
+  ok:   no tool touched a stale target/ source
+  ok:   no tool touched a module base-folder source
+  ok:   sbt check failed (exit 1)
+  ok:   marker mtime unchanged
+  ok:   the failing test ran exactly once (BCT-RAN-failing-unit seen 1 times)
+  ok:   sbt reported a test failure, not a compile error
+  ok:   sbt raised TestsFailedException
+  ok:   markTestRun body did not run
+  PASS fail-unit
+
+== scenario fail-format
+  running: sbt -batch check in /tmp/claude-1000/-home-ajcreator-scholarchain/d5e0fa5a-7b55-44f5-9599-2d444a068812/scratchpad/bc/scholarchain-build-contract.UITqmY/fail-format (log /tmp/claude-1000/-home-ajcreator-scholarchain/d5e0fa5a-7b55-44f5-9599-2d444a068812/scratchpad/bc/scholarchain-build-contract.UITqmY/fail-format.log)
+  sbt exit code 1; marker mtime before 978328800, after 978328800
+  ok:   no tool touched a resources/ .scala file
+  ok:   no tool touched a stale target/ source
+  ok:   no tool touched a module base-folder source
+  ok:   sbt check failed (exit 1)
+  ok:   marker mtime unchanged
+  ok:   the format check names the badly formatted file
+  ok:   no test ran after the format failure (BCT-RAN- seen 0 times)
+  ok:   markTestRun body did not run
+  PASS fail-format
+
+build-contract: 4 passed (pass fail-contract fail-unit fail-format), 0 failed (none)
+exit=0

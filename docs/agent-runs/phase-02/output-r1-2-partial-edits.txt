@@ -1,0 +1,57 @@
+# Partial build-engineer edits found after the WSL crash (R1-2), diff against ~/p2-orig, captured by the orchestrator 2026-11-22
+# Not R1-2: Versions.scala line 9 (versions.env -> versions.sh) is step 02 (agent-report.md lines 11, 14); lines 32-35 (emr-spark-8.0.0 comment) are step 04. plugins.sbt mtime 00:21:33 but content identical to p2-orig. (Line 2 corrected after review 2, MINOR-C.)
+$ diff ~/p2-orig/build.sbt build.sbt
+46c46
+< ThisBuild / Compile / compile / javacOptions ++= Seq("--release", V.jvmRelease)
+---
+> ThisBuild / javacOptions ++= Seq("--release", V.jvmRelease) // Compile and Test Java sources
+203c203,216
+<       ("org.apache.spark" %% "spark-sql" % V.spark % Provided).cross(CrossVersion.for3Use2_13)
+---
+>       ("org.apache.spark" %% "spark-sql" % V.spark % Provided).cross(CrossVersion.for3Use2_13),
+>     // scala3-library_3 3.3.9 depends on scala-library 2.13.18, but the EMR Spark runtime ships
+>     // 2.13.16 (project/Versions.scala). Bundling 2.13.18 would put two standard libraries on
+>     // the Spark classpath, so the Spark job jar leaves scala-library out and links against the
+>     // cluster's copy. scala3-library_3 itself is still bundled (the cluster has no Scala 3).
+>     // Residual risk: Scala 3.3.9 emits code against the 2.13.18 library; a call to a member
+>     // added after 2.13.16 would throw NoSuchMethodError on the cluster. Unverified until the
+>     // first EMR run (a Scala 3 LTS patch pinned to scala-library <= 2.13.16 would remove it).
+>     // hadoop and entityResolution keep scala-library bundled: a plain Hadoop MapReduce
+>     // cluster supplies no Scala library at all.
+>     assembly / assemblyExcludedJars := {
+>       val cp = (assembly / fullClasspath).value
+>       cp.filter(_.data.getName.startsWith("scala-library-"))
+>     }
+258c271,273
+< // module. Each sees every module's public API.
+---
+> // module. Each sees every module's public API. Provided Hadoop and Spark do not flow
+> // through dependsOn, so they are re-added below at Test scope (same ledger values), so a
+> // test can touch a job's Hadoop or Spark types.
+287c302,307
+<       publish / skip := true
+---
+>       publish / skip := true,
+>       libraryDependencies ++= Seq(
+>         "org.apache.hadoop" % "hadoop-client-api" % V.hadoop % Test,
+>         "org.apache.hadoop" % "hadoop-client-runtime" % V.hadoop % Test,
+>         ("org.apache.spark" %% "spark-sql" % V.spark % Test).cross(CrossVersion.for3Use2_13)
+>       )
+$ diff ~/p2-orig/project/Versions.scala project/Versions.scala
+9c9
+<   *   - scalafmt-core: .scalafmt.conf (matches toolchain/versions.env)
+---
+>   *   - scalafmt-core: .scalafmt.conf (matches toolchain/versions.sh)
+23,24c23,25
+<   // Target JVM release (scalac -release, javac --release): EMR 7.x and the Corretto 17
+<   // service image run Java 17, so bytecode and Java API are pinned to 17.
+---
+>   // Target JVM release (scalac -release, javac --release): Spark 4.0 supports Java 17
+>   // (the emr-spark-8.0.0 JVM is to be confirmed in Phase 12) and the Corretto 17 service image
+>   // runs it, so bytecode and Java API are pinned to 17.
+30a32,35
+>   // Spark runtime target (human decision): EMR release label emr-spark-8.0.0, which ships
+>   // Spark 4.0.2 and Scala 2.13.16 (Spark 4.0 is GA on EMR Serverless, EMR on EC2 and EMR
+>   // on EKS). The build stays on Spark 4.0.1, the same 4.0 line. us-east-2 availability of
+>   // emr-spark-8.0.0 is to be confirmed in Phase 12.
+$ diff ~/p2-orig/project/plugins.sbt project/plugins.sbt

@@ -1,0 +1,51 @@
+# Secrets and credentials (values come from Secrets Manager or ${VAR} placeholders)
+.env
+.env.*
+!.env.example
+/secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+.envrc
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Terraform local state and plans
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfplan
+
+# sbt and Scala build output
+target/
+project/target/
+project/project/
+.bsp/
+.bloop/
+.metals/
+metals.sbt
+
+# Local Spark and Hive state created by test runs
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Test marker touched only by `sbt check` (docs/agents.md section 1)
+.claude/.last-test-run
+
+# Per-machine Claude Code settings (docs/agents.md: per-machine, git-ignored)
+.claude/settings.local.json
+
+# Python bytecode from the hook tests and dataset scripts
+__pycache__/
+*.pyc
+
+# Editor and OS noise
+.idea/
+.vscode/
+.DS_Store
+*.swp
