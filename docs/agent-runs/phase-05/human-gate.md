@@ -101,6 +101,6 @@ The Phase 05 entity-resolution subsystem is accepted as committed. Carried forwa
 
 ## Commit
 
-Accepted commit: COMMIT_HASH
+Accepted commit: 4dfb3bd46d3c0ea2abd50d4e386ce5158ea767c7
 
 Phase 5 is complete. I approve starting Phase 6.
