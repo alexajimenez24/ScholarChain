@@ -14,7 +14,12 @@ resume. -->
   Dockerfile. Repair round 1 is complete, review 2 APPROVE, and the Phase 02 gate is done.
 - Phase 03: contracts, configuration and dataset manifest.
   All tasks and repair rounds 1 and 2 are done, and review 3 is APPROVE.
-  The phase is uncommitted and waits for the human gate (ratification and commit).
+  Committed as 9a65cf2, followed by 524dc1d "phase-03: record accepted commit"
+  (`git log --oneline -5` and `docs/agent-runs/phase-03/commit.txt`, which holds
+  9a65cf2e4de050017e56db15505a27a8fd0be916).
+- Phase 04: Hadoop MapReduce pipeline.
+  All tasks, repair round 1 and Review 2 are done (APPROVE WITH CARRIED-FORWARD ITEMS).
+  Next is the human gate; see "Phase 04 task list" and "Carried forward from Phase 04".
 
 ## Carried forward from Phase 01
 
@@ -220,19 +225,265 @@ Open items for later phases:
 
 Owners run one at a time; never more than one sbt at once (addendum).
 
-## Current state (phase 03)
+## Phase 04 task list
 
-- Tasks done: T00, T01, T01s, T02, T02d, T03, T03s, R1-1 to R1-3, R2-1 to R2-3, R2-V,
-  Review 3 (APPROVE) and T04.
+Phase 04 is the Hadoop MapReduce pipeline (work order and human addendum in
+`docs/agent-runs/phase-04/prompt.md`).
+Reports are saved in `docs/agent-runs/phase-04/`.
+The reference material in `~/ref-phase-04/` is a starting point only; each owner
+adapts it and owns the result.
+
+| Step | Owner | Report | Done means / check | State |
+|---|---|---|---|---|
+| T0 task list | documentation-engineer | (this report, saved by orchestrator as `step-00-documentation-engineer-report.md`) | STATUS.md lists tasks | done |
+| T1 Hadoop test runtime | build-engineer | `step-01-build-engineer-report.md` | hadoop-client-runtime and jcl-over-slf4j at Test scope, forked hadoop test JVM -Xmx1g, versions only from project/Versions.scala; sbt check green | done, see note T1 |
+| T2 Hadoop MapReduce pipeline | hadoop-engineer | `agent-report.md` | jobs 1-7 of the work order, unit + LocalJobRunner integration tests on datasets/samples fixtures, counts derived by hand; sbt check green; local bounded pipeline run with counters reported | done, see note T2 |
+| T2b MODULE.md public API | documentation-engineer | `step-03a-documentation-engineer-report.md` | Public API and Done sections written from agent-report.md | done |
+| T3 Phase 4 adversarial gate cases (Hadoop only) | test-engineer | `test-report.md` | tests/adversarial Hadoop cases: adversarial XML, Unicode, missing-field, duplicate-ID, common-name, giant-team; sbt check result reported | done, see note T3 |
+| T4 docs | documentation-engineer | `step-04-documentation-engineer-report.md` | docs/hadoop-jobs.md and modules/hadoop/MODULE.md with only observed numbers | done, see note T4 |
+| Review 1 | code-reviewer (fresh) | `review-report.md` | verdict, plus the fairness verdict on the 5 red adversarial tests | done, REQUEST_CHANGES, see note Review 1 |
+
+Repair round 1 (human budget of 2026-11-23: one round only; reports saved as
+`repair-01-<owner>.md`):
+
+| Task | Owner | Scope | Report | State |
+|---|---|---|---|---|
+| R1a | hadoop-engineer | B1-B10 of the review (B1-B7 required) | `repair-01-hadoop-engineer.md` | done, see note R1a |
+| R1b | documentation-engineer | D1: MODULE.md, docs/hadoop-jobs.md, post-repair numbers | `repair-01-documentation-engineer.md` | done, see note R1b |
+| R1c | test-engineer | rerun of adversarialTests (no test change needed; all verdicts FAIR) | `repair-01-test-engineer.md` | done, see note R1c |
+| Review 2 | code-reviewer (fresh) | whole Phase 04 diff | `review-report-02.md` | done, APPROVE WITH CARRIED-FORWARD ITEMS, see note Review 2 |
+
+Note R1a (report `docs/agent-runs/phase-04/repair-01-hadoop-engineer.md`):
+hadoop-engineer COMPLETE, B1 to B10 all done.
+
+- Final `sbt check` exited 0: core 94 of 94, hadoop 98 of 98 (79 before), adversarialTests
+  68 of 68 (the 5 red tests are green).
+- Post-repair local runs: fixtures `run-8b3a162615a54f8f` and real samples
+  `run-6d1175dbfdb874a9`; headline numbers are unchanged from the pre-repair runs, and the
+  run IDs differ because `LogicVersion` is now `hadoop-v2`.
+- Process observation: one `sbt hadoop/test` was moved to the background by the harness
+  at 120 s.
+  hadoop-engineer reports it read the output file once and started no second sbt while it
+  ran.
+- Risks it reports: the J03 reducer still buffers a key's values, the `y:` fallback key is
+  weak, `sbt packageJobs` is unobserved, and the streaming J07 reducer has no separate unit
+  test.
+
+Note R1b (documentation-engineer): `modules/hadoop/MODULE.md` and `docs/hadoop-jobs.md`
+now carry the F11 corrections, the repair behavior, the post-repair numbers and the
+per-job spec items; the 4 open T3 items are removed.
+`PROJECT_MEMORY.md` records the encoding decision and the one-round budget.
+Line lengths over 90 remain only in markdown tables.
+
+Note R1c (report `docs/agent-runs/phase-04/repair-01-test-engineer.md`): test-engineer
+COMPLETE.
+
+- One `sbt check` exited 0 (117 s): core 94 of 94, hadoop 98 of 98, adversarialTests
+  68 of 68.
+- The 5 formerly red tests are green; no test file changed (SHA-256 prefixes identical
+  before and after).
+- Two new observations, passed to Review 2 (no test covers either):
+  1. J01 reject reasons print raw Scala `Option` text, for example
+     `unreadable record (BadEncodingSome(, UTF-8)) at byte 3649` and
+     `unreadable record (OversizeNone) at byte 264`.
+     hadoop-engineer reported the format as
+     `unreadable record (BadEncoding, <charset>) at byte N`; that was reported but does
+     not match the observed log.
+  2. Fallback-block candidates carry provenance `policyVersion` "norm-v1", while the
+     manifest `pipeline` is "hadoop-v2".
+- Review 2 is a fresh code-reviewer (`review-report-02.md`).
+  Any finding still open after it goes to the human as carried forward; there is no
+  second repair round.
+
+Findings still open after Review 2 go to the human as carried-forward items.
+There is no second repair round.
+
+STATUS.md is updated by documentation-engineer after each owner.
+
+Note Review 2 (report `docs/agent-runs/phase-04/review-report-02.md`): code-reviewer on
+opus, high, fresh context.
+
+- Verdict APPROVE WITH CARRIED-FORWARD ITEMS: APPROVE for the Phase 04 gate, with 7 MINOR
+  findings (N1 to N7) carried forward.
+  No CRITICAL or MAJOR finding remains.
+- Its one `sbt check` exited 0 (116 s): core 94 of 94, hadoop 98 of 98, adversarialTests
+  68 of 68.
+- All Review 1 findings F1 to F11 are RESOLVED.
+- No ownership breach; `tests/adversarial/**` is byte-identical to T3.
+- Doc numbers match the saved reports; no invented number found.
+- Per the human's instruction of 2026-11-23, no second repair round was run.
+  N1 to N7 go to the human (next section).
+- Review 2 did not run `sbt packageJobs`, LocalRunner, `--compress false` or any EMR
+  classpath.
+
+## Carried forward from Phase 04 (pending the human's decision)
+
+All MINOR, as stated in `docs/agent-runs/phase-04/review-report-02.md`.
+Paths below are under `modules/hadoop/src/main/scala/scholarchain/hadoop/` unless noted.
+
+- N1: J01 reject reasons print Scala `Option` text, a regression from the repair.
+  Reads `unreadable record (BadEncodingSome(, UTF-8)) at byte 3649`, not
+  `(BadEncoding, <charset>)`.
+  Owner hadoop-engineer; `Jobs.scala:125`, `:129`, `DblpInputFormat.scala:202`.
+  Brief: use `cs.getOrElse("")`, strip the `\n[charset=...]` suffix from the reject
+  `input`, and add a test pinning the reason for each of the 3 statuses.
+- N2: a decode-only declared charset (for example ISO-2022-CN) crashes the reader
+  instead of giving one counted refusal.
+  Owner hadoop-engineer; `DblpInputFormat.scala:100` and `:103`.
+  Brief: test `cs.canEncode` before `newEncoder()`, or catch
+  `UnsupportedOperationException`, and add the case to RepairDblpSuite.
+- N3: fallback comparison cost and volume are bounded only by the hard cap
+  (about C(2000, 2) per block at the default).
+  Owner hadoop-engineer; `BlockLogic.scala:201-217` and `:332-347`.
+  Brief: check `pairId` before computing features, optionally cap fallback pairs per
+  block with a counter, and document the bound.
+- N4: candidate provenance names only `norm-v1`, while the manifest `pipeline` is
+  `hadoop-v2`.
+  Owner hadoop-engineer, then domain-engineer when MatchCandidate moves to core;
+  `Records.scala:19` and `:113`.
+  Decide before Phase 05 consumes candidates: put a policy version that includes
+  `Pipeline.LogicVersion` in provenance, or accept runId to manifest as the carrier and
+  record that in PROJECT_MEMORY.md.
+- N5: the J03 reducer still buffers a whole exact-key group (residue of F4 and F9).
+  Owner hadoop-engineer; `Jobs.scala:257`.
+  Brief: stream the values, or refuse a key past a hard cap as `BlockingReducer` does
+  (`Jobs.scala:313-324`).
+- N6: stale "pending" text and small imprecisions in the docs.
+  Owner documentation-engineer; `MODULE.md:348`, `docs/hadoop-jobs.md:22-23`, `:274-280`
+  and `:291-296`, and `MODULE.md:57`.
+  Not fixed in this task, per the one-round rule.
+- N7: job-level test gaps for the new reducer wiring: J04 `FALLBACK_BLOCKS_REFUSED`
+  with a reject line, J03 `OVERSIZE_BLOCKS` with a reject line, and the J01 reject
+  reason text.
+  Owners hadoop-engineer (module-unit) and test-engineer, which also plans the
+  black-box ISO-8859-1 case (`repair-01-test-engineer.md`, RISKS 3).
+  Brief: one LocalJobRunner case each with a small `--max-block`.
+
+The reviewer notes N1 and N2 are small, contained fixes if the human waives the
+one-round budget.
+
+Note Review 1 (report `docs/agent-runs/phase-04/review-report.md`): code-reviewer on
+opus, high.
+
+- Verdict REQUEST_CHANGES.
+- Its `sbt check` exited 1: core 94 of 94, hadoop 79 of 79, adversarialTests 63 of 68
+  (the same 5 red tests as T3).
+- All 5 red adversarial tests are judged FAIR.
+- Findings: F1 to F5 MAJOR and F6 to F11 MINOR.
+  The report text counts its MAJOR findings as 4 plus the encoding item; the list has F1 to
+  F5.
+- No ownership breach.
+- Repair briefs are B1 to B10 for hadoop-engineer (B1 to B7 required for APPROVE) and D1
+  for documentation-engineer.
+- Review 1 recorded its own risks: F2, F3 and F4 are confirmed by reading the code only,
+  and `sbt packageJobs` and the cluster run are unobserved.
+
+Decision (human, 2026-11-23, given in the main session), verbatim: "the reader must
+decode with the encoding declared in the XML prolog (ISO-8859-1 for DBLP, UTF-8 when none
+is declared) and reject bytes that are invalid in the declared encoding. Route it to
+hadoop-engineer in the repair round, with a test using a raw ISO-8859-1 high byte."
+This is finding F5 and brief B5.
+
+Note T1 (report `docs/agent-runs/phase-04/step-01-build-engineer-report.md`):
+build-engineer COMPLETE, `build.sbt` changed in the hadoop project only.
+
+- `sbt check` is green as reported (94 passed at the tail, 14 project test runs passed).
+- hadoop `Test / fork` is true and `Test / javaOptions` is `-Xmx1g`.
+- `hadoop-client-runtime` 3.4.1 and `jcl-over-slf4j` 2.0.20 are at Test scope;
+  `hadoop-client-api` stays Provided.
+- No change to `project/Versions.scala`; the existing `V.hadoop` and `V.slf4j` were used.
+- Risks noted: `entityResolution` has no Hadoop deps or fork yet, and the fork is
+  exercised only once T2 adds tests, because the hadoop project has no sources or tests.
+  Each forked test JVM can use up to 1 GB heap on the 8 GB machine.
+
+Note T2 (report `docs/agent-runs/phase-04/agent-report.md`): hadoop-engineer COMPLETE.
+
+- `sbt check` is green as reported: hadoop 79 of 79 tests, core 94 of 94.
+- Jobs J01 to J07 are implemented.
+- Local bounded pipeline runs: fixtures (`run-8019aba484da34ad`) and real samples
+  (`run-2ed430a7951bb05a`).
+- Fixtures headline numbers: maximum team size 12, largest pair expansion 66, largest
+  blocking group 13.
+- 0 rejects on the samples.
+- Risks as reported:
+  - `sbt packageJobs` was not run, so the job-jar build with the new sources is
+    unobserved.
+  - LocalRunner needs the Test-scope `hadoop-client-runtime`, so it runs through
+    `hadoop/Test/runMain`.
+  - The hadoop-local records (MatchCandidate, ExternalResearcher, AuthorPaper,
+    AbstractRecord) are not core contracts yet; domain-engineer promotes them in a
+    later phase.
+  - Cross-source teams and pairs double count the same paper until entity resolution.
+
+Post-restart verification (orchestrator, as observed and given to documentation-engineer):
+
+- Phase 04 was interrupted by a WSL out-of-memory crash and a restart.
+- After the restart the orchestrator verified that build-engineer's `build.sbt` edit and
+  hadoop-engineer's 15 source files, 5 suites (22+10+20+17+10 = 79 tests) and fixtures
+  are on disk and match their reports.
+- One `sbt check` run after the restart (2026-11-22 23:30) exited 1.
+  Core passed 94 of 94 and hadoop passed 79 of 79.
+  `adversarialTests` ran 54 tests and 3 failed (CommonNameSuite 2, MissingFieldSuite 1).
+- The failing files are partial, unreported files that test-engineer left in
+  `tests/adversarial/` when the crash interrupted it.
+  test-engineer is re-run from the beginning in T3.
+
+Note T2b (report `docs/agent-runs/phase-04/step-03a-documentation-engineer-report.md`):
+`modules/hadoop/MODULE.md` has the Public API and Done / Not done sections, taken from
+the T2 report and checked against names in `src/main`.
+Run numbers and headline counts are left for T4.
+
+Note T3 (report `docs/agent-runs/phase-04/test-report.md`): test-engineer COMPLETE.
+
+- Final `sbt check` exited 1.
+  core 94 of 94, hadoop 79 of 79, adversarialTests 68 total, 63 passed, 5 failed.
+- The 5 failures are left red for the fairness verdict (Review 1):
+  two missing fallback keys for oversize name and title blocks, `INVALID_IDENTIFIER`
+  stays 0, J03 `DUPLICATE_RECORDS` and `CONFLICT_RECORDS` stay 0, and a trailing cap flag
+  without a value takes the default.
+- test-engineer also listed imprecisions in `modules/hadoop/MODULE.md`; they are under
+  its Known issues.
+- Open human question: how DBLP's ISO-8859-1 declaration interacts with strict UTF-8
+  (untested).
+
+Note T4 (report `docs/agent-runs/phase-04/step-04-documentation-engineer-report.md`):
+`docs/hadoop-jobs.md` was written and `modules/hadoop/MODULE.md` finished, with only the
+numbers in the T2 and T3 reports.
+The numbers may change after the repair round.
+
+Machine limits (human addendum, 8 GB laptop):
+
+- Never more than one sbt at once.
+- No background shells, and no polling or wait loops.
+- No mutation testing.
+- Run every command in the foreground with a timeout.
+
+## Current state (phase 04)
+
+- Tasks done: T0, T1, T2, T2b, T3, T4, Review 1, R1a, R1b, R1c, Review 2.
+  All Phase 04 tasks are done.
 - Task running: none.
-- Next step: the human gate for Phase 03 (ratification and commit by the human).
+- Next task: the human gate (ratify, commit, and decide N1 to N7).
 - Half done: nothing.
-- Git: HEAD is 3d10892; the Phase 03 files are uncommitted (modified and untracked
-  files in `git status --short`).
-- Harness: claude-code 2.1.330 (`docs/agent-runs/phase-03/run-log.md`).
+  `sbt check` exited 0 in hadoop-engineer's final run, in the R1c run and in Review 2
+  (core 94, hadoop 98, adversarial 68 of 68).
+  `sbt packageJobs` has not been run this phase; the job-jar build is unobserved.
+- Git: HEAD is 524dc1d (Phase 03 accepted).
+  Uncommitted at the start of T4, per the session's git status: `STATUS.md`, `build.sbt`,
+  `modules/hadoop/MODULE.md`, the deleted `tests/module-unit/hadoop/.gitkeep`, and
+  untracked `docs/agent-runs/phase-04/`, `modules/hadoop/src/main/scala/scholarchain/`,
+  `tests/adversarial/` files and `tests/module-unit/hadoop/` suites.
+  T4 added the untracked `docs/hadoop-jobs.md`.
+- Harness: claude-code (Phase 03 recorded 2.1.330; not re-probed for Phase 04).
 
 ## Open decisions for the human
 
+- Decided (human, 2026-11-23): the DBLP reader decodes with the encoding declared in the
+  XML prolog (ISO-8859-1 for DBLP, UTF-8 when none is declared) and rejects bytes that
+  are invalid in it; implemented in R1a (brief B5), documented in R1b.
+  This closes the T3 question in `docs/agent-runs/phase-04/test-report.md`.
+- Decided (human, 2026-11-23): Phase 04 has one repair round only; findings still open
+  after Review 2 are carried forward to the human.
 - Confirm the inferred CC0 status of `datasets/samples/real/dblp.dtd`, or drop it.
   The DTD header and `README.txt` give CC0 for the export formats but do not name the DTD
   (`docs/agent-runs/phase-03/repair-01-dataset-engineer.md`).

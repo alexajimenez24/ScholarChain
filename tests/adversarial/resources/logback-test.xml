@@ -1,0 +1,12 @@
+<!-- Test-only logging for tests/adversarial (test-engineer). The black-box classpath has two SLF4J
+     providers (STATUS, Phase 02 MINOR-A); in the Phase 04 runs SLF4J reported logback as the actual
+     provider. Unconfigured, logback logs every Hadoop job at DEBUG; WARN (ERROR for Hadoop) keeps
+     test output readable and small. -->
+<configuration>
+  <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+    <target>System.err</target>
+    <encoder><pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern></encoder>
+  </appender>
+  <logger name="org.apache.hadoop" level="ERROR"/>
+  <root level="WARN"><appender-ref ref="STDERR"/></root>
+</configuration>

@@ -27,6 +27,8 @@ in STATUS.md. -->
 | Decoding | strict and total: an unknown field, a JSON null or a lossy value gives a `Left`, never an exception or a silent truncation | a frozen contract changes only with a new schema version (iron law 5); consumers must not crash on bad lines (review MAJOR-1) |
 | Dataset uploads and ORCID | no S3 upload path in `datasets/`; the ORCID fetch is opt-in (`WITH_ORCID=1`), off by default | uploads belong to infra-engineer and deploy-engineer; the ORCID API terms are UNVERIFIED (review MINOR-7, MINOR-8) |
 | Config loader strictness | plain decimal numbers only, a round-trip check against the typed schema, and integers below 2^53 | a typed read would otherwise clamp or drop values silently (review 2 MINOR-1, repair round 2) |
+| DBLP encoding | decode with the encoding declared in the XML prolog (ISO-8859-1 for DBLP, UTF-8 when none is declared) and reject bytes invalid in it; unsupported encodings refuse the whole file | human decision of 2026-11-23, verbatim: "the reader must decode with the encoding declared in the XML prolog (ISO-8859-1 for DBLP, UTF-8 when none is declared) and reject bytes that are invalid in the declared encoding"; implemented in Phase 04 repair round 1 |
+| Phase 04 repair budget | one repair round only; findings still open after Review 2 carry forward to the human | human decision of 2026-11-23 |
 | Region and budget | us-east-2, $25 hard cap | course limits |
 
 ## Plan

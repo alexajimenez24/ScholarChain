@@ -1,0 +1,6 @@
+[success] Total time: 1 s, completed Nov 23, 2026, 7:28:50 AM
+[info] 1 file(s) merged using strategy 'Rename' (Run the task at debug level to see the details)
+[info] 11 file(s) merged using strategy 'Discard' (Run the task at debug level to see the details)
+[info] Built: /home/ajcreator/scholarchain/target/jobs/sparkAnalytics-0.1.0-SNAPSHOT.jar
+[info] Jar hash: 73fd407e9eb81c97635159daf2ace5a588fcee22
+[success] Total time: 2 s, completed Nov 23, 2026, 7:28:51 AM

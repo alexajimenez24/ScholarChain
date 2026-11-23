@@ -177,12 +177,22 @@ lazy val core = module("core", "core")
   )
 
 // Hadoop: the shaded client API is Java and Scala-version independent, and EMR supplies
-// it, so it is Provided (compile and test classpath, not packaged).
+// it, so it is Provided (compile and test classpath, not packaged). The shaded runtime and a
+// commons-logging bridge are Test-only: they let LocalJobRunner run the real MapReduce jobs on
+// fixtures inside `check`.
 lazy val hadoop = module("hadoop", "hadoop")
   .dependsOn(core)
   .settings(packagingSettings(jarsDir))
   .settings(
-    libraryDependencies += "org.apache.hadoop" % "hadoop-client-api" % V.hadoop % Provided
+    libraryDependencies ++= Seq(
+      "org.apache.hadoop" % "hadoop-client-api" % V.hadoop % Provided,
+      "org.apache.hadoop" % "hadoop-client-runtime" % V.hadoop % Test,
+      "org.slf4j" % "jcl-over-slf4j" % V.slf4j % Test
+    ),
+    // Forked so Hadoop's ServiceLoader-based FileSystem lookup sees a flat classpath, not
+    // sbt's layered test class loaders.
+    Test / fork := true,
+    Test / javaOptions += "-Xmx1g"
   )
 
 lazy val entityResolution = module("entityResolution", "entity-resolution")
