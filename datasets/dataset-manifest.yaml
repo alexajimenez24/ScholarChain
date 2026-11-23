@@ -1,0 +1,211 @@
+# ScholarChain dataset manifest. Owner: dataset-engineer. Observed on 2026-11-22 (UTC).
+# Format: a strict YAML subset (2-space maps, "- " scalar lists, double-quoted strings), checked by
+# datasets/scripts/validate-manifest.py with the standard library only.
+# Rules: every license, size, date, checksum and endpoint below was observed at the URL named beside it,
+# or is listed under "unverified". Nothing is remembered or invented. S3 prefixes are templates:
+# ${RAW_BUCKET} is supplied by the environment (infra-engineer owns the bucket); no bucket name or
+# account ID is written here. Full dumps are never downloaded by default; only bounded samples are.
+manifest_version: "datasets-v1"
+observed_on: "2026-11-22"
+datasets:
+  dblp:
+    name: "DBLP computer science bibliography (XML)"
+    required: true
+    owner: "dataset-engineer"
+    purpose: "seed publication records: author sequences, titles, venues, years, ee links (DOIs) and DBLP author ORCIDs"
+    source_url: "https://dblp.org/xml/dblp.xml.gz"
+    dtd_url: "https://dblp.org/xml/dblp.dtd"
+    documentation: "https://dblp.org/xml/"
+    license: "CC0 1.0 Public Domain Dedication; ODC-BY 1.0 as a secondary license (dblp asks for a link to dblp as source, not required)"
+    license_source: "https://dblp.org/xml/README.txt (Legal Information, version of November 22nd, 2019, observed 2026-11-22). The dblp.org FAQ and copyright HTML pages sit behind a bot challenge and could not be fetched."
+    observed_on: "2026-11-22"
+    snapshot_date: "2026-11-21 (Last-Modified of dblp.xml.gz: Sat, 21 Nov 2026 22:20:07 GMT; the dump is rebuilt about monthly, release archive at https://drops.dagstuhl.de/entities/collection/10.4230/dblp.xml)"
+    retrieval: "python3 datasets/scripts/fetch_samples.py dblp --records 1000 --min-authors 2 --snapshot YYYY-MM-DD"
+    format: "xml, gzip-compressed (dblp.xml.gz); the dump declares encoding ISO-8859-1 and relies on dblp.dtd for character entities"
+    expected_size: "full dump 1122680761 bytes compressed (Content-Length observed 2026-11-22); uncompressed size UNVERIFIED (not downloaded)"
+    observed_size: "sample: 40 records, 17713 bytes (datasets/samples/real/dblp-sample.xml); the full dump was not downloaded"
+    raw_prefix: "s3://${RAW_BUCKET}/dblp/snapshot_date=YYYY-MM-DD/"
+    integrity: "full dump: upstream publishes dblp.xml.gz.md5 = dcb2e8cd2d1c05e18a1e8f18165b2c5e (observed 2026-11-22, https://dblp.org/xml/dblp.xml.gz.md5) and ETag 42eabfb9-660d0c35bcf23; no upstream SHA-256 is published, so the SHA-256 of a full download is UNVERIFIED until the human approves one. Samples: sha256 recorded below and in datasets/samples/real/retrieval.json."
+    sample_files:
+      - "datasets/samples/real/dblp-sample.xml sha256=7ea9e5152121a7a8c97d3a5b08ce2439d5ce6c0611f5a30081c85519dfb4934e bytes=17713"
+      - "datasets/samples/real/dblp.dtd sha256=2d864498f9eef9298662df11e3874171ff24cd4a21ab5974f1369c90acdb1ef6 bytes=13134"
+    schema_version: "dblp.dtd (https://dblp.org/xml/dblp.dtd, 13134 bytes, Last-Modified Wed, 28 Jun 2023 14:19:09 GMT, observed 2026-11-22); schema notes in datasets/schemas/README.md. The DTD is committed at datasets/samples/real/dblp.dtd (fetched by `fetch_samples.py dtd`, Last-Modified and ETag in retrieval.json). Redistribution basis, observed 2026-11-22: the file header states the dblp metadata and its XML export formats are CC0 1.0 and credits Schloss Dagstuhl as copyright holder, and https://dblp.org/xml/README.txt says the same; neither names dblp.dtd itself, so applying CC0 to the DTD is an inference (flagged for the human). Offline parsers resolve entities by pointing the XML parser at this file (see tests/module-unit/datasets)."
+    subset_rule: "stream the dump in file order; keep the first N records of type article, inproceedings, incollection, book, phdthesis or mastersthesis that have at least K author elements (committed sample N=40, K=2; default run N=1000); stop after N records or 128 MiB of decompressed input; www, proceedings and data records are skipped"
+    update_strategy: "monthly dump; re-run with a new snapshot date (new S3 snapshot_date prefix, never overwrite) and compare run manifests; the incremental form is a full re-parse per snapshot"
+    linkage_fields:
+      - "dblp key"
+      - "doi (from ee links)"
+      - "normalized_title"
+      - "normalized_author_sequence"
+      - "year"
+      - "venue"
+      - "author orcid attribute (when present)"
+    privacy: "public bibliographic metadata about named researchers (names, publications, some ORCID iDs); no contact data. DBLP numeric name suffixes (for example 0004) are homonym disambiguators, not personal data."
+    limitations:
+      - "A matching author name is not sufficient evidence of author identity."
+      - "DBLP disambiguates homonyms with 4-digit suffixes; disambiguation errors propagate."
+      - "File order is not random: a prefix sample over-represents the reference works at the start of the dump (committed sample: Springer reference-work chapters)."
+      - "The dump declares ISO-8859-1 and uses DTD entities; parsers must honor both."
+    validation:
+      - "python3 datasets/scripts/validate-manifest.py"
+      - "python3 datasets/scripts/fetch_samples.py verify --out datasets/samples/real"
+      - "curl -sI https://dblp.org/xml/dblp.xml.gz | grep -i content-length (full dump only: gzip -t dblp.xml.gz and md5sum against dblp.xml.gz.md5)"
+    unverified:
+      - "SHA-256 of the full dump"
+      - "uncompressed size of the full dump"
+      - "DBLP FAQ license page (bot-protected); the license is taken from xml/README.txt"
+  openalex:
+    name: "OpenAlex works"
+    required: true
+    owner: "dataset-engineer"
+    purpose: "author IDs, ORCIDs, institutions, topics and sources for DBLP works matched by DOI"
+    source_url: "https://api.openalex.org/works"
+    snapshot_url: "s3://openalex/data/jsonl/works/ (public bucket, no sign-in)"
+    documentation: "https://help.openalex.org/access/snapshot/ and https://help.openalex.org/api/authentication/ (docs.openalex.org redirects to help.openalex.org)"
+    license: "CC0 1.0"
+    license_source: "https://help.openalex.org/access/overview.md ('all the data is free and open under CC0'); https://openalex.s3.amazonaws.com/LICENSE.txt is the CC0 1.0 Universal legal code (both observed 2026-11-22)"
+    observed_on: "2026-11-22"
+    snapshot_date: "API sample: retrieval date 2026-11-22 (the API changes continuously). Public snapshot: quarterly; the docs state 'as of the September 2026 release'; the exact release date was not observed (UNVERIFIED)."
+    retrieval: "python3 datasets/scripts/fetch_samples.py openalex --max-dois 50"
+    format: "API: jsonl, one OpenAlex Work object per line, projected with select=id,doi,display_name,publication_year,type,authorships,topics,primary_location; snapshot: JSON Lines gzip parts, about 400000 records each"
+    expected_size: "snapshot: about 745 GB compressed JSON Lines for all entities, about 615 GB for works (https://help.openalex.org/access/snapshot.md, September 2026 release, about 626 million records per format); API sample about 4.4 KB per projected work"
+    observed_size: "sample: 25 works, 110720 bytes (datasets/samples/real/openalex-works.jsonl); the snapshot was not downloaded"
+    raw_prefix: "s3://${RAW_BUCKET}/openalex/snapshot_date=YYYY-MM-DD/"
+    integrity: "sha256 of the sample JSONL (below and in retrieval.json). The snapshot ships a manifest.json under s3://openalex/data/jsonl/; per-file checksums were not inspected (UNVERIFIED)."
+    sample_files:
+      - "datasets/samples/real/openalex-works.jsonl sha256=1223f4ec6229ed9567e536534a227dbb3147aad7049e09f43a4b67bce12c2fd7 bytes=110720"
+    schema_version: "OpenAlex Work object as served by the API on the retrieval date; no published schema version was observed"
+    subset_rule: "works whose DOI appears in the DBLP sample, at most --max-dois (default 50, committed sample 25), requested in batches of 50 with a DOI filter"
+    update_strategy: "re-query by DOI for each new DBLP snapshot; the full-scale alternative is the quarterly public snapshot via the AWS CLI (no sign-in), which needs approval for its size and cost"
+    linkage_fields:
+      - "doi"
+      - "openalex work id"
+      - "openalex author id"
+      - "orcid"
+      - "institution id"
+      - "topic id"
+    privacy: "public author names, ORCID iDs and institutional affiliations of researchers"
+    limitations:
+      - "OpenAlex author disambiguation is automated and can split or merge people."
+      - "Works without a DOI in DBLP are not enriched by the DOI filter."
+      - "Without an API key the API shares a small free daily budget per IP (observed notice: $0.10 shared; a free key gives $1 per day); set OPENALEX_API_KEY in the environment, never in a file."
+    validation:
+      - "python3 datasets/scripts/validate-manifest.py"
+      - "python3 datasets/scripts/fetch_samples.py verify --out datasets/samples/real"
+    unverified:
+      - "exact date of the snapshot release the docs call September 2026"
+      - "per-file checksums in the snapshot manifest"
+  crossref:
+    name: "Crossref REST API works"
+    required: true
+    owner: "dataset-engineer"
+    purpose: "DOI-centred metadata with publisher-supplied author names and ORCIDs; second source for work matching"
+    source_url: "https://api.crossref.org/works/{doi}"
+    documentation: "https://www.crossref.org/documentation/retrieve-metadata/rest-api/"
+    license: "No license is granted by a file; Crossref states almost none of the metadata is subject to copyright and it may be used for any purpose; some abstracts may be subject to publisher or author copyright (abstracts are dropped from the sample)"
+    license_source: "https://www.crossref.org/documentation/retrieve-metadata/rest-api/ (observed 2026-11-22)"
+    observed_on: "2026-11-22"
+    snapshot_date: "retrieval date 2026-11-22 (the API changes continuously)"
+    retrieval: "python3 datasets/scripts/fetch_samples.py crossref --max-dois 50"
+    format: "jsonl, one Crossref message object per line, projected to DOI, title, author, issued, container-title, type, publisher"
+    expected_size: "full message about 10 KB per work (observed 10389 bytes for one response); projected about 0.6 KB per work"
+    observed_size: "sample: 25 works, 13976 bytes (datasets/samples/real/crossref-works.jsonl). The Crossref public data file was not inspected: its size and date are UNVERIFIED."
+    raw_prefix: "s3://${RAW_BUCKET}/crossref/snapshot_date=YYYY-MM-DD/"
+    integrity: "sha256 of the sample JSONL (below and in retrieval.json)"
+    sample_files:
+      - "datasets/samples/real/crossref-works.jsonl sha256=ba32fc243fbbab73446c9a8594a6d4427715d4ac941ca17cab0765afdfe5eb50 bytes=13976"
+    schema_version: "Crossref REST API message, message-version 1.0.0 as observed on 2026-11-22"
+    subset_rule: "DOIs found in the DBLP sample, at most --max-dois (default 50, committed sample 25), one request per DOI; DOIs answering 404 are skipped and counted"
+    update_strategy: "re-query by DOI for each DBLP snapshot; the full-scale alternative is the Crossref public data file (https://www.crossref.org/services/metadata-retrieval/public-data-file/, not inspected)"
+    linkage_fields:
+      - "doi"
+      - "title"
+      - "author given/family"
+      - "orcid"
+      - "year (issued)"
+      - "container-title"
+    privacy: "public author names and ORCID iDs as deposited by publishers"
+    limitations:
+      - "Author lists may be truncated, reordered or lack ORCIDs depending on the depositor."
+      - "Not every DBLP DOI is registered with Crossref (DataCite and others exist)."
+    validation:
+      - "python3 datasets/scripts/validate-manifest.py"
+      - "python3 datasets/scripts/fetch_samples.py verify --out datasets/samples/real"
+    unverified:
+      - "public data file size, date and checksum"
+      - "per-endpoint rate limits (the polite pool via mailto is used when CONTACT_EMAIL is set)"
+  orcid:
+    name: "ORCID public records"
+    required: true
+    owner: "dataset-engineer"
+    purpose: "strong identity evidence: public names, other names, employments and work DOIs for researchers with an ORCID iD"
+    source_url: "https://pub.orcid.org/v3.0/{orcid}/record"
+    bulk_url: "https://orcid.figshare.com/articles/dataset/ORCID_Public_Data_File_2026/34697766"
+    documentation: "https://info.orcid.org/documentation/integration-guide/working-with-bulk-data/"
+    license: "ORCID Public Data File: CC0 1.0 Universal, with the community norms of the use policy (attribute ORCID, respect privacy and publicity rights of the individuals, do not falsify). The terms for records fetched through the public API were NOT verified."
+    license_source: "https://info.orcid.org/public-data-file-use-policy/ and the figshare API record https://api.figshare.com/v2/articles/34697766 (license CC0), observed 2026-11-22"
+    observed_on: "2026-11-22"
+    snapshot_date: "2026 public data file: figshare published 2026-10-22; API records: retrieval date"
+    retrieval: "OPT-IN, OFF BY DEFAULT until the human decides the ORCID public-API terms (open question): fetch-all-samples.sh skips this step unless WITH_ORCID=1; direct form python3 datasets/scripts/fetch_samples.py orcid --max 20 (writes only under datasets/samples/local, never under datasets/samples/real)"
+    format: "API: jsonl, one public v3.0 record per line; public data file: tar.gz archives of XML"
+    expected_size: "2026 public data file on figshare (observed): summaries tar.gz 57290954546 bytes; activities tar.gz parts 0-9 and X, about 20.1 to 22.9 GB each. Observed API sizes: 22690 bytes for one record, 1363048 bytes for 3 records."
+    observed_size: "no ORCID record is committed; a local 3-record API run produced 1363048 bytes (deleted afterwards)"
+    raw_prefix: "s3://${RAW_BUCKET}/orcid/snapshot_date=YYYY-MM-DD/"
+    integrity: "sha256 of each local JSONL in retrieval.json; figshare publishes MD5 per file (summaries: a55a16fe0b292bda03cc6016546c8984, observed via the figshare API 2026-11-22); no SHA-256 is published"
+    sample_files:
+      - "datasets/samples/fixtures/orcid-records-fixture.jsonl sha256=9a6054e8097450f49c3ac4ed77be29031f459229331fc53671424ea5d9340f10 bytes=1188 (SYNTHETIC)"
+    schema_version: "ORCID API 3.0 record (the URL path carries v3.0)"
+    subset_rule: "ORCID iDs that appear as orcid attributes in the DBLP sample, at most --max (default 20); public data only; 404 and 409 answers are skipped"
+    update_strategy: "re-query per iD for each DBLP snapshot; the annual public data file is the full-scale alternative and needs an XML normalizer and the human's approval for its size"
+    linkage_fields:
+      - "orcid"
+      - "work doi"
+      - "name variants"
+      - "employment organization"
+    privacy: "personal data about identifiable people. Only data the researcher made public is used. No real ORCID record is committed to git; tests use the synthetic fixture. Names, employers and work lists are never to be published outside the course deliverable. Escalated to the human: see unresolved questions."
+    limitations:
+      - "Many researchers have no ORCID iD, or keep works and employments private."
+      - "A single public record is large (22690 bytes for one observed record, about 450 KB average for three others) because of activities-summary."
+      - "An ORCID iD asserted in DBLP is self-reported and may be wrong."
+    validation:
+      - "python3 datasets/scripts/validate-manifest.py"
+      - "python3 datasets/scripts/fetch_samples.py verify (local snapshot)"
+    unverified:
+      - "terms of use of the public API (pub.orcid.org) for storing records in S3"
+      - "ORCID public API rate limits"
+  fixtures:
+    name: "Synthetic fixture corpus"
+    required: false
+    owner: "dataset-engineer"
+    purpose: "SYNTHETIC hand-checkable coauthorship corpus for tests and the local demo; never reported as results"
+    source_url: "datasets/scripts/make-fixtures.py"
+    documentation: "datasets/schemas/README.md"
+    license: "generated in this repository; invented names and DOIs under the Crossref test prefix 10.5555; no third-party content"
+    license_source: "datasets/scripts/make-fixtures.py"
+    observed_on: "2026-11-22"
+    snapshot_date: "2026-11-22 (generator is deterministic)"
+    retrieval: "python3 datasets/scripts/make-fixtures.py"
+    format: "xml (DBLP shaped, ISO-8859-1 declared, ASCII content) and jsonl"
+    expected_size: "under 30 KB"
+    observed_size: "4 files, 20012 bytes in total"
+    raw_prefix: "datasets/samples/fixtures/ (committed, not uploaded)"
+    integrity: "deterministic generator; regenerate into a scratch directory and diff"
+    sample_files:
+      - "datasets/samples/fixtures/dblp-fixture.xml sha256=0fce36f0529a3b58ca9f56a493b06bdc1437455070c32470376c7800090064a7 bytes=5475"
+      - "datasets/samples/fixtures/openalex-works-fixture.jsonl sha256=a9c4c994f1c8814169c54ba20b403ccc9df29465c8ab3915a081941e1d34f1f4 bytes=10421"
+      - "datasets/samples/fixtures/crossref-works-fixture.jsonl sha256=6d15b9ead37da4d3bc6521380e041f7c247202c035a953e531b55d4df0794181 bytes=2928"
+      - "datasets/samples/fixtures/orcid-records-fixture.jsonl sha256=9a6054e8097450f49c3ac4ed77be29031f459229331fc53671424ea5d9340f10 bytes=1188"
+    schema_version: "same shapes as the real datasets (fields listed in datasets/schemas/README.md)"
+    subset_rule: "all"
+    update_strategy: "edit the generator, regenerate, update the hand-computed test expectations and the checksums here"
+    linkage_fields:
+      - "doi (Crossref test prefix 10.5555)"
+    privacy: "fictional people only; fixture ORCID iDs returned HTTP 404 from the ORCID public API on 2026-11-22"
+    limitations:
+      - "Synthetic: illustrates behaviour, proves nothing about real collaboration."
+      - "Fixture ORCID iDs are valid checksums but not ORCID-reserved test iDs; a real person could be issued one later."
+    validation:
+      - "python3 datasets/scripts/make-fixtures.py /tmp/fx-check && diff -r /tmp/fx-check datasets/samples/fixtures"
+      - "python3 datasets/scripts/validate-manifest.py"
+    unverified:
+      - "whether ORCID reserves the 0000-0009-9000 range"

@@ -20,6 +20,13 @@ in STATUS.md. -->
 | Terraform layout | layered stacks (foundation, data, compute, app, observability), outputs through SSM | each stack plans and applies alone; small blast radius |
 | Harness | Claude Code only (Codex adapters kept, out of scope) | one harness to probe and evidence before the deadline (Phase 01 repair round 1) |
 | Guard hardening | known guard gaps accepted in Phase 01, fixed in Phase 11 | the repair loop limit was reached; Phase 11 is the adversarial-testing phase |
+| Config format | versioned `scholarchain-v1.yaml` in JSON-compatible YAML 1.2, parsed by uPickle | the work order asks for HOCON or YAML, and uPickle is the only JSON library (addendum) |
+| Service config | three deployables plus shared Cognito JWT settings, all from `${VAR}` placeholders | no identity or endpoint value is written in the repository |
+| Enrichment datasets | OpenAlex, Crossref and ORCID with DBLP; Semantic Scholar is not selected | the dataset manifest lists these four sources |
+| Researcher ID | `orcid:` when the ORCID check digit is valid, else `sc:r:v1:` plus a hash of the sorted mention IDs; stable within a run and policy (mention-set hash), and an ORCID is the cross-run key | clock-free; an invalid ORCID never becomes an ID; the spec asks only for a versioned ScholarChain identity ID and needs no cross-run stability (review MINOR-5, repair round 1) |
+| Decoding | strict and total: an unknown field, a JSON null or a lossy value gives a `Left`, never an exception or a silent truncation | a frozen contract changes only with a new schema version (iron law 5); consumers must not crash on bad lines (review MAJOR-1) |
+| Dataset uploads and ORCID | no S3 upload path in `datasets/`; the ORCID fetch is opt-in (`WITH_ORCID=1`), off by default | uploads belong to infra-engineer and deploy-engineer; the ORCID API terms are UNVERIFIED (review MINOR-7, MINOR-8) |
+| Config loader strictness | plain decimal numbers only, a round-trip check against the typed schema, and integers below 2^53 | a typed read would otherwise clamp or drop values silently (review 2 MINOR-1, repair round 2) |
 | Region and budget | us-east-2, $25 hard cap | course limits |
 
 ## Plan

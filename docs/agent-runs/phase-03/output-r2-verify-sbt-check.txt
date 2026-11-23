@@ -1,0 +1,30 @@
+[info] welcome to sbt 1.13.1 (Amazon.com Inc. Java 17.0.21.1)
+[info] loading settings for project scholarchain-build from plugins.sbt...
+[info] loading project definition from /home/ajcreator/scholarchain/project
+[info] loading settings for project root from build.sbt...
+[info] resolving key references (12586 settings) ...
+[info] set current project to scholarchain (in build file:/home/ajcreator/scholarchain/)
+[success] Total time: 3 s, completed Nov 22, 2026, 8:30:14 PM
+[info] scalafmt: Checking 1 Scala sources (/home/ajcreator/scholarchain)...
+[info] scalafmt: Checking 2 Scala sources (/home/ajcreator/scholarchain)...
+[success] Total time: 2 s, completed Nov 22, 2026, 8:30:16 PM
+[success] Total time: 3 s, completed Nov 22, 2026, 8:30:19 PM
+[success] Total time: 5 s, completed Nov 22, 2026, 8:30:24 PM
+Test run [36mscholarchain.core.NormalizeSuite[0m started
+[32mscholarchain.core.NormalizeSuite[0m: finished [90m0.101s[0m
+Test run [36mscholarchain.core.NormalizeSuite[0m finished: 0 failed, 0 ignored, 4 total [90m0.133s[0m
+Test run [36mscholarchain.core.IdsSuite[0m started
+[32mscholarchain.core.IdsSuite[0m: finished [90m0.291s[0m
+Test run [36mscholarchain.core.IdsSuite[0m finished: 0 failed, 0 ignored, 12 total [90m0.309s[0m
+Test run [36mscholarchain.core.ValidateSuite[0m started
+[32mscholarchain.core.ValidateSuite[0m: finished [90m0.46s[0m
+Test run [36mscholarchain.core.ValidateSuite[0m finished: 0 failed, 0 ignored, 25 total [90m0.478s[0m
+Test run [36mscholarchain.core.SerializationSuite[0m started
+[32mscholarchain.core.SerializationSuite[0m: finished [90m0.377s[0m
+Test run [36mscholarchain.core.SerializationSuite[0m finished: 0 failed, 0 ignored, 29 total [90m0.379s[0m
+Test run [36mscholarchain.core.ConfigSuite[0m started
+[32mscholarchain.core.ConfigSuite[0m: finished [90m0.759s[0m
+Test run [36mscholarchain.core.ConfigSuite[0m finished: 0 failed, 0 ignored, 24 total [90m0.777s[0m
+[info] Passed: Total 94, Failed 0, Errors 0, Passed 94
+[info] markTestRun: 14 project test runs passed, touched /home/ajcreator/scholarchain/.claude/.last-test-run
+[success] Total time: 2 s, completed Nov 22, 2026, 8:30:26 PM

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE dblp SYSTEM "dblp.dtd">
+<dblp>
+<inproceedings mdate="2026-11-01" key="conf/fixa/ArcherB15">
+<author>Alice Archer</author>
+<author>Bob Baker</author>
+<title>Scalable <i>Graph</i> Partitioning.</title>
+<year>2015</year><booktitle>FIXA</booktitle>
+<ee>https://doi.org/10.5555/sc.fix.001</ee><url>db/conf/fixa/ArcherB15.html</url>
+</inproceedings>
+<inproceedings mdate="2026-11-01" key="conf/fixa/ArcherBC16">
+<author>Alice Archer</author>
+<author>Bob Baker</author>
+<author orcid="0000-0009-9000-0018">Carol Chen</author>
+<title>Consistent Hashing Revisited.</title>
+<year>2016</year><booktitle>FIXA</booktitle>
+<ee>https://doi.org/10.5555/sc.fix.002</ee><url>db/conf/fixa/ArcherBC16.html</url>
+</inproceedings>
+<article mdate="2026-11-01" key="journals/fixj/ChenD17">
+<author orcid="0000-0009-9000-0018">Carol Chen</author>
+<author>Dan Diaz</author>
+<title>Fault Tolerance in M&uuml;ller Networks.</title>
+<year>2017</year><journal>FIXJ</journal>
+<ee>https://doi.org/10.5555/sc.fix.003</ee><url>db/journals/fixj/ChenD17.html</url>
+</article>
+<inproceedings mdate="2026-11-01" key="conf/fixa/BakerW18">
+<author>Bob Baker</author>
+<author>Wei Wang 0001</author>
+<author>Dan Diaz</author>
+<title>Distributed Snapshot Protocols.</title>
+<year>2018</year><booktitle>FIXA</booktitle>
+<ee>https://doi.org/10.5555/sc.fix.004</ee><url>db/conf/fixa/BakerW18.html</url>
+</inproceedings>
+<inproceedings mdate="2026-11-01" key="conf/fixa/ArcherD19">
+<author>Alice Archer</author>
+<author>Dan Diaz</author>
+<title>Replicated Logs at Scale.</title>
+<year>2019</year><booktitle>FIXA</booktitle>
+<ee>https://doi.org/10.5555/sc.fix.005</ee><url>db/conf/fixa/ArcherD19.html</url>
+</inproceedings>
+<inproceedings mdate="2026-11-01" key="conf/fixa/ArcherBC19">
+<author>Alice Archer</author>
+<author>Bob Baker</author>
+<author orcid="0000-0009-9000-0018">Carol Chen</author>
+<title>Consensus under Partial Synchrony.</title>
+<year>2019</year><booktitle>FIXA</booktitle>
+<ee>https://doi.org/10.5555/sc.fix.006</ee><url>db/conf/fixa/ArcherBC19.html</url>
+</inproceedings>
+<inproceedings mdate="2026-11-01" key="conf/fixb/EvansF16">
+<author orcid="0000-0009-9000-0026">Eve Evans</author>
+<author>Frank Fox</author>
+<title>Neural Ranking for Retrieval.</title>
+<year>2016</year><booktitle>FIXB</booktitle>
+<ee>https://doi.org/10.5555/sc.fix.101</ee><url>db/conf/fixb/EvansF16.html</url>
+</inproceedings>
+<inproceedings mdate="2026-11-01" key="conf/fixb/FoxGH17">
+<author>Frank Fox</author>
+<author>Grace Gupta</author>
+<author>Hank Hill</author>
+<title>Dense Passage Indexing.</title>
+<year>2017</year><booktitle>FIXB</booktitle>
+<ee>https://doi.org/10.5555/sc.fix.102</ee><url>db/conf/fixb/FoxGH17.html</url>
+</inproceedings>
+<article mdate="2026-11-01" key="journals/fixk/GuptaE18">
+<author>Grace Gupta</author>
+<author orcid="0000-0009-9000-0026">Eve Evans</author>
+<title>Learning to Rank with Weak Labels.</title>
+<year>2018</year><journal>FIXK</journal>
+<ee>https://doi.org/10.5555/sc.fix.103</ee><url>db/journals/fixk/GuptaE18.html</url>
+</article>
+<inproceedings mdate="2026-11-01" key="conf/fixb/FoxW20">
+<author>Frank Fox</author>
+<author>Wei Wang 0002</author>
+<author>Hank Hill</author>
+<title>Query Expansion with Graphs.</title>
+<year>2020</year><booktitle>FIXB</booktitle>
+<ee>https://doi.org/10.5555/sc.fix.104</ee><url>db/conf/fixb/FoxW20.html</url>
+</inproceedings>
+<inproceedings mdate="2026-11-01" key="conf/fixc/ItoC20">
+<author>Ivy Ito</author>
+<author orcid="0000-0009-9000-0018">Carol Chen</author>
+<title>Retrieval for Distributed Logs.</title>
+<year>2020</year><booktitle>FIXC</booktitle>
+<ee>https://doi.org/10.5555/sc.fix.201</ee><url>db/conf/fixc/ItoC20.html</url>
+</inproceedings>
+<inproceedings mdate="2026-11-01" key="conf/fixc/ItoE21">
+<author>Ivy Ito</author>
+<author orcid="0000-0009-9000-0026">Eve Evans</author>
+<title>Ranking Replicas.</title>
+<year>2021</year><booktitle>FIXC</booktitle>
+<ee>https://doi.org/10.5555/sc.fix.202</ee><url>db/conf/fixc/ItoE21.html</url>
+</inproceedings>
+<article mdate="2026-11-01" key="journals/fixz/ZhouY12">
+<author>Zed Zhou</author>
+<author>Yan Yu</author>
+<title>Isolated Topics in Type Theory.</title>
+<year>2012</year><journal>FIXZ</journal>
+<ee>https://doi.org/10.5555/sc.fix.301</ee><url>db/journals/fixz/ZhouY12.html</url>
+</article>
+<article mdate="2026-11-01" key="journals/fixz/Sato14">
+<author>Solo Sato</author>
+<title>A Solitary Proof.</title>
+<year>2014</year><journal>FIXZ</journal>
+<ee>https://doi.org/10.5555/sc.fix.302</ee><url>db/journals/fixz/Sato14.html</url>
+</article>
+<inproceedings mdate="2026-11-01" key="conf/fixa/ArcherTeam22">
+<author>Alice Archer</author>
+<author>Team Member 01</author>
+<author>Team Member 02</author>
+<author>Team Member 03</author>
+<author>Team Member 04</author>
+<author>Team Member 05</author>
+<author>Team Member 06</author>
+<author>Team Member 07</author>
+<author>Team Member 08</author>
+<author>Team Member 09</author>
+<author>Team Member 10</author>
+<author>Bob Baker</author>
+<title>A Large Collaborative Benchmark.</title>
+<year>2022</year><booktitle>FIXA</booktitle>
+<ee>https://doi.org/10.5555/sc.fix.401</ee><url>db/conf/fixa/ArcherTeam22.html</url>
+</inproceedings>
+<www mdate="2026-11-01" key="homepages/fix/a"><author>Alice Archer</author><title>Home Page</title></www>
+<proceedings mdate="2026-11-01" key="conf/fixa/2019"><editor>Bob Baker</editor><title>FIXA 2019</title><year>2019</year></proceedings>
+</dblp>

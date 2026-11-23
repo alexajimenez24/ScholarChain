@@ -1,0 +1,49 @@
+{
+  "crossref": {
+    "bytes": 13976,
+    "file": "crossref-works.jsonl",
+    "found": 25,
+    "keptFields": [
+      "DOI",
+      "title",
+      "author",
+      "issued",
+      "container-title",
+      "type",
+      "publisher"
+    ],
+    "requestedDois": 25,
+    "retrievedAt": "2026-11-22T16:58:51Z",
+    "sha256": "ba32fc243fbbab73446c9a8594a6d4427715d4ac941ca17cab0765afdfe5eb50"
+  },
+  "dblp": {
+    "bytes": 17713,
+    "decompressedBytesScanned": 1048576,
+    "etag": "\"42eabfb9-660d0c35bcf23\"",
+    "file": "dblp-sample.xml",
+    "lastModified": "Sat, 21 Nov 2026 22:20:07 GMT",
+    "minAuthors": 2,
+    "records": 40,
+    "retrievedAt": "2026-11-22T16:58:42Z",
+    "sha256": "7ea9e5152121a7a8c97d3a5b08ce2439d5ce6c0611f5a30081c85519dfb4934e",
+    "url": "https://dblp.org/xml/dblp.xml.gz"
+  },
+  "dblp-dtd": {
+    "bytes": 13134,
+    "etag": "\"334e-5ff31445d5140\"",
+    "file": "dblp.dtd",
+    "lastModified": "Wed, 28 Jun 2023 14:19:09 GMT",
+    "retrievedAt": "2026-11-22T17:38:09Z",
+    "sha256": "2d864498f9eef9298662df11e3874171ff24cd4a21ab5974f1369c90acdb1ef6",
+    "url": "https://dblp.org/xml/dblp.dtd"
+  },
+  "openalex": {
+    "bytes": 110720,
+    "file": "openalex-works.jsonl",
+    "requestedDois": 25,
+    "retrievedAt": "2026-11-22T16:58:44Z",
+    "select": "id,doi,display_name,publication_year,type,authorships,topics,primary_location",
+    "sha256": "1223f4ec6229ed9567e536534a227dbb3147aad7049e09f43a4b67bce12c2fd7",
+    "works": 25
+  }
+}
