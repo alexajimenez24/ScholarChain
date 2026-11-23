@@ -1,0 +1,20 @@
+{
+  "queueVersion": "er-review-v1b",
+  "generatorVersion": "er-review-supplement-v1",
+  "seed": "er-review-v1b",
+  "maxRows": 60,
+  "criteriaOrder": [
+    "DIFFERENT_ORCID",
+    "DBLP_HOMONYM_DIFFERENT",
+    "COMPATIBLE_INITIALS_NO_SHARED_CONTEXT",
+    "SAME_BLOCK_DIFFERENT_CLUSTERS"
+  ],
+  "contextDimensions": [
+    "work",
+    "coauthor",
+    "affiliation",
+    "venue",
+    "title_token"
+  ],
+  "clusterLinkFeature": "same_source_cluster"
+}

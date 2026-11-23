@@ -1,0 +1,43 @@
+{
+  "queueVersion": "er-review-v1",
+  "strataVersion": "review-strata-v1",
+  "seed": "er-review-v1",
+  "targetRows": 280,
+  "minRows": 250,
+  "likelyMatchAtLeast": 0.8,
+  "likelyNonMatchBelow": 0.5,
+  "identifierConflictFeatures": [
+    "orcid_conflict",
+    "external_id_conflict",
+    "dblp_homonym_distinct",
+    "doi_conflict"
+  ],
+  "identifierMatchFeatures": [
+    "exact_orcid",
+    "orcid_equal",
+    "external_id_equal",
+    "profile_lists_work_doi",
+    "same_source_cluster",
+    "exact_doi",
+    "exact_arxiv",
+    "exact_openalex",
+    "exact_id",
+    "doi_equal"
+  ],
+  "researcherWeights": {
+    "name_jw": 0.3,
+    "coauthor_overlap": 0.35,
+    "title_token_overlap": 0.2,
+    "venue_overlap": 0.1,
+    "affiliation_overlap": 0.05
+  },
+  "workWeights": {
+    "title_jaccard": 0.6,
+    "author_overlap": 0.3,
+    "same_venue_name": 0.1
+  },
+  "maxAffiliations": 5,
+  "maxCoauthors": 5,
+  "maxVenuesYears": 5,
+  "maxTitles": 3
+}

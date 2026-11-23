@@ -195,9 +195,21 @@ lazy val hadoop = module("hadoop", "hadoop")
     Test / javaOptions += "-Xmx1g"
   )
 
+// Same Hadoop shape as the hadoop project (see the comment there): Provided client API,
+// Test-only shaded runtime and logging bridge, forked tests. Repeated, not factored, so
+// the hadoop project's settings stay untouched.
 lazy val entityResolution = module("entityResolution", "entity-resolution")
   .dependsOn(core)
   .settings(packagingSettings(jarsDir))
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.apache.hadoop" % "hadoop-client-api" % V.hadoop % Provided,
+      "org.apache.hadoop" % "hadoop-client-runtime" % V.hadoop % Test,
+      "org.slf4j" % "jcl-over-slf4j" % V.slf4j % Test
+    ),
+    Test / fork := true,
+    Test / javaOptions += "-Xmx1g"
+  )
 
 // Spark compatibility: Scala 3 consumes only Scala 2.13 artifacts
 // (CrossVersion.for3Use2_13) and needs the 2.13 standard library at runtime. EMR 7.x runs

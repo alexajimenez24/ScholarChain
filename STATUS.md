@@ -17,9 +17,20 @@ resume. -->
   Committed as 9a65cf2, followed by 524dc1d "phase-03: record accepted commit"
   (`git log --oneline -5` and `docs/agent-runs/phase-03/commit.txt`, which holds
   9a65cf2e4de050017e56db15505a27a8fd0be916).
-- Phase 04: Hadoop MapReduce pipeline.
-  All tasks, repair round 1 and Review 2 are done (APPROVE WITH CARRIED-FORWARD ITEMS).
-  Next is the human gate; see "Phase 04 task list" and "Carried forward from Phase 04".
+- Phase 04: Hadoop MapReduce pipeline, committed.
+  `git log --oneline -3` shows a43fa55 "phase-04 hadoop-engineer: DBLP parser, source
+  normalizers, MapReduce jobs J01-J07" and 4388607 "phase-04: record accepted commit".
+  Items N1 to N7 stay open; see "Phase 04 task list" and "Carried forward from Phase 04".
+- Phase 05: entity resolution is in progress.
+  Steps 01 (build-engineer), 02 (T1), 03 (T2), 03b (T1b) and 04 (T3; the last four by
+  entity-resolution-engineer) are done; v1 is labeled (280 rows).
+  The human will not label v1b (decision 03), so T3 ran on v1 only.
+  Human decision 04 answered open items 1 and 2, and step 05 (documentation) is done.
+  Review 1 is done (APPROVE WITH CARRIED-FORWARD ITEMS) and repair round 1 is done
+  (R1-1, R1-2, R1-3).
+  Review 2 is done (APPROVE WITH CARRIED-FORWARD ITEMS); next is the Phase 05 human gate.
+  See "Phase 05 task list", "Current state (phase 05)" and "Carried forward from
+  Phase 05 (for the human gate)".
 
 ## Carried forward from Phase 01
 
@@ -458,7 +469,314 @@ Machine limits (human addendum, 8 GB laptop):
 - No mutation testing.
 - Run every command in the foreground with a timeout.
 
-## Current state (phase 04)
+## Phase 05 task list
+
+Phase 05 is entity resolution (entity-resolution-engineer), work order and human addendum
+in `docs/agent-runs/phase-05/prompt.md`.
+Reports are saved in `docs/agent-runs/phase-05/`.
+The reference material in `~/ref-phase-05/` is a starting point only; each owner adapts
+it and owns the result.
+
+| Step | Owner | Scope | Report | State |
+|---|---|---|---|---|
+| 01 | build-engineer | entityResolution gets hadoop-client-api (Provided) and the Hadoop test runtime, forked test JVM -Xmx1g, versions only from project/Versions.scala | `step-01-build-engineer-report.md` | done, see note step 01 |
+| 02 (T1) | entity-resolution-engineer | review queue generated from the Phase 04 local pipeline on datasets/samples into `target/er-review/er-review-v1.csv` (git-ignored), at least 250 rows, stratified across researcher and work pairs and across likely matches, borderline and likely non-matches, no scores, paths or predictions; BLOCKED-ON dataset-engineer if fewer than 250 pairs | `step-02-entity-resolution-engineer-report.md` | done about 09:21, see note step 02 |
+| Human labeling | human | writes `datasets/gold/er-gold-v1.csv` from the review queue (starts 09:00); v1b labeling was planned and then cancelled | - | done: v1 only, 280 rows (228 MATCH, 13 NON_MATCH, 39 UNSURE); v1b not labeled and unused (decision 03) |
+| 03 (T2) | entity-resolution-engineer | the rest of the work order except the gold-set evaluation; er-v1 fixed; LLM adjudication behind a port with a deterministic fake and an off mode | `agent-report.md` | done, see note step 03 |
+| 03b (T1b) | entity-resolution-engineer | supplementary queue `target/er-review/er-review-v1b.csv`: up to 60 additional likely non-match pairs from the same samples (same block but different clusters; different DBLP homonym numbers; different ORCIDs; compatible initials with no shared context); same columns and rules as v1 (no scores, paths or predicted labels, traceable to source records); no overlap with v1 | `step-03b-entity-resolution-engineer-report.md` | done, see note step 03b |
+| 04 (T3) | entity-resolution-engineer | gold-set evaluation on v1 only (`datasets/gold/er-gold-v1.csv`, 280 rows) against decision run `run-02cecabcf3e68312` in `target/er-match-run`; MATCH and NON_MATCH counted, UNSURE reported separately; the report must record the few-non-matches limitation (13 NON_MATCH labels limit how well precision and the reject side are measured) and the class imbalance; the v1b queue, its candidate run and `target/er-match-run-v1b` are not used (human decision 03) | `output-er-evaluation.md`, `step-03-entity-resolution-engineer-report.md` | done, see note step 04 |
+| 05 | documentation-engineer | `docs/entity-resolution.md` and `modules/entity-resolution/MODULE.md`, observed numbers only | `step-04-documentation-engineer-report.md` | done, see note step 05 |
+| Review 1 | code-reviewer (fresh) | whole Phase 05 diff | `review-report.md` | done, APPROVE WITH CARRIED-FORWARD ITEMS (6 MINOR, 4 NIT) |
+| R1-1 | entity-resolution-engineer | MINOR-2, NIT-1, NIT-2, PolicyConfig comment | `repair-01-entity-resolution-engineer.md` | done, see note R1-1 |
+| R1-2 | documentation-engineer | MINOR-3, MINOR-4 (docs part), MINOR-5, MINOR-6 | `repair-01-documentation-engineer.md` | done, see note R1-2 |
+| R1-3 | documentation-engineer | RISKS 6 wording from R1-1 into MODULE.md and the docs page | `repair-01b-documentation-engineer.md` | done, see note R1-3 |
+| Review 2 | code-reviewer (fresh) | re-check; open findings carried forward to the human, no second repair round | `review-report-02.md` | done, APPROVE WITH CARRIED-FORWARD ITEMS, see note Review 2 |
+| Human gate | human | ratify and commit | `human-gate.md` | pending |
+
+Phase rules:
+
+- No leakage: the scoring policy er-v1 and its accept, reject and unresolved thresholds
+  were fixed in the module before the gold file existed.
+  Matching code never reads `datasets/gold/`.
+  Threshold sensitivity is reported, not used to retune er-v1.
+- Every label is written by the human; agents never write, infer or pre-fill one.
+- Machine limits (8 GB laptop): never more than one sbt at once, no background shells,
+  no polling or wait loops, no mutation testing, every command in the foreground with a
+  timeout.
+- Owners run one at a time.
+  STATUS.md is updated by documentation-engineer after each owner.
+
+Note step 01 (build-engineer, as reported by the orchestrator):
+
+- `sbt check` is green: Total 68 passed, 14 project test runs.
+- The `build.sbt` change is 12 added lines (`git diff --stat -- build.sbt`).
+- The sbt run exceeded the 180 s foreground window and the harness backgrounded it.
+  Machine limits forbid background shells.
+  The run completed and no sbt was left running.
+- Later sbt work orders set an explicit 600 s timeout.
+- The saved report `docs/agent-runs/phase-05/step-01-build-engineer-report.md` now exists
+  and matches these numbers (Total 68 passed, 14 project test runs, 175 s).
+
+Note step 02 (T1, report
+`docs/agent-runs/phase-05/step-02-entity-resolution-engineer-report.md`): started 09:07,
+past the human's 09:00 labeling start; done about 09:21.
+
+- Output: `target/er-review/er-review-v1.csv` (git-ignored), 280 rows (205 researcher,
+  75 work), sha256 f75204756578ffc9341482f18335e4cf574d06d5617f79a6d8dbaf6dbf442e3e,
+  source run `run-6d1175dbfdb874a9`; `sbt check` green.
+- The orchestrator check at the end of the report confirms the header, the row counts,
+  the distinct pair IDs, empty label and note columns, the checksum and the ignore rule.
+- Queue delivered about 09:22; `datasets/gold` did not exist yet.
+- CLOSED by human decision 01 (report RISKS 1, class imbalance): the human labels
+  `er-review-v1.csv` as is
+  (`docs/agent-runs/phase-05/human-decision-01.md`).
+  The samples give only 8 likely non-matches (4 researcher, 4 work) and no borderline
+  work pairs.
+  The supplement is task 03b (`er-review-v1b.csv`); the imbalance and the supplement go
+  in the evaluation report.
+- The generator refuses to overwrite an existing file unless `--overwrite true` is given,
+  which protects a copy the human may already be labeling.
+- Process notes: the harness backgrounds sbt after 180 s even with a 600000 ms timeout
+  (seen in steps 01 and 02); agents start no second sbt and do not poll.
+  guard-dangerous gives false positives on the literal test-marker task name in greps and
+  report text (Phase 11 item).
+
+Note step 03 (T2, report `docs/agent-runs/phase-05/agent-report.md`):
+entity-resolution-engineer COMPLETE.
+
+- `sbt check` is green: entity-resolution 92 tests, core 94, hadoop 98, adversarial 68;
+  14 project test runs; 570 s.
+- Policy er-v1 thresholds: accept 0.9, reject 0.35, LLM band [0.7, 0.9).
+  er-v1 was fixed before the gold file existed (it appeared about 10:28 to 10:33) and was
+  not changed afterwards; no agent could read a label while authoring it; nothing is
+  git-committed yet (Review 1 MINOR-4).
+  The engineer did not read or write `datasets/gold/**`, and the queue
+  `er-review-v1.csv` was not regenerated (sha256 still starts f75204756578ffc9).
+- LLM adjudication sits behind a port with an off mode and a deterministic fake.
+  The sample run used off mode.
+- Sample run `run-02cecabcf3e68312` over upstream run `run-6d1175dbfdb874a9`, in
+  git-ignored `target/er-match-run/`: 347 decisions, 338 ACCEPTED, 0 REJECTED,
+  5 UNRESOLVED, 4 CONFLICT; unresolved rate 1.44%.
+- The orchestrator check at the end of the report found no sbt or java process running
+  and `datasets/gold` absent.
+- Open items from its RISKS:
+  - N4 needs a human decision: the engineer took the run ID plus the run manifest
+    (`upstreamRunId`, `upstreamPipeline` "hadoop-v2") as the link to upstream, as
+    implemented; the human has not accepted or rejected it.
+  - No citation evidence is ever available, because work-v1 has no references
+    (contract gap, domain-engineer).
+  - The run output folders `rejected/`, `adjudications/` and `rejects-v1/` are absent
+    because they hold zero rows; T3 and the reviewer must confirm that readers handle an
+    absent empty output.
+  - The sample has no REJECTED decisions; its 4 work CONFLICTs are DOI disagreements.
+  - ER-J1 sends a whole `orcid:` profile to every linked candidate; measure the data
+    growth before a full-DBLP run.
+  - The adjudication cache is read whole into each reducer; a DynamoDB cache comes later.
+  - Not done: the T3 evaluation, any Bedrock adjudicator, `sbt packageJobs`, an EMR run.
+
+Note step 04 (T3, reports
+`docs/agent-runs/phase-05/step-03-entity-resolution-engineer-report.md` and
+`docs/agent-runs/phase-05/output-er-evaluation.md`): entity-resolution-engineer
+COMPLETE, evaluation on v1 only against `run-02cecabcf3e68312`.
+
+- `sbt check` is green: entityResolution 106 tests, 14 project test runs.
+- Headline, from `output-er-evaluation.md`:
+  - researcher: precision 0.938 [0.889, 0.966], recall 0.987, F1 0.962;
+  - work: precision 1.000 [0.949, 1.000], recall 0.947, F1 0.973; no work pair is
+    labeled NON_MATCH, so only the lower bound carries information;
+  - unresolved rate 0.0144 over the whole run (5 of 347).
+- er-v1 made 0 REJECTED decisions, so the reject side is unmeasured by this gold set.
+- The v1b queue and its run were not used (decision 03).
+- Not written: the evaluation copy under `target/` (see open item 3).
+
+Note step 03b (T1b, report
+`docs/agent-runs/phase-05/step-03b-entity-resolution-engineer-report.md`):
+entity-resolution-engineer COMPLETE.
+
+- Output: `target/er-review/er-review-v1b.csv` (git-ignored), 60 researcher rows, 0
+  overlap with v1, sha256
+  08c02f228229f907ce7de1b967dd22ce5de5af6263c06411fb23c7a68c86c845.
+  The header is identical to v1; label and note are empty (orchestrator check).
+- Selection by criterion: different ORCID 0, DBLP homonym 0, compatible initials with no
+  shared context 10, same block different clusters 50.
+- er-v1 decisions for the v1b pairs were produced in a separate run
+  (`target/er-match-run-v1b`), for T3 only.
+- `sbt check` green: entity-resolution 103 tests, 14 project test runs.
+- New files: `review-supplement-v1b.json`, `ReviewSupplement.scala`,
+  `ReviewSupplementMain.scala` and `ReviewSupplementSuite.scala`.
+  `ReviewQueueMain.scala` changed visibility only.
+- Blindness: that report holds er-v1's outcomes for the v1b pairs.
+  Labeling v1b will not happen (decision 03), so the warning about showing it to a
+  labeler no longer applies, but the report still holds those outcomes.
+  This note records structure only.
+- v1b is superseded: the queue stays unlabeled and unused.
+
+Note human message 02 (`docs/agent-runs/phase-05/human-decision-02.md`):
+`datasets/gold/er-gold-v1.csv` has 280 labeled rows (228 MATCH, 13 NON_MATCH, 39
+UNSURE), as stated by the human; agents have not opened the file.
+This message planned v1b labeling and a T3 run after it; decision 03 supersedes that.
+
+Note human decision 03 (`docs/agent-runs/phase-05/human-decision-03.md`): the human
+will not label v1b and asks for T3 now on `datasets/gold/er-gold-v1.csv` only (280
+labeled rows).
+It supersedes decision 01's v1b plan.
+T3 evaluates the v1 decision run `run-02cecabcf3e68312` (`target/er-match-run`).
+`target/er-review/er-review-v1b.csv`, its candidate run and `target/er-match-run-v1b`
+are not used.
+The evaluation report must record that the sample has few non-matches (13 NON_MATCH
+labels), which limits how well precision and the reject side are measured.
+
+Note human decision 04 (`docs/agent-runs/phase-05/human-decision-04.md`): answers open
+items 1 and 2 of T3.
+The 13 researcher NON_MATCH labels were judged by "different chapter", not "different
+person", which was the wrong question for researcher pairs; this includes the
+equal-ORCID pair `mc:researcher:10c07413d756444b3991`.
+The human is not relabeling and not re-running T3; `datasets/gold/er-gold-v1.csv` and
+the evaluation stay as they are.
+Consequences, as the human directs: the 13 labels are known labeling errors, the 10
+researcher false positives are likely not real errors of er-v1, researcher precision
+(0.938) is understated, and the reject side is effectively unmeasured.
+`output-er-evaluation.md` section 11 records this.
+
+Note step 05 (documentation-engineer, report
+`docs/agent-runs/phase-05/step-04-documentation-engineer-report.md`): written
+`docs/entity-resolution.md` and `modules/entity-resolution/MODULE.md`, with only numbers
+from the saved Phase 05 reports and the decision 04 statement above.
+No sbt was run; the documented sbt commands were not replayed.
+
+Note Review 1 (report `docs/agent-runs/phase-05/review-report.md`): verdict APPROVE WITH
+CARRIED-FORWARD ITEMS, 6 MINOR and 4 NIT, no CRITICAL or MAJOR.
+Its one `sbt check` exited 0 (core 94, hadoop 98, entityResolution 106, adversarial 68;
+14 project test runs).
+
+Note R1-2 (documentation-engineer): docs edits only, no sbt run.
+
+- MINOR-3: `docs/entity-resolution.md` now says R-R2 is CONFLICT, or REJECTED when the
+  score is at or below 0.35; the "an identifier agrees" condition stays with R-R3.
+  Checked by reading `MatchPolicy.scala` lines 191-210.
+- MINOR-4 (docs part): the page and Note step 03 now say er-v1 was fixed before the gold
+  file existed and was not changed afterwards.
+  The `PolicyConfig.scala` comment is entity-resolution-engineer's (R1-1).
+  `output-er-evaluation.md:27` keeps the old wording; it is saved evidence.
+- MINOR-5: the "recall without caveat" sentence is removed from the page.
+- MINOR-6: MODULE.md says `LocalMatchRunner` is in `src/main`, with only the Hadoop
+  runtime Test-scoped.
+
+Note R1-1 (report `docs/agent-runs/phase-05/repair-01-entity-resolution-engineer.md`):
+entity-resolution-engineer COMPLETE.
+
+- `sbt fmt check` exited 0: core 94, entityResolution 112 (106 before), hadoop 98,
+  adversarial 68; 14 project test runs.
+- MINOR-2: every adjudication cache hit is re-validated (`Adjudicator.recheck`); a
+  refused hit gives `LLM_INVALID_OUTPUT` with no call.
+- NIT-1: `EvaluateMain.samePolicy` refuses a run made under another policy version.
+- NIT-2: `LocalMatchRunner` scratch is `<output>-tmp`, removed after the run (ER only).
+- PolicyConfig comment fixed.
+  Policy resource sha256 starts 82ce9ae5 (unchanged); no evaluation was rerun.
+- MINOR-1 is not fixed (carried to er-v2).
+
+Note R1-3 (documentation-engineer): the R1-1 RISKS 6 wording is applied to
+`modules/entity-resolution/MODULE.md` and `docs/entity-resolution.md`.
+Each claim was checked by reading `Adjudication.scala`, `MatchJob.scala`,
+`eval/EvaluateMain.scala` and the hadoop `LocalRunner.scala`; no sbt was run.
+
+Carried forward from Review 1:
+
+- MINOR-1: a future policy version er-v2 (fixing it changes er-v1 behavior).
+- NIT-3: no action.
+- NIT-4: the Phase 07 loader must treat an absent outcome folder as empty only when
+  `_SUCCESS` exists (storage-engineer).
+- Human: the `target/**` matrix gap; `chmod 644` on the gold file before the commit;
+  the MINOR-1 decision; N4.
+- Process: the harness backgrounds sbt at 180 s; guard-dangerous false positives on the
+  test-marker task name.
+
+Note Review 2 (report `docs/agent-runs/phase-05/review-report-02.md`): code-reviewer on
+opus, high, fresh context.
+
+- Verdict APPROVE WITH CARRIED-FORWARD ITEMS; no CRITICAL or MAJOR finding.
+- Its one `sbt check` exited 0: core 94, entityResolution 112, hadoop 98, adversarial
+  68; 14 project test runs; 11:36 (its output shows a total time of 148 s).
+- All Review 1 repair items are fixed: MINOR-2, MINOR-3, MINOR-4, MINOR-5, MINOR-6,
+  NIT-1 and NIT-2 (NIT-2 for new runs; the old `_local-tmp` is left for the human).
+- Carried from Review 1: MINOR-1, NIT-3 and NIT-4.
+- New findings: MINOR-A (the stale snapshot, replaced below), MINOR-B, MINOR-C,
+  NIT-A, NIT-B and NIT-C.
+  Per the one-round rule there is no second repair round.
+- The er-v1 policy resource hash is unchanged (starts 82ce9ae5) and no leakage was
+  found.
+
+## Current state (phase 05)
+
+- Tasks done: step 01 (build-engineer), step 02 (T1), step 03 (T2), step 03b (T1b),
+  step 04 (T3, evaluation on v1), step 05 (documentation), Review 1, R1-1, R1-2,
+  R1-3 and Review 2.
+- Task running: none.
+- Next task: the Phase 05 human gate (ratify, commit, decide the carried-forward items
+  below).
+- Half done: nothing.
+  v1 labeling is done (280 rows) and v1b is abandoned (decision 03).
+- Git: HEAD is 4388607 (Phase 04 accepted).
+  `git status --short` at the time of this update showed:
+  - modified, tracked: `STATUS.md`, `build.sbt`,
+    `modules/entity-resolution/MODULE.md`;
+  - untracked: `datasets/gold/`, `docs/agent-runs/phase-05/`,
+    `docs/entity-resolution.md`,
+    `modules/entity-resolution/src/main/resources/scholarchain/`,
+    `modules/entity-resolution/src/main/scala/scholarchain/`, and 10 files in
+    `tests/module-unit/entity-resolution/` (AdjudicationSuite, ErFixtures,
+    ErNormalizeSuite, EvaluationSuite, FeaturesSuite, LeakageSuite, MatchJobSuite,
+    MatchPolicySuite, ReviewQueueSuite, ReviewSupplementSuite).
+- Harness: claude-code.
+- Resume in a fresh session with:
+  `cd ~/scholarchain && claude "Read STATUS.md and continue with its next step."`
+
+## Carried forward from Phase 05 (for the human gate)
+
+From `docs/agent-runs/phase-05/review-report-02.md` section 5, plus the items named
+in this file.
+
+1. MINOR-1 (Review 1): DBLP homonym false REJECT.
+   Needs `er-features-v2` and policy `er-v2`, decided without looking at the labels.
+2. NIT-3 (Review 1): LeakageSuite is a string tripwire only; no action.
+3. NIT-4 (Review 1): the Phase 07 loader (storage-engineer) must treat an absent
+   outcome folder as empty only when `_SUCCESS` exists.
+   The Phase 07 DynamoDB cache must keep re-validation on every hit.
+4. Human decisions:
+   - whether to bump `MatchJob.LogicVersion` (NIT-A; `er-job-v1` is unchanged and a
+     bump changes the run ID of any rerun);
+   - whether to delete the stale `target/er-match-run/_local-tmp`;
+   - the `target/**` gap in the ownership matrix (the evaluation copy under `target/`
+     was not written; either factory-engineer changes the matrix or the human accepts
+     the `docs/agent-runs/phase-05/` copy only);
+   - `chmod 644 datasets/gold/er-gold-v1.csv` before committing (it is mode 755);
+   - N4 (upstream link by run ID plus run manifest; implemented, not yet accepted).
+5. Review 2 findings carried forward unfixed (no second repair round):
+   - MINOR-B (documentation-engineer): MINOR-1 is missing from the Known issues of
+     `modules/entity-resolution/MODULE.md`, and `docs/entity-resolution.md` lines 141
+     and 180 describe the R-R3 intent, not the behaviour.
+     `Features.scala:192-201` also fires on case, accent or spacing variants and when
+     only one side has a suffix.
+   - MINOR-C (documentation-engineer to track; factory-engineer to fix in Phase 11
+     guard work): the Phase 01 item "Phase 05: gold-set bypasses (`rm -rf datasets`
+     and similar) and MINOR-1 (gold-set interpreter writes)" (under "Carried forward
+     from Phase 01") is still open, because Phase 05 made no control-plane change.
+     `datasets/gold/er-gold-v1.csv` now holds real labels, so the open bypass protects
+     real data.
+   - NIT-B (entity-resolution-engineer): `AdjudicationSuite.scala:193-212`, the
+     inputHash and candidateId refusals are not isolated, because those records also
+     carry a mismatching model version `"m"`.
+   - NIT-C (documentation-engineer): `docs/entity-resolution.md:274-275` omits that the
+     scratch folder is removed only when this run created it.
+6. Gold-label caveat (decision 04): the 13 NON_MATCH labels are known labeling errors
+   ("different chapter" was judged, not "different person"), researcher precision
+   (0.938) is understated, and the reject side is effectively unmeasured.
+   Neither the labels nor the evaluation were changed.
+7. Process items: the harness moves `sbt` to the background at 180 s (the sixth time
+   this phase); the guard-dangerous false positive on the test-marker task name
+   belongs to factory-engineer in Phase 11.
+
+## Previous state (phase 04, closed)
 
 - Tasks done: T0, T1, T2, T2b, T3, T4, Review 1, R1a, R1b, R1c, Review 2.
   All Phase 04 tasks are done.

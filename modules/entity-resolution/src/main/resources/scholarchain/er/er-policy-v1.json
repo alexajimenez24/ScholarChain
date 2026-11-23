@@ -1,0 +1,107 @@
+{
+  "policyVersion": "er-v1",
+  "featureVersion": "er-features-v1",
+  "normalizationVersion": "er-norm-v1",
+  "thresholds": {
+    "accept": 0.9,
+    "reject": 0.35,
+    "llmBandMin": 0.7,
+    "llmBandMax": 0.9
+  },
+  "sourceReliability": {
+    "ORCID": 1.0,
+    "DBLP": 0.95,
+    "CROSSREF": 0.95,
+    "OPENALEX": 0.85,
+    "SCHOLARCHAIN": 0.9
+  },
+  "preprintDoiPrefixes": [
+    "10.48550/",
+    "10.1101/",
+    "10.2139/",
+    "10.5281/",
+    "10.6084/",
+    "10.20944/",
+    "10.21203/",
+    "10.31219/",
+    "10.31222/",
+    "10.31234/",
+    "10.31235/",
+    "10.36227/"
+  ],
+  "conflictConfidence": 0.5,
+  "limits": {
+    "maxAuthorsPerWork": 100,
+    "maxCoauthorsPerMention": 50,
+    "maxUrlsPerWork": 20,
+    "maxMentionsPerEndpoint": 200
+  },
+  "researcher": {
+    "schemes": [
+      { "scheme": "ORCID", "authoritative": true, "minCorroboration": 0.75 },
+      { "scheme": "OPENALEX", "authoritative": false, "minCorroboration": 0.85 },
+      { "scheme": "S2", "authoritative": false, "minCorroboration": 0.85 }
+    ],
+    "exactAcceptConfidence": 0.99,
+    "declaredOnlyConfidence": 0.95,
+    "sourceClusterConfidence": 0.97,
+    "sharedWorkConfidence": 0.01,
+    "homonymConfidence": 0.02,
+    "weights": {
+      "bias": -4.3,
+      "nameAboveFloor": 3.0,
+      "sameFullName": 1.0,
+      "initialsIncompatible": -5.0,
+      "coauthorOverlap": 6.0,
+      "affiliationOverlap": 2.5,
+      "affiliationDisjoint": -0.5,
+      "venueOverlap": 1.0,
+      "topicOverlap": 2.0,
+      "authorPositionAgree": 0.3,
+      "openalexConflict": -3.0,
+      "s2Conflict": -3.0,
+      "yearGapPerYear": -0.15,
+      "citationOverlap": 2.0,
+      "unreliability": -1.0
+    },
+    "nameFloor": 0.85,
+    "yearGapFree": 10,
+    "yearGapCap": 60
+  },
+  "work": {
+    "schemes": [
+      { "scheme": "DOI", "authoritative": true, "minCorroboration": 0.3 },
+      { "scheme": "ARXIV", "authoritative": true, "minCorroboration": 0.3 },
+      { "scheme": "OPENALEX", "authoritative": false, "minCorroboration": 0.3 },
+      { "scheme": "S2", "authoritative": false, "minCorroboration": 0.3 },
+      { "scheme": "REPO", "authoritative": false, "minCorroboration": 0.6 }
+    ],
+    "exactAcceptConfidence": 0.99,
+    "bibliographicConfidence": 0.97,
+    "bibliographic": {
+      "minTitleTokens": 4,
+      "maxYearDistance": 1,
+      "minAuthorSequence": 0.8
+    },
+    "weights": {
+      "bias": -5.0,
+      "titleSimilarity": 6.0,
+      "authorOverlap": 2.0,
+      "authorSequence": 1.0,
+      "venueCompatible": 1.0,
+      "yearDistancePerYear": -0.8,
+      "openalexConflict": -1.0,
+      "s2Conflict": -1.0,
+      "repoConflict": -0.5,
+      "citationOverlap": 2.0,
+      "unreliability": -1.0
+    },
+    "yearDistanceFree": 1,
+    "yearDistanceCap": 5
+  },
+  "adjudication": {
+    "minLlmConfidence": 0.8,
+    "maxFieldChars": 300,
+    "maxListItems": 5
+  }
+}
