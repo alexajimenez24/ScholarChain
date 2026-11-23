@@ -5,45 +5,192 @@
 Temporal weighted coauthorship graph construction and distributed graph analytics.
 The analytics are degrees, components, distances, communities, bridge scores, k-core,
 trends and evidence paths.
+The module reads only the Phase 04 J07 export and the Phase 05 er-v1 decisions, through
+their run manifests, and writes partitioned Parquet tables and load manifests.
+Job detail and every observed number: [spark-jobs](../../docs/spark-jobs.md).
 
 ## Owner and paths
 
 - Owner: spark-engineer (documentation-engineer owns only this file).
 - sbt project: `sparkAnalytics`; folder: `modules/spark`.
-- Source roots, empty `.gitkeep` placeholders only:
-  - `modules/spark/src/main/scala`
+- Source: `modules/spark/src/main/scala/scholarchain/spark/` (14 files).
 - Unit-test root: `tests/module-unit/spark/` (never `src/test`).
 
 ## Public API
 
-None yet.
-No source exists, so there is nothing to document or to test black-box.
+Package `scholarchain.spark`.
+Names are taken from the Phase 06 reports and checked against the files under `src/main`.
+All code is DataFrame and SQL functions; there are no Dataset encoders.
+Two Java UDFs exist since repair R1-1: `IdentityCut` (the identity contradiction cut) and
+the reject mapping `SparkPipeline.coreReject`.
+
+- Driver: `SparkPipeline.main`,
+  `SparkPipeline.run(spark, SparkArgs, ScholarChainConfig): Either[String, Outcome]`,
+  `SparkPipeline.StageProperty` (local property `scholarchain.stage`) and
+  `SparkPipeline.invariants`.
+- Arguments and inputs: `SparkArgs.parse`, `SparkArgs.Usage`, `Upstream.locate`,
+  `Inputs` (JSON-lines reader with counted rejects) and `Schemas` (explicit read schemas).
+- Run manifest: `SparkRunManifest.build`, `SparkRunManifest.runId` and
+  `SparkRunManifest.LogicVersion` ("spark-v2"; it was "spark-v1" before repair R1-1).
+- Identity (job 1, repair R1-1): `Canonical.build(src, run, identityPolicy)` takes the ER
+  policy version, `Canonical.constrainedClusters`, `Canonical.Clusters`,
+  `Canonical.ContradictingOutcomes`, `IdentityCut.cut` (pure step) and
+  `IdentityCut.udfFor`.
+- Jobs 1 to 9: `Canonical.build`, `CoauthorGraph.researcherPairs`, `CoauthorGraph.edges`,
+  `CoauthorGraph.metrics`, `WindowAnalytics.run`, `Paths.evidence`, `Paths.distanceStats`,
+  `Bridges.measures`, `Temporal.plan`, `Temporal.compare` and the `GraphAlgorithms.*`
+  functions (components, label propagation, k-core, multi-source BFS, source sampling,
+  betweenness, path reconstruction).
+- Jobs 10 and 11: `Summaries.*`, `Export.*` (graph node and edge builders, table writer,
+  `loadManifests`, which now takes the window labels) and `Evidence.*` (core EvidenceItem
+  columns).
+- Support: `RunInfo`, `Lineage.cut` (checkpointing), `Cols` and `Report`.
+- Arguments: `SparkArgs.checkpointRequirement(master, args)`.
+  `--checkpoint-dir` is required for any master other than `local` or `local[...]`;
+  `SparkPipeline.main` exits 2 with a usage error otherwise.
+  The Phase 12 run script (infra-engineer) must pass it, because `localCheckpoint` is
+  unsafe under EMR dynamic allocation.
+- Researcher and Work rows and graph nodes carry `provenance.policyVersion` er-v1 (the ER
+  policy of the run); other nodes keep graph-v1.
+  Researcher nodes have a `mentionIds` property, a sorted list joined with `|`.
+
+### Graph query contract: COAUTHORED_WITH is window-scoped
+
+For storage-engineer and service-engineer.
+There is one COAUTHORED_WITH edge per researcher pair per window (spec lines 1092 and
+1375), so overlapping windows give parallel edges for one pair.
+Every graph query over COAUTHORED_WITH, in Neptune, in the Parquet tables and in services,
+must filter on exactly one `window` value; an unfiltered query double counts.
+The Neptune load manifest has a `coauthoredWith` block with the scope, `windowProperty`
+"window", the configured window labels and this rule.
+
+### Identity policy (job 1)
+
+- ACCEPTED ER links are clustered, then a deterministic contradiction cut refuses the
+  weakest accepted link on a path that joins a contradicting pair: an UNRESOLVED,
+  CONFLICT or REJECTED decision, or two ORCID iDs.
+  Works use the same cut.
+- The orchestrator routed this as policy (a) from the human addendum ("Unresolved and
+  conflict decisions are preserved, never merged"); the human may overrule it at the gate
+  in favor of policy (b), keep and disclose transitive merges.
+- Counters per kind and per outcome, and the invariants
+  `invariant_<kind>ContradictionsMerged_O` and
+  `invariant_researcherClustersWithSeveralOrcids`, are listed in
+  [docs/spark-jobs.md](../../docs/spark-jobs.md).
+- Non-convergence is an invariant (0 or 1): `invariant_researcherClusterNotConverged`,
+  `invariant_workClusterNotConverged`, `invariant_componentsNotConverged` and
+  `invariant_corenessNotConverged`; a nonzero value gives exit 3.
+  Label propagation stays the flag `communitiesConverged`.
+- `identityConflict` now means that the cut refused an accepted link touching a member.
+  A contradiction inside a cluster is the invariant and must be 0.
+  `unresolved` is unchanged.
+
+Command line:
+
+```text
+SparkPipeline --hadoop-manifest <hadoop out>/run-manifests/<runId>.json \
+  --er-manifest <er out>/run-manifests/<runId>.json \
+  --output <dir> [--checkpoint-dir <dir>]
+```
+
+Exit codes: 0 done with every invariant at 0; 2 usage, config or upstream error with
+nothing written; 3 outputs written but an invariant failed (a loader must not load it).
+
+Local run (test scope, `tests/module-unit/spark/LocalPipelineRun.scala`):
+`sbt "sparkAnalytics/Test/runMain scholarchain.spark.LocalPipelineRun --capture <dir>
+--hadoop-manifest <...> --er-manifest <...> --output <dir>"`.
+
+Outputs: `<output>/spark/snapshot=<date>/run_id=<runId>/<table>/` (10 tables), four load
+manifests (`neptune`, `dynamodb`, `s3vectors`, `s3`), the run manifest and a summary.
+The core records used, and how components, communities, path evidence and temporal
+comparisons map onto `EvidenceItem`, are in
+[docs/spark-jobs.md](../../docs/spark-jobs.md).
 
 ## Done
 
-- The sbt project compiles with no application logic (phase 2).
-- Source and unit-test roots exist as `.gitkeep` placeholders.
+Source: `docs/agent-runs/phase-06/step-01-build-engineer-report.md`,
+`step-02-spark-engineer-report.md`, `agent-report.md`, `repair-01-spark-engineer.md`,
+`repair-01-build-engineer.md` and `output-spark-local-run-r1.md`.
+
+- Jobs 1 to 11, the driver, the run manifest and the load manifests are implemented.
+- `Test / fork` is on for this project, with the JDK module opens and `-Xmx1g`.
+- 33 Spark tests pass (CanonicalSuite 6, CollaborationSuite 3, WindowAnalyticsSuite 5,
+  RunManifestSuite 6, TemporalSuite 2, GraphAlgorithmsSuite 6, PipelineSuite 5).
+- After repair R1-1 one full `sbt check` exited 0 with core 94, adversarial 68,
+  entityResolution 112, Spark 33 and hadoop 98 passed.
+- A local rerun on the Phase 04 and Phase 05 sample outputs finished: run
+  `run-769e0d672ecd3c19` (logic spark-v2), SUCCEEDED, 94 invariants checked, all 0.
+  The graph has 205 nodes and 409 edges, 29 components (largest 6), 29 communities and
+  0 rejects, with 81 researchers.
+  The contradiction cut refused 3 accepted researcher links.
+  The step 03 run `run-4903a4f9eabba786` (spark-v1, 77 invariants, 79 researchers, 203
+  nodes, 403 edges) is history only.
+- The Spark job jar was rebuilt on the final tree (R1-2, `sbt sparkAnalytics/assembly`,
+  15:12:16, 4,071,345 bytes, `Main-Class` `scholarchain.spark.SparkPipeline`), with 0
+  `scala/collection/` and 0 `ScalaRunTime` entries and 377 `upickle/` entries.
+  The scala-library exclusion is in place (see Known issues).
 
 ## Not done
 
-- All application code and all unit tests.
-- No test case exists; `sbt check` reports 0 test cases for this module.
+- The bounded EMR Spark run: NOT RUN.
+  Cloud work starts in Phase 12, and there is no infrastructure and no approval.
+- Paper summaries are not built, only topic summaries; the `abstracts` index is empty.
+- No summary limits: the `graph` config block names none, so a config field from
+  domain-engineer is needed before a full-DBLP run.
+- Conversion of the graph tables to the Neptune bulk-load CSV belongs to storage-engineer.
+- `sbt packageJobs` itself was not run; `sbt sparkAnalytics/assembly` was run on the final
+  tree in R1-2.
+- No automated test covers the scala-library exclusion.
 
 ## Known issues
 
-Spark 4.0.1 is built for Scala 2.13, the line Scala 3 links against
-(`project/Versions.scala`).
-The runtime target is `emr-spark-8.0.0` (human decision, 2026-11-22).
-Its availability in us-east-2 is still to be checked before the first cloud run.
-Application code must stay DataFrame-shaped, because Dataset encoders need Scala 2
-TypeTags (`build.sbt`, comment above `sparkAnalytics`).
-Compiling here proves only that it compiles; no Spark code or test exists yet.
-
-Local Spark tests on JDK 17 will need `Test / fork := true` and `--add-opens` JVM options.
-Ask build-engineer when the first Spark test is written.
-
-A graph library such as GraphFrames would be a new dependency.
-It raises the same 2.12 vs 2.13 question and goes through build-engineer.
+- Runtime target: `emr-spark-8.0.0` (human decision, 2026-11-22).
+  Spark 4.0.1 is built for Scala 2.13, the line Scala 3 links against.
+  Its availability in us-east-2 is still to be checked before the first cloud run.
+- Spark job jar and scala-library (closes Phase 02 carried-forward MINOR-B, with the
+  decision as kept by the Phase 06 work order):
+  scala3-library_3 3.3.9 depends on scala-library 2.13.18, but the EMR runtime ships
+  2.13.16.
+  The Spark job jar therefore excludes scala-library (`assembly / assemblyExcludedJars` in
+  `build.sbt`, MINOR-2 option (b)) and links against the cluster's copy.
+  scala3-library and uPickle are still bundled.
+  Step 01 and, on the final tree, R1-2 checked the jar: 0 entries under
+  `scala/collection/`, 0 `ScalaRunTime` entries, 377 `upickle/` entries.
+  The check looks for absence by those two markers only.
+  Residual risk, unverified until the first EMR run: Scala 3.3.9 emits code against
+  2.13.18, so a call to a member added after 2.13.16 would throw `NoSuchMethodError`.
+  No automated test covers the exclusion (MINOR-D, test-engineer).
+  The hadoop and entityResolution jars keep scala-library bundled.
+- Identity cut (MAJOR-1 repair): it is greedy, not optimal, so with several
+  contradictions it can refuse more links than a minimum cut would.
+  There is no config bound on the size of a contradicted cluster: its links sit in one row
+  on one executor, so memory grows with the largest one.
+  A field from domain-engineer is needed before a full-DBLP run.
+  Policy (a) was routed by the orchestrator and the human may overrule it at the gate.
+- The convergence flags `componentsConverged`, `corenessConverged` and
+  `<kind>ClusterConverged` were replaced by the invariant keys above; no reader of the old
+  keys exists in the repository.
+- The sample shows little structure: every work is from 2014, so the windows 2000-2009
+  and 2015-2026 are empty, the 29 communities each equal a component, there are 0
+  cross-community edges and the participation coefficient is 0.
+  Temporal comparisons compare an empty window with a full one.
+  Cross-community bridges and temporal change are covered only by the known-graph suites.
+- Bridge score is a sampled estimate (16 sources, seed 441), unweighted, and can exceed 1.
+- Synchronous label propagation can still oscillate on some structures; it is bounded by
+  `communityIterations` and reported through `communitiesConverged`.
+  The self vote equals the node's strongest edge weight, because a fixed self vote
+  oscillated forever on weighted edges.
+- Distance statistics cover only components that hold a sampled source.
+- Team size counts unmerged mentions, so it can be inflated
+  (`worksWithTeamAboveEverySourceList`, 3 in the local rerun, 1 before the repair).
+- Scale, unmeasured: the job 10 union is one checkpointed plan of 2532 nodes;
+  `supportingWorkIds` is unbounded per edge; community member lists in summaries grow
+  with community size; a reliable checkpoint each iteration is untested on EMR.
+- The tables for components, communities, path evidence, temporal comparisons and
+  summaries use the `EvidenceItem` shape because no dedicated core record exists;
+  `score` is 0.0 at export.
+- The black-box test classpath has no fork or module opens for a local SparkSession
+  (Phase 02 MINOR-A, build-engineer); slf4j-api is bundled in the job jars (N-c).
 
 ## Dependencies
 
@@ -51,5 +198,9 @@ It raises the same 2.12 vs 2.13 question and goes through build-engineer.
 - Library: `spark-sql` 4.0.1 (Scala 2.13 artifacts) via `CrossVersion.for3Use2_13`,
   Provided.
 - Packaged by `packageJobs` into `target/jobs/`.
+- A graph library such as GraphFrames is not used; adding one would be a new dependency
+  through build-engineer.
 
 Allowed by the boundary table in `AGENTS.md`; no module depends on `services`.
+Spark exchanges data with Hadoop and entity resolution only through their run manifests
+and S3 folders, never through code imports.

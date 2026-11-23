@@ -21,16 +21,19 @@ resume. -->
   `git log --oneline -3` shows a43fa55 "phase-04 hadoop-engineer: DBLP parser, source
   normalizers, MapReduce jobs J01-J07" and 4388607 "phase-04: record accepted commit".
   Items N1 to N7 stay open; see "Phase 04 task list" and "Carried forward from Phase 04".
-- Phase 05: entity resolution is in progress.
-  Steps 01 (build-engineer), 02 (T1), 03 (T2), 03b (T1b) and 04 (T3; the last four by
-  entity-resolution-engineer) are done; v1 is labeled (280 rows).
-  The human will not label v1b (decision 03), so T3 ran on v1 only.
-  Human decision 04 answered open items 1 and 2, and step 05 (documentation) is done.
-  Review 1 is done (APPROVE WITH CARRIED-FORWARD ITEMS) and repair round 1 is done
-  (R1-1, R1-2, R1-3).
-  Review 2 is done (APPROVE WITH CARRIED-FORWARD ITEMS); next is the Phase 05 human gate.
-  See "Phase 05 task list", "Current state (phase 05)" and "Carried forward from
-  Phase 05 (for the human gate)".
+- Phase 05: entity resolution, committed.
+  `git log --oneline -2` shows acb5f21 "phase-05: record accepted commit hash" and
+  4dfb3bd "phase-05 entity-resolution-engineer: er-v1 matching, adjudication port,
+  review queue, gold-set evaluation"; `docs/agent-runs/phase-05/commit.txt` holds
+  4dfb3bd46d3c0ea2abd50d4e386ce5158ea767c7.
+  v1 was labeled (280 rows), v1b was not used (decision 03), and Review 2 was APPROVE
+  WITH CARRIED-FORWARD ITEMS.
+  See "Phase 05 task list" and "Carried forward from Phase 05 (for the human gate)".
+- Phase 06: Spark collaboration analysis. All tasks, repair round 1 and both reviews
+  are done (Review 1 REQUEST_CHANGES; Review 2 APPROVE WITH CARRIED-FORWARD ITEMS).
+  The next step is the Phase 06 human gate (ratify, commit, decide the carried items).
+  See "Phase 06 task list", "Carried forward from Phase 06 (for the human gate)" and
+  "Current state (phase 06)".
 
 ## Carried forward from Phase 01
 
@@ -51,8 +54,8 @@ resume. -->
 
 - MINOR-A: the black-box test classpath has two SLF4J providers, and no fork or
   `--add-opens` for a local SparkSession (build-engineer, before Phase 11 tests).
-- MINOR-B: spark MODULE.md lacks the scala-library exclusion and the open MINOR-2
-  decision (documentation-engineer).
+- MINOR-B: closed in Phase 06 step 04; `modules/spark/MODULE.md` Known issues now
+  records the scala-library exclusion and its residual risk.
 - MINOR-D: no automated test for the Spark jar exclusion or the black-box classpath
   (test-engineer, after the MINOR-2 decision).
 - N-a: stale EMR 7.x text in `docker/services/Dockerfile:6` and
@@ -706,18 +709,267 @@ opus, high, fresh context.
 - The er-v1 policy resource hash is unchanged (starts 82ce9ae5) and no leakage was
   found.
 
-## Current state (phase 05)
+## Current state (phase 06)
+
+- Tasks done: step 00 (documentation-engineer, the task list), step 01 (build-engineer),
+  step 01s (documentation-engineer), step 02 (spark-engineer, T1), step 02s
+  (documentation-engineer), step 03 (spark-engineer, T2), step 03s
+  (documentation-engineer), step 04 (documentation-engineer, `docs/spark-jobs.md` and
+  `modules/spark/MODULE.md`), Review 1 (code-reviewer, fresh: REQUEST_CHANGES,
+  1 major, 5 minor, 4 nits; `docs/agent-runs/phase-06/review-report.md`), and
+  repair R1-1 (spark-engineer, all seven findings fixed; see note R1-1), R1-2
+  (build-engineer, jar rebuilt; see note R1-2) and R1-3 (documentation-engineer),
+  and Review 2 (code-reviewer, fresh: APPROVE WITH CARRIED-FORWARD ITEMS, 3 nits;
+  `docs/agent-runs/phase-06/review-report-02.md`).
+- Task running: none.
+- Next task: the Phase 06 human gate (ratify, commit, decide the carried items).
+- Half done: nothing.
+- Git: HEAD is acb5f21 "phase-05: record accepted commit hash", with 4dfb3bd below it.
+  `git status --short` (run for this update) shows nothing committed for Phase 06:
+
+  ```text
+   M STATUS.md
+   M build.sbt
+   M modules/spark/MODULE.md
+  ?? docs/agent-runs/phase-06/
+  ?? docs/spark-jobs.md
+  ?? modules/spark/src/main/scala/scholarchain/
+  ?? tests/module-unit/spark/CanonicalSuite.scala
+  ?? tests/module-unit/spark/CollaborationSuite.scala
+  ?? tests/module-unit/spark/GraphAlgorithmsSuite.scala
+  ?? tests/module-unit/spark/LocalPipelineRun.scala
+  ?? tests/module-unit/spark/LocalSpark.scala
+  ?? tests/module-unit/spark/PipelineSuite.scala
+  ?? tests/module-unit/spark/RunManifestSuite.scala
+  ?? tests/module-unit/spark/TemporalSuite.scala
+  ?? tests/module-unit/spark/WindowAnalyticsSuite.scala
+  ?? tests/module-unit/spark/resources/
+  ```
+- Harness: claude-code.
+- Resume in a fresh session with:
+  `cd ~/scholarchain && claude "Read STATUS.md and continue with its next step."`
+
+## Phase 06 task list
+
+Phase 06 is the Spark collaboration-analysis pipeline (spark-engineer), work order and
+human addendum in `docs/agent-runs/phase-06/prompt.md`.
+Reports are saved in `docs/agent-runs/phase-06/`.
+The reference material in `~/ref-phase-06/` is a starting point only; each owner adapts
+it and owns the result.
+
+| Step | Owner | Scope | Report | Done means / check | State |
+|---|---|---|---|---|---|
+| 00 | documentation-engineer | this task list | `step-00-documentation-engineer-report.md` | table present | done |
+| 01 | build-engineer | fork sparkAnalytics tests with the JDK module opens, -Xmx1g, versions only from project/Versions.scala; keep scala-library excluded from the Spark job jar; confirm the Spark job jar builds | `step-01-build-engineer-report.md` | `sbt sparkAnalytics/test` runs forked; Spark job jar builds | done, see note step 01 |
+| 01s | documentation-engineer | STATUS after step 01 | - | STATUS updated | done |
+| 02 (T1) | spark-engineer | jobs 1 to 9 (canonical tables, temporal weighted coauthor graph, breadth and team-size stats, components, paths, communities, bridges, k-core, temporal windows) with hand-checkable known-graph suites | `step-02-spark-engineer-report.md` | `sbt sparkAnalytics/test` green | done, see note step 02 |
+| 02s | documentation-engineer | STATUS after step 02 | - | STATUS updated | done |
+| 03 (T2) | spark-engineer | jobs 10 and 11 (semantic summaries, Parquet export, load manifests), run manifest, local integration run on the Phase 04 and 05 sample outputs (local[2], 4 shuffle partitions, UI off) captured in `output-spark-local-run.md`, then one full `sbt check`; bounded EMR run reported NOT RUN (cloud work starts in Phase 12) | `agent-report.md` | local run captured; full `sbt check` green | done, see note step 03 |
+| 03s | documentation-engineer | STATUS after step 03 | - | STATUS updated | done |
+| 04 | documentation-engineer | `docs/spark-jobs.md` and `modules/spark/MODULE.md` with only observed numbers; STATUS | `step-03-documentation-engineer-report.md` (name set by the prompt) | every number traces to a saved report | done, see note step 04 |
+| Review 1 | code-reviewer (fresh) | whole Phase 06 diff | `review-report.md` | verdict | done, REQUEST_CHANGES (1 major, 5 minor, 4 nits) |
+| R1 | owners named by the review | repair round 1, one round only | `repair-01*.md` | findings fixed | done (R1-1, R1-2, R1-3) |
+| Review 2 | code-reviewer (fresh) | re-check, only if review 1 has a CRITICAL or MAJOR finding | `review-report-02.md` | verdict | done, APPROVE WITH CARRIED-FORWARD ITEMS (3 nits) |
+| Gate | human | ratify and commit | the gate file | - | next |
+
+Phase 06 repair round 1 (one round only; reports saved as `repair-01-<owner>.md`):
+
+| Task | Owner | Scope | Report | State |
+|---|---|---|---|---|
+| R1-1 | spark-engineer | MAJOR-1 under policy (a), MINOR-1 to MINOR-4, NIT-3, NIT-4; sparkAnalytics tests, local run rerun, one sbt check | `repair-01-spark-engineer.md` | done, see note R1-1 |
+| R1-2 | build-engineer | MINOR-5, job jar built on the final tree, scala-library absence re-checked | `repair-01-build-engineer.md` | done, see note R1-2 |
+| R1-3 | documentation-engineer | NIT-1, NIT-2, MAJOR-1 and MINOR-3 doc text, numbers from the rerun, STATUS | `repair-01-documentation-engineer.md` | done, see note R1-3 |
+| Review 2 | code-reviewer (fresh) | re-check of the whole Phase 06 diff, required because review 1 had a MAJOR finding | `review-report-02.md` | done, APPROVE WITH CARRIED-FORWARD ITEMS (3 nits) |
+
+Note R1-1 (report `docs/agent-runs/phase-06/repair-01-spark-engineer.md`):
+all seven findings are fixed.
+
+- MAJOR-1 uses policy (a): a deterministic contradiction cut refuses the weakest
+  accepted link on a path that joins a contradicting pair.
+- MINOR-1 to MINOR-4, NIT-3 and NIT-4 are fixed as the report describes.
+- The LogicVersion is now spark-v2.
+- `sbt sparkAnalytics/test` passed 33 of 33.
+- The local rerun `run-769e0d672ecd3c19` SUCCEEDED, with 94 invariants, all 0.
+  It refused 3 accepted researcher links and gives 81 researchers (was 79).
+  Numbers are in `docs/agent-runs/phase-06/output-spark-local-run-r1.md`.
+- The full `sbt check` exited 0 (94, 68, 112, 33 and 98 passed).
+- Risk: no config bound on the size of a contradicted cluster before a full-DBLP
+  run (domain-engineer field).
+
+Note R1-2 (build-engineer, report `docs/agent-runs/phase-06/repair-01-build-engineer.md`):
+COMPLETE; MINOR-5 is closed.
+
+- The jar was rebuilt on the final tree at 15:12:16 with `sbt sparkAnalytics/assembly`:
+  4,071,345 bytes, `Main-Class: scholarchain.spark.SparkPipeline`.
+- Entry counts: `scala/collection/` 0, `ScalaRunTime` 0, `upickle/` 377.
+- The orchestrator counted 6 `scholarchain/spark/SparkPipeline*` entries in the jar.
+- No build file changed and `sbt check` was not run, as ordered.
+
+Note R1-3 (documentation-engineer, report
+`docs/agent-runs/phase-06/repair-01-documentation-engineer.md`): `docs/spark-jobs.md`,
+`modules/spark/MODULE.md` and this file updated; no sbt was run.
+
+- MAJOR-1 and MINOR-1 to MINOR-4 text is written from the R1-1 report, with the rerun
+  numbers (`run-769e0d672ecd3c19`) from `output-spark-local-run-r1.md`.
+- NIT-2: the driver does set `spark.cleaner.referenceTracking.cleanCheckpoints`
+  (`SparkPipeline.scala:58`, checked by grep; the review cited line 50).
+- NIT-1: the Git line below comes from a `git status --short` run for this update.
+
+Note review 1 (`docs/agent-runs/phase-06/review-report.md`):
+
+MAJOR-1 = UNRESOLVED and CONFLICT ER pairs merged transitively through accepted links.
+On the sample, 3 of the 5 unresolved researcher pairs end up in one canonical researcher.
+The orchestrator routes policy (a): split a cluster on a contradicting decision.
+The human addendum says "Unresolved and conflict decisions are preserved, never merged",
+so policy (b), keep and disclose, would contradict it.
+The human can overrule this at the gate.
+One repair round only: findings still open after Review 2 carry forward to the human.
+
+Note step 01 (build-engineer, report
+`docs/agent-runs/phase-06/step-01-build-engineer-report.md`):
+
+- `build.sbt` sparkAnalytics tests now fork, with the reference JDK module opens and
+  -Xmx1g. No version values changed.
+- scala-library is still excluded from the Spark job jar. Jar check: 0 entries under
+  `scala/collection/`, 0 `ScalaRunTime` entries, scala3-library and uPickle bundled
+  (377 `upickle/` entries).
+- `sbt sparkAnalytics/assembly` reported the jar up to date. The change is Test-only,
+  so the jar was not rebuilt from scratch.
+- `sbt sparkAnalytics/test` succeeded with no tests yet, so the fork options are
+  unexercised until step 02.
+
+Note step 02 (spark-engineer, T1, report
+`docs/agent-runs/phase-06/step-02-spark-engineer-report.md`): done, COMPLETE.
+
+- Code: jobs 1 to 9 in `modules/spark` (10 source files under
+  `src/main/scala/scholarchain/spark/`), with 5 suites and `LocalSpark` in
+  `tests/module-unit/spark/`.
+- `sbt sparkAnalytics/test` passed 20 of 20 on the final files (run 4, after
+  scalafmt).
+  Earlier runs failed 7 and then 5 tests; all were fixed (an algorithm flaw, an
+  ambiguous column reference, the 30 s munit timeout and a test assumption on ID
+  order).
+- The step 01 fork options (module opens, -Xmx1g) worked on first use.
+- Algorithm change against the reference: label propagation with a fixed self vote
+  oscillated forever on weighted edges.
+  The self vote now equals the node's strongest edge weight.
+  Synchronous label propagation can still oscillate on other structures; it is
+  bounded by `communityIterations`.
+- Not run: the full `sbt check`, as the work order defers it to step 03.
+  The stop hook fired for it, and `.claude/.last-test-run` is stale.
+- Open for T2 (step 03):
+  - the driver, run-manifest inputs, jobs 10 and 11, and the local integration run;
+  - a contract gap: components, communities, path evidence and temporal comparisons
+    have no core record.
+    T2 maps them onto existing core records or reports BLOCKED-ON domain-engineer.
+- No EMR run, no cloud work, no commits.
+
+Note step 03 (T2, report `docs/agent-runs/phase-06/agent-report.md`): done, COMPLETE.
+
+- Code: jobs 10 and 11, the driver `SparkPipeline`, and the Spark run manifest
+  (`RunManifest.scala`, `Summaries.scala`, `Export.scala`, `SparkPipeline.scala`).
+  Added suites: `RunManifestSuite` (5 tests) and `PipelineSuite` (5 tests).
+- Local integration run (local[2], 4 shuffle partitions, UI off), run ID
+  `run-4903a4f9eabba786`: SUCCEEDED, 77 invariants checked, all 0.
+  The observed numbers are in `output-spark-local-run.md`.
+- The graph has 203 nodes and 403 edges, 29 components (largest 5), 29 communities
+  and 0 rejects.
+  Of 120 path pairs per non-empty window, 4 are found.
+- Full `sbt check` ran once and exited 0.
+  Passed totals were 94, 68, 112, 98 and 30; the Spark project ran 30 tests.
+- Contract gap: the tables with no core record are written in the committed
+  EvidenceItem shape (evidence-v1); nodes and edges use core GraphNode and GraphEdge.
+  Nothing is BLOCKED-ON domain-engineer.
+- Sample limits: every sample work is from 2014, so the windows 2000-2009 and
+  2015-2026 are empty, and there are no cross-community edges.
+  The temporal comparisons therefore compare an empty window with a full one.
+- Not done: no paper summaries; the config has no summary limits, so a domain-engineer
+  config field is needed before a full-DBLP run; the Neptune bulk-load CSV conversion
+  belongs to storage-engineer.
+- Bounded EMR Spark run: NOT RUN. Cloud work starts in Phase 12.
+
+Note step 04 (documentation-engineer, report
+`docs/agent-runs/phase-06/step-03-documentation-engineer-report.md`):
+`docs/spark-jobs.md` written and `modules/spark/MODULE.md` rewritten.
+
+- Every number is cited to step 01, step 02, step 03 or the local-run output; none comes
+  from the reference repository.
+- The scala-library exclusion from the Spark job jar (MINOR-2 option (b)) is now in the
+  MODULE.md Known issues, which closes carried-forward MINOR-B.
+  MINOR-A, MINOR-D, N-a, N-c and N-d stay open.
+- No sbt was run and no documented command was replayed, as the work order directed.
+  Public API names were checked by grep against `src/main`.
+- Not stated in the reports at the time, so not claimed then: whether the driver sets
+  `spark.cleaner.referenceTracking.cleanCheckpoints` (it does, see note R1-3), and whether
+  `sbt packageJobs` ran with the Phase 06 sources (R1-2 ran
+  `sbt sparkAnalytics/assembly`, not `packageJobs`).
+
+Phase rules:
+
+- Deadline is 2026-11-25; build only what the work order and the gate need.
+- Spark reads only the Phase 04 J07 export and the Phase 05 er-v1 decisions, located
+  through their run manifests, never raw data or `datasets/gold/`.
+- A missing core contract or config field is BLOCKED-ON domain-engineer.
+- Machine limits (8 GB laptop): one sbt at a time, every command in the foreground with a
+  timeout, no background shells or polling, only `sbt sparkAnalytics/test` while working,
+  and the full `sbt check` once, at the end of step 03.
+- No commits, no cleanup script run and no cloud resources.
+
+## Carried forward from Phase 06 (for the human gate)
+
+Items 1 to 4 and 6 come from `docs/agent-runs/phase-06/review-report-02.md` (Review 2).
+Each item names its source when it is not that report.
+
+1. Identity policy (human decision).
+   Policy (a), the contradiction cut, is implemented.
+   The orchestrator routed it from the human addendum ("Unresolved and conflict
+   decisions are preserved, never merged").
+   The human ratifies (a) or overrules it for policy (b), keep and disclose.
+   Consequence under (a): one probable person can appear as two nodes, and two pieces
+   can both author one canonical work.
+   `worksWithTeamAboveEverySourceList` went from 1 to 3.
+2. No config bound on contradicted-cluster size before a full-DBLP run.
+   One row per cluster sits on one executor.
+   Owner: domain-engineer (config field), then spark-engineer.
+3. The greedy cut can refuse more links than a minimum cut would (9bcc lost 2 links).
+4. The bounded EMR Spark run is NOT RUN until Phase 12.
+   The infra-engineer run script must pass `--checkpoint-dir`; a non-local master
+   without it exits 2 (`SparkPipeline.scala:62`, from
+   `docs/agent-runs/phase-06/repair-01-spark-engineer.md`).
+5. Not done by scope (source: Phase 06 step 03 report, `agent-report.md`):
+   - no paper summaries;
+   - no summary limits in the config, so a domain-engineer config field is needed
+     before a full-DBLP run;
+   - the Neptune bulk-load CSV conversion belongs to storage-engineer (Phase 07);
+   - the COAUTHORED_WITH window filter (MINOR-3, option 2) is the graph query contract
+     for storage-engineer and service-engineer (orchestrator work order).
+6. Nits from Review 2, at the human's discretion:
+   - NIT-A (spark-engineer): `CanonicalSuite.scala:358` says 9 links; the fixture has 10.
+   - NIT-B (documentation-engineer): `docs/spark-jobs.md:323-324` and `:381-382` cite LR;
+     the 2532 plan size and "10 vs 5, 5 vs 12" come from LR0 and SR3, not LR.
+   - NIT-C (documentation-engineer): `docs/spark-jobs.md:46-47` says all code is
+     DataFrame and SQL, without the two Java UDFs; the driver-traffic list at `:281-283`
+     omits the cut's at most 3 outcome rows and the policy-version rows.
+7. Process (orchestrator work order; `STATUS.md` note step 02):
+   - the stop hook asked for `sbt check` before the scheduled run several times; the
+     orchestrator held to the one-sbt rule;
+   - guard-dangerous false positives on the test-marker path and gate-file names belong
+     to factory-engineer, Phase 11 (see "Carried forward from Phase 05", item 7).
+
+## Previous state (phase 05, closed)
 
 - Tasks done: step 01 (build-engineer), step 02 (T1), step 03 (T2), step 03b (T1b),
   step 04 (T3, evaluation on v1), step 05 (documentation), Review 1, R1-1, R1-2,
   R1-3 and Review 2.
 - Task running: none.
-- Next task: the Phase 05 human gate (ratify, commit, decide the carried-forward items
-  below).
+- Next task: none; the gate is done and Phase 05 was committed as 4dfb3bd (recorded by
+  acb5f21).
+  The carried-forward items below stay open.
 - Half done: nothing.
   v1 labeling is done (280 rows) and v1b is abandoned (decision 03).
-- Git: HEAD is 4388607 (Phase 04 accepted).
-  `git status --short` at the time of this update showed:
+- Git at the time of the update (before the commit): HEAD was 4388607 (Phase 04
+  accepted), with the Phase 05 files uncommitted; they were committed as 4dfb3bd.
+  `git status --short` at the time of that update showed:
   - modified, tracked: `STATUS.md`, `build.sbt`,
     `modules/entity-resolution/MODULE.md`;
   - untracked: `datasets/gold/`, `docs/agent-runs/phase-05/`,
@@ -812,6 +1064,8 @@ in this file.
   pinned to scala-library at or below 2.13.16; (b) scala-library excluded from the
   Spark job jar, as now built; (c) `userClassPathFirst`.
   Scala 3.3.9 pulls scala-library 2.13.18, and emr-spark-8.0.0 ships 2.13.16.
+  Phase 06 update: the Phase 06 work order keeps option (b), scala-library excluded from
+  the Spark job jar, as committed.
 - Gate disclosures for `human-gate.md` (review 1 MAJOR-3, provenance in `run-log.md`
   step 0):
   - the Phase 2 deliverables were placed from a prepared package, not written by agents;

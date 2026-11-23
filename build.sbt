@@ -235,7 +235,29 @@ lazy val sparkAnalytics = module("sparkAnalytics", "spark")
     assembly / assemblyExcludedJars := {
       val cp = (assembly / fullClasspath).value
       cp.filter(_.data.getName.startsWith("scala-library-"))
-    }
+    },
+    // Local Spark on JDK 17 needs these module opens (Spark reflects into java.base), so the
+    // Spark tests run in a forked JVM, like the Hadoop projects. Heap is capped at 1g (the
+    // laptop has 5 GB for WSL). The Spark version comes only from V.spark above.
+    Test / fork := true,
+    Test / javaOptions ++= Seq(
+      "-XX:+IgnoreUnrecognizedVMOptions",
+      "--add-opens=java.base/java.lang=ALL-UNNAMED",
+      "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+      "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+      "--add-opens=java.base/java.io=ALL-UNNAMED",
+      "--add-opens=java.base/java.net=ALL-UNNAMED",
+      "--add-opens=java.base/java.nio=ALL-UNNAMED",
+      "--add-opens=java.base/java.util=ALL-UNNAMED",
+      "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
+      "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
+      "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+      "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
+      "--add-opens=java.base/sun.security.action=ALL-UNNAMED",
+      "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
+      "-Djdk.reflect.useDirectMethodHandle=false",
+      "-Xmx1g"
+    )
   )
 
 lazy val storage = module("storage", "storage")
