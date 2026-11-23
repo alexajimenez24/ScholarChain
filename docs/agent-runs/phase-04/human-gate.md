@@ -93,6 +93,6 @@ The Phase 04 Hadoop pipeline is accepted as committed. Carried forward from Revi
 
 ## Commit
 
-Accepted commit: COMMIT_HASH
+Accepted commit: a43fa55676069866d46f92dcf649683c4c1b5799
 
 Phase 4 is complete. I approve starting Phase 5.
