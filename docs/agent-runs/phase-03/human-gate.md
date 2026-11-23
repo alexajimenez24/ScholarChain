@@ -88,6 +88,6 @@ and `STATUS.md`:
 
 ## Commit
 
-Accepted commit: COMMIT_HASH
+Accepted commit: 9a65cf2e4de050017e56db15505a27a8fd0be916
 
 Phase 3 is complete. I approve starting Phase 4.
