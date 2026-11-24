@@ -1,0 +1,116 @@
+HARNESS: claude-code
+MODEL: Sonnet 5.5 (standard tier, role default; effort per .agents/models.json)
+
+STATUS: COMPLETE (with two items to route; see RISKS 1 and 2: the real Parquet run was NOT loaded, and the Spark export has no institution ID and no paper-abstract rows)
+OWNER: storage-engineer
+WORK ORDER: phase 07 step 03, task T3. S3 Vectors adapter, five-index vector loader, Bedrock embedder, idempotent reload of every loader, gated AWS integration suite.
+
+FILES CREATED (absolute, under /home/ajcreator/scholarchain):
+- modules/storage/src/main/scala/scholarchain/storage/VectorStore.scala
+- modules/storage/src/main/scala/scholarchain/storage/Embedder.scala
+- modules/storage/src/main/scala/scholarchain/storage/VectorLoader.scala
+- modules/storage/src/main/scala/scholarchain/storage/Loaders.scala
+- tests/module-unit/storage/VectorSuite.scala
+- tests/module-unit/storage/LoaderSuite.scala
+- tests/module-unit/storage/AwsIntegrationSuite.scala
+FILES MODIFIED: none. I touched no T1/T2 file, no MODULE.md, no core, no build file.
+
+COMMANDS RUN (foreground, one sbt at a time, with timeout):
+- `sbt -Dsbt.server.forcestart=true storage/compile`: 1 failure (enum member `message` clashed with a def), fixed.
+- `sbt storage/compile`: 2 more compile failures fixed (my `RemoteError.text` accessor, then a name clash `CountEntry` with T2's class; renamed mine `ReportCount`), then success.
+- `sbt storage/test`: run 1 test-compile error (my own syntax slip); run 2 two failures, both wrong test expectations of mine (a fixture abstract carried an evidenceId; a replay of a Succeeded ledger stage keeps Succeeded, the conflict is only reported); run 3 green.
+- `sbt storage/scalafmt storage/Test/scalafmt storage/test`: green.
+- Read-only: `ls`, `find`, `cat`, `grep` on the Phase 06 run folder, plus aws-docs reads. No full `sbt check`, no AWS call, no Docker.
+
+TEST RESULTS: last run, `sbt storage/test`: `Passed: Total 153, Failed 0, Errors 0, Passed 153, Ignored 1`.
+153 tests executed and passed; the gated suite AwsIntegrationSuite is the 1 ignored (NOT RUN). 82 earlier (T1 33, T2 49) + 71 new:
+- VectorLimitsSuite 5, InMemoryVectorStoreSuite 3, S3VectorsStubSuite 8, BedrockEmbedderSuite 5
+- SemanticDocumentSuite 5, LoadManifestSuite 2, RowSourceSuite 2
+- VectorLoaderSuite 25, ResearcherMetricsLoaderSuite 7, NeptuneLoadJobSuite 2
+- AwsGateSuite 5, AwsIntegrationHarnessSuite 2
+- AwsIntegrationSuite: 1 ignored.
+Required-test coverage:
+- serialization round trips: MetaValue, SemanticDocument and PaperAbstract (uPickle and strict JsonLines), uploaded vector bodies through the stub, load manifests.
+- idempotent reload: vectors (no PutVectors, no new S3 object, same report object `Unchanged`, no embed call, ledger entry equal), metrics (no new item or object, ledger equal), Neptune files (all `Unchanged`).
+- missing and malformed metadata: VectorLoaderSuite "malformed rows ...", "missing metadata ...", "malformed metadata ...", "wrong-dimension embedding".
+- duplicate keys: identical copy dropped and counted, conflicting copies all rejected (vectors and metrics); key bound to other text rejected; same text under another model rejected.
+- edge endpoint and evidence validation: already T2, NeptuneValidationSuite (19 tests, e.g. "a missing endpoint Researcher rejects the edge", "an edge without its coauthor-edge record has no evidence", "endpoints in the wrong order"); confirmed present and green in this run.
+- conditional writes: already T1, KeyValueFakeSuite and TablesSuite ("putIfAbsent refuses a duplicate key", "replaceIfVersion needs the stored version", RunLedger/ArtifactRegistry), DynamoStubSuite, S3StubSuite (If-None-Match 412/409); confirmed green. New: the loaders' conditional paths (metrics refused under the same metric version, text object never overwritten).
+- no long text in vector metadata: SemanticDocumentSuite (10 KB text leaves no fragment, text-like keys and values over 512 bytes refused) and VectorLoaderSuite (stored vector values all compact, text whole in S3).
+- integration suite off by default: AwsGateSuite (5 tests: only the exact value `true` opens the gate; this run is not opted in and AwsIntegrationSuite.munitIgnore is true; a closed gate returns NotRun with 0 transport calls even with every other variable set; an opened gate without configuration fails before any call; build.sbt does not contain the opt-in variable).
+
+VALIDATION RESULTS
+
+1. Indexes (names from core VectorConfig, which matches the Spark run manifest `vectorIndexes`; dimension from `vectors.dimension`, default 256, tests use 16; distance cosine; float32). Vector key = the document's `chunkId` (`c:` + 20 hex, core `Ids.chunk(entity, sourceVersion, docType, ordinal, sha256(text))`), so a changed text is a new key.
+
+| Index | docType | entity filter field(s) | Source of rows |
+|---|---|---|---|
+| researcher-profile-v1 | researcher-profile | `researcherIds` (list of the researcher) | Spark semantic-summaries, 162 rows in the real run |
+| collaboration-community-v1 | collaboration-community | `communityId` (= entityId) | Spark, 58 rows |
+| collaboration-path-v1 | collaboration-path | `pathId` (= entityId, the path evidence ID), `researcherIds` (source and target) | Spark, 8 rows |
+| topic-institution-summary-v1 | topic-institution-summary | `topicId` (= entityId); `institutionId` only if the row's `values` has it (the Phase 06 export does not) | Spark, 88 rows |
+| paper-abstract-v1 | paper-abstract | `workId` (= entityId) | NOT exported by Spark. Source is Hadoop J02 `abstracts` (`abstract-v1`, `AbstractRecord`: workId, textHash, text, provenance); the loader reads those JSON lines through `PaperAbstract` + `SemanticDocument.fromAbstract`. The local Hadoop export `run-6d1175dbfdb874a9` has no `abstracts` folder (it holds mentions, authorpapers, works, teams, institutions, topics, pairs, venues), and `s3vectors.json` lists only 4 indexes, 316 rows. So paper-abstract-v1 is wired and tested on fixtures, with no real rows. |
+
+Metadata, filterable (all indexes unless noted): `documentType`, `entityId`, `source` (SCHOLARCHAIN, DBLP, ...), `runId` (run that wrote the vector), `snapshot`, `embeddingModel`; windowed docs: `window` ("2010-2014"), `windowStartYear`, `windowEndYear` (numbers, so year-range filters work); `researcherIds` (string list, at most 16; absent for communities); `communityId`, `topicId`, `institutionId`, `workId`, `pathId` as in the table or when the row carries them.
+Metadata, NON-filterable (fixed at index creation, 4 of the 10 allowed): `textUri`, `textSha256` (`sha256:` form), `evidenceId`, `sourceUri`. Long text and the generated profile are NOT in the vector: the whole `SemanticDocument` JSON is stored create-only at `s3://{ragBucket}/semantic-context/{docType}/run_id={run}/{chunkId}.json` and the vector holds only `textUri` and `textSha256`.
+Compactness policy beyond the service limits: no key named text, body, content, abstract, profile, summary or description; no string over 512 bytes; no value repeating a 40-character span of the text; at most 16 researcher IDs. Enforced in `VectorMetadata.check`, before any put.
+Contract for infra-engineer (Phase 12): create each index with dataType float32, dimension = `vectors.dimension`, distanceMetric cosine and `metadataConfiguration.nonFilterableMetadataKeys` = exactly `VectorIndexes.NonFilterable` = [textUri, textSha256, evidenceId, sourceUri]. IAM: `s3vectors:PutVectors`, `GetVectors`, `QueryVectors` (QueryVectors with a filter or metadata needs GetVectors as well), `bedrock:InvokeModel` for the embedding model; the loader also writes the DynamoDB tables and S3. The loader never creates a bucket or index; the adapter has `createBucket`/`createIndex` for fakes, stub tests and any setup the human approves.
+
+2. Batch sizes: loader batch 100 (settable 1..100): one `GetVectors` (service max 100) and one `PutVectors` (service max 500) per group. 100 was chosen so a retry costs little and the PutVectors "resource capacity" 503 is not tempted; payload about 5 KB x 100 is far below 20 MiB. Query topK 1..100 (one page; service allows 10,000 with paging, not implemented). Embedding is one Bedrock call per text (Titan has no batch). Verified by test: 250 docs give puts of 100, 100, 50 and 3 GetVectors.
+
+3. Retry policy (`RetryPolicy`, default 4 attempts total, 200 ms x 2^(n-1), capped 5 s; loader tests use 3): only transient errors are retried: HTTP 408, 429, 500, 502, 503, 504 and a missing response. 400, 402, 403, 404, 424 and malformed replies are permanent and not retried. The core `AwsHttp` is built with maxAttempts 1 by the loaders so retries are not doubled. After exhaustion: a failed `PutVectors` rejects every vector of that batch with the reason (a replay retries them); a failed embedding rejects that document; a failed `GetVectors` or an S3 error on the text object fails the stage (ledger Failed, replay retries with attempt+1).
+
+4. Idempotency strategy per loader (every load is a RunLedger stage; a replay of a Succeeded stage still runs the body, finds nothing to change, and does not move the ledger):
+- Vectors (stage `load-vectors`, logic `vector-load-v1`): `PutVectors` is an upsert, so the loader guards it. Per group it `GetVectors` the keys: same `textSha256` + same `embeddingModel` = unchanged (no embed, no write); same key with different text, same text with another model, or a stored vector without `textSha256` = rejected, nothing overwritten (a new model needs a new index version `-v2`). Text object: create-only `If-None-Match`, content hash compared on replay (conflict = rejection). Report object name carries its own hash and holds no timestamp or written/unchanged split, so the replay's report is `Unchanged`.
+- Researcher metrics (stage `load-researcher-metrics`, logic `metrics-load-v1`): `ResearcherMetricCache.put` is create-only with same-value check (pk `researcher#{id}`, sk `metrics#{metricVersion}#{window}`); a changed value under the same metric version is rejected. Duplicates: identical dropped and counted, conflicting copies all rejected. Manifest `rows` count is checked before any write (a short input fails the stage).
+- Neptune load files (stage `write-neptune-files`, logic `neptune-files-v1`, class `NeptuneLoadJob`): T2's create-only content-hashed writer; a replay is `Unchanged` for every object, a changed plan under the same run is a conflict (nothing overwritten). It never starts the bulk load; `NeptuneBulkLoader.start` stays an explicit step.
+- S3 objects: all through `ArtifactWriter` (T1): create-only put, hash compare. Row-level validation reuses core validators (`Validate.metrics`, chunk-ID formula).
+- DynamoDB tables: all writes are T1 conditional writes; the only table loader here is the metrics one.
+
+5. Service limits relied on, checked with the aws-docs tools on 2026-11-23:
+- S3 Vectors limits, https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-limitations.html: dimension 1..4,096; 50 metadata keys; total metadata 40 KB (CLASSIC; 100 KB ENHANCED); filterable metadata 2 KB (CLASSIC; 40 KB ENHANCED); filterable string value 2 KB; non-filterable keys per index 10; PutVectors 500 per call; GetVectors 100; DeleteVectors 500; 1,000 Put/Delete requests per second and 2,500 vectors per second per index; request payload 20 MiB; QueryVectors topK up to 10,000, 100 results per page; filter constraints 100 (ENHANCED). I design to the stricter CLASSIC limits so records fit both modes.
+- Index mode: https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-metadata-filtering.html: buckets created on or after 2026-09-30 have ENHANCED indexes, older ones CLASSIC; metadata is filterable unless named non-filterable at creation; operators `$eq` (also matches a list element), `$gte`, `$lte`, `$and` used here.
+- Operations: https://docs.aws.amazon.com/AmazonS3/latest/API/API_S3VectorBuckets_PutVectors.html (500 vectors, float32, errors 408/429/503 retry), `..._CreateIndex.html` (dataType float32, dimension 1..4,096, distanceMetric cosine|euclidean, name 3..63, nonFilterableMetadataKeys), `..._CreateVectorBucket.html`, `..._GetVectors.html` (100 keys, returnData/returnMetadata), `..._QueryVectors.html` (topK, filter, returnMetadata, returnDistance; filter or metadata needs GetVectors permission).
+- Endpoint: https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-regions-quotas.html: `s3vectors.us-east-2.api.aws`, SigV4.
+- Bedrock Titan Text Embeddings V2, https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-titan-embed-text.html (request: inputText, dimensions, normalize; response `embedding`), https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-amazon-titan-text-embeddings-v2.html (context 8K tokens, `bedrock-runtime` endpoint), InvokeModel errors https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_InvokeModel.html (403, 500, 424, 429 throttling/not-ready, 408 timeout, 404, 400, 503).
+- UNVERIFIED (mark so in service-limits.md): (a) Titan V2 maximum input in characters; I refuse text over 20,000 characters (never truncate) as a conservative bound for 8K tokens; (b) accepted dimensions disagree between two pages (request page 256/512/1024, model card 256/384/1024); 256 (the project default) is in both; (c) exact Bedrock hostname `bedrock-runtime.{region}.amazonaws.com` and that SigV4 double-encodes `%3A` in the model-ID path (written from the doc's recommended endpoint; proven only against my stub); (d) HTTP 409 for "already exists" on CreateVectorBucket/CreateIndex (the CreateIndex page names ConflictException but its status code was truncated in my read); (e) GetVectors omits absent keys rather than failing; (f) a 503 from PutVectors for an oversized batch is documented; the batch size 100 is my choice, not a measured limit; (g) Bedrock quotas (requests/tokens per minute) were not read; (h) DynamoDB TTL lag from T1 is still unverified.
+
+6. Inputs read from the Phase 06 run (manifest JSON only; no Parquet): `run-769e0d672ecd3c19.json` (`vectorIndexes` 5 names, graph.metricVersion `metrics-v1`), `load-manifests/s3vectors.json` (dimension 256, source semantic-summaries 316 rows, partitions docType x windowLabel 1950-2026 and 2010-2014; indexes 58/8/162/88), `dynamodb.json` (researcher-metrics, 162 rows, partition windowLabel). `LoadManifests.vectors/dynamo` parse these shapes (tested on inline copies) and `VectorManifest.problems(cfg)` compares dimension, index names and row sums with the configuration.
+
+PUBLIC API ADDED (package `scholarchain.storage`)
+- VectorStore.scala: `RemoteError` (Transient, Permanent, `.text`, `.isTransient`), `RetryPolicy(maxAttempts, backoffMillis, sleeper).run`, `MetaValue` (Str, Num, Strs; `toJson`, `fromJson`), `VectorRecord`, `StoredVector`, `VectorHit`, `FilterTerm` (Eq, Gte, Lte; `toJson`, `matches`), `IndexSpec`, `VectorLimits` (constants, `validate`, `validateSpec`), trait `VectorStore` (`createBucket`, `createIndex`, `put`, `get`, `query`), `VectorIndexes.NonFilterable` and `.spec`, `InMemoryVectorStore` (+ `keys`), `Embeddings.cosineDistance`, `S3VectorsStore(http, region, bucket, endpointOverride)`.
+- Embedder.scala: trait `Embedder` (`modelId`, `dimension`, `embed`), `HashingEmbedder(dim)` (local/test, model `hash-embed-v1`), `BedrockEmbedder(http, region, modelId, dimension, maxChars, endpointOverride)` and `BedrockEmbedder.fromConfig(http, region, ModelConfig, VectorConfig)`.
+- VectorLoader.scala: `SemanticDocument` (+ `fromEvidence`, `fromAbstract`, `IndexKeys`, doc-type constants), `PaperAbstract`, `VectorMetadata.of/check`, `VectorLoaderSettings(batchSize, retry, chunkSourceVersion)`, `VectorLoader(vectors, embedder, writer, ledger, VectorConfig, settings): Either[String, VectorLoader]` with `load(runId, RowSource[SemanticDocument], expectedRows)`, `specs`, `indexOf`; results `VectorLoadResult`, `IndexCount`.
+- Loaders.scala: `RowSource[A]` (`rows`, `mapE`; `RowSource.of`, `.jsonLines`, `.jsonLinesDir`), `LoadReport`, `ReportCount`, `LoadStage` (ledger stage + report), `VectorManifest`, `DynamoManifest`, `LoadManifests.vectors/dynamo`, `ResearcherMetricsLoader(metrics, ledger, writer).load(runId, RowSource[ResearcherMetrics], expectedRows)` with `MetricsLoadResult`, `NeptuneLoadJob(ledger, NeptuneLoadWriter, writer).run(plan)`.
+- Test-side (tests/module-unit/storage/AwsIntegrationSuite.scala): `AwsIntegration` (`enabled`, `run`, `checks`), suites `AwsGateSuite`, `AwsIntegrationHarnessSuite`, gated `AwsIntegrationSuite`.
+
+HOW TO OPT IN to the gated suite (never set by sbt check or build.sbt): in a shell with real credentials and cloud config, `SCHOLARCHAIN_AWS_IT=true SCHOLARCHAIN_IT_VECTOR_INDEX=<existing index name> RAW_BUCKET=... CURATED_BUCKET=... GRAPH_BUCKET=... RAG_BUCKET=... DDB_RUN_LEDGER=... DDB_ENTITY_LINK_CACHE=... DDB_QUERY_SESSION=... DDB_EVIDENCE_BUNDLE=... DDB_ARTIFACT_REGISTRY=... DDB_RESEARCHER_METRIC=... VECTOR_BUCKET=... EMBEDDING_MODEL_ID=... EMBEDDING_DIMENSION=... sbt "storage/testOnly *AwsIntegrationSuite"`. Only the exact value `true` opens it. It is bounded to at most 25 AWS calls (S3 create-only puts, DynamoDB conditional writes, one Bedrock embedding, S3 Vectors put/get/query on 2 vectors) and creates no bucket, table or index. It needs the human's cost sign-off before the cloud phases (one Bedrock call, a handful of requests: negligible). Status of this run: NOT RUN.
+
+CLEANUP PROCEDURES (nothing was run; no cloud resource exists from this task). What loads leave behind, and how the human removes it:
+- Ordinary S3: rag bucket `semantic-context/{docType}/run_id={run}/c:{hash}.json` (the stored texts); curated bucket `logs/load-vectors/`, `logs/load-researcher-metrics/`, `logs/write-neptune-files/` `run_id={run}/load-report-*.json`; graph bucket `graph/neptune-load*/run_id={run}/`; integration test: `logs/integration-test/run_id=.../check.txt`. Remove one run by deleting the `run_id={run}` prefixes; remove all by emptying the buckets (`scripts/cleanup.sh`, human only).
+- S3 Vectors: vectors keyed by `chunkId`; the keys of a run are in the stored texts and the load report; remove with DeleteVectors (500 per call) per index, or delete the index/bucket. Integration test vectors are named `it-<tag>-a` and `it-<tag>-b`.
+- DynamoDB: RunLedger items `run#{run}` / `stage#load-vectors|load-researcher-metrics|write-neptune-files`; ResearcherMetricCache items `researcher#{id}` / `metrics#{version}#{window}`; QuerySession integration item `session#it-<tag>` expires by its 7-day TTL (deletion can lag).
+- A failed run can leave stored text objects without a vector (text is stored before embedding); they are harmless and are reused on replay. No agent deletes or repairs; this is a dossier for the human.
+
+ASSUMPTIONS
+- Input type is typed core rows behind `RowSource` (orchestrator decision on the Parquet gap). The Spark `semantic-summaries` table is an `EvidenceItem` plus columns `docType` and `windowLabel`, which also appear in `values`; the future Parquet reader must yield `EvidenceItem` (extra columns dropped) for `SemanticDocument.fromEvidence`, and `ResearcherMetrics` without the extra columns `maximumTeamWorkCount` and `inLargestComponent` (strict JsonLines decoding rejects unknown fields).
+- Vector `chunkSourceVersion` = Spark `graph.metricVersion` (`metrics-v1`); when set, a chunk ID must equal the core formula (ordinal 0). Chunks are ordinal 0 (Spark says every summary is chunk 0).
+- All documents of one load carry the load's run ID (`provenance.runId`); a different run is rejected.
+- Embedding model version = the model ID string (`models.embeddingModel`); the dimension is fixed by `vectors.dimension` and checked at loader construction.
+
+RISKS (what I did NOT do, state left behind, notes for modules/storage/MODULE.md)
+1. NOT loaded: the real Parquet run. No loader read `run-769e0d672ecd3c19` data; storage has no Parquet reader (human gate item). Expected counts if it were loaded: 316 vectors (162 profile, 58 community, 8 path, 88 topic-institution), 162 researcher-metrics rows, 205 nodes and 409 edges; none of this was observed from data, only from the manifests.
+2. Spark export gaps (to route to spark-engineer, not blocking the adapter): the semantic-summaries `values` carry only docType, vectorIndex, entityId and window, so no `institutionId` (the filter is supported and will populate when the row has it) and no topic list per researcher or community (a topic filter exists only on topic-institution-summary). paper-abstract has no Spark source (see table); it needs the Hadoop abstracts table at run time.
+3. Concurrency: `PutVectors` is an upsert and the guard is a read-then-write, so two loaders racing on one key could still interleave; run one vector loader at a time. The loaders hold all rows of a load in memory (fine for the sample's hundreds; a full-DBLP run needs streaming).
+4. Everything that talks to AWS was proven only against fakes and a local `com.sun.net.httpserver` stub: request shapes (S3 Vectors, Bedrock path encoding of the model ID and its SigV4 signing), error-status mapping, `GetVectors` omitting absent keys and the 409 conflicts are unverified against the real services (see the unverified list in item 5).
+5. The orphan text objects after failed puts, and no deletion port exists (by design). The loader report and rejected vectors are in the S3 report and the returned result; I did not write per-subject `RunLedger.recordFailure` items, because their retry count would change on every replay.
+6. Embedding model change needs a new index version; the loader rejects instead of overwriting. Vector search quality was not measured.
+7. `AwsHttp` request timeout is one value per client; Bedrock calls are sequential (one per document); throughput against Bedrock quotas is untested.
+8. Not done: OpenSearch (not wanted), SQS queue adapter and the embedding-worker wiring (service-engineer, Phase 10), `S3 ListVectors`, query pagination beyond 100 hits, the `s3.json` manifest loader (the Parquet tables are written by Spark to the path in the manifest; storage moves no Parquet bytes through the text-only `ObjectStore`), full `sbt check`.
+9. Notes for MODULE.md (documentation-engineer): public API as listed above; done: T3 with 71 new tests (153 run, 1 ignored); not done: items 1, 2 and 8; known issues: items 3, 4, 5 and the Parquet gap; the index contract for Terraform (item 1 of VALIDATION); the gate variable `SCHOLARCHAIN_AWS_IT`.
+State left behind: uncommitted new files only; nothing deleted or repaired; no cloud resource.
+
+MANUAL ACTION REQUIRED: human decision on the Parquet reader gap (RISKS 1) and routing of RISKS 2 to spark-engineer, at the gate. No cost sign-off is needed for this task; the gated suite needs one before it is ever run.
+BLOCKED-ON OWNER: none for T3 as delivered. (RISKS 2 would be BLOCKED-ON spark-engineer only if the human requires an institution filter or paper-abstract rows from the Spark export.)
+BLOCKED-ON EVIDENCE: none.
+NEXT GATE: step 04 documentation-engineer (docs/service-limits.md using the limits and the unverified list above, storage section and modules/storage/MODULE.md), then the entity-resolution Bedrock adjudicator step, then the single full `sbt check`.

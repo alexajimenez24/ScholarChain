@@ -100,6 +100,28 @@ Functions:
 - The strictness is a re-write comparison and a null scan, about three JSON passes per
   line.
 
+### Package `scholarchain.core.aws` (Phase 07 step 00)
+
+Source: `docs/agent-runs/phase-07/step-00-domain-engineer-report.md` and the files
+`Credentials.scala`, `Http.scala` and `SigV4.scala` under `scholarchain/core/aws/`.
+It has no wire format and no schema version, and it adds no dependency (uPickle `ujson`
+only, the JDK `java.net.http.HttpClient`, no AWS SDK).
+
+- `AwsCredentials(accessKeyId, secretAccessKey, sessionToken, expiration)`; `toString`
+  redacts the secret.
+- `CredentialsProvider` with `StaticCredentials` (tests) and `EnvironmentCredentials`
+  (environment variables, then the ECS container endpoint, cached until 5 minutes before
+  expiry; the environment is an injected `Map`).
+- `HttpRequest`, `HttpResponse(status, body: String, headers)` (alias `AwsResponse`),
+  `HttpTransport`, `JdkHttpTransport` (no redirects, no retries).
+- `AwsHttp(region, credentials, maxAttempts = 1, ...)` with `send(method, url, service,
+  body, headers)` and `json(url, service, body, headers)`.
+  A non-2xx reply is `Right` from `send` and `Left` from `json`.
+  Retry only when `maxAttempts` is above 1, on a transport failure or HTTP 429, 500, 502,
+  503 or 504, with exponential backoff.
+  Service `s3` also signs and sends `x-amz-content-sha256`.
+- `SigV4.sign`, `signingKey`, `uriEncode`, `canonicalUri`, `canonicalQuery`.
+
 ## Stable ID formulas
 
 `h(x,n)` is the first n hex characters of SHA-256 over the UTF-8 text x.
@@ -247,6 +269,23 @@ from `${COGNITO_*}` placeholders).
   which is 29.
 - No bucket, table, endpoint, queue, model ID or account ID in the config file (a test
   checks it).
+- Phase 07 step 00: package `scholarchain.core.aws` (HTTP client, SigV4 signer,
+  credentials port).
+  `sbt core/test` passed 115.
+  The step 00 report says "86 existing plus 29 new"; its own suite counts are 6 + 6 + 9 =
+  21 new tests, and 94 (phase 3) plus 21 is 115, so the 21 figure is the consistent one.
+  The full `sbt check` of step 04 printed a 115 total, which matches core.
+  Tests: `tests/module-unit/core/AwsSuite.scala`.
+- Phase 07 repair round 1, R1-2 (`docs/agent-runs/phase-07/repair-01-domain-engineer.md`):
+  - `EnvironmentCredentials` restricts `AWS_CONTAINER_CREDENTIALS_FULL_URI`: https is
+    allowed; plain http only to `localhost`, 127.x.x.x, `::1`, 169.254.170.2,
+    169.254.170.23 and `fd00:ec2::23` (literal host match, no DNS lookup).
+    Anything else returns a `Left` that does not echo the URL, and no request is sent.
+    The RELATIVE_URI path is unchanged.
+  - `AwsHttp`'s malformed-URL error is now `invalid request: <METHOD> <scheme://host/path>
+    (malformed URL)`; the query string and fragment are omitted.
+  - `sbt core/test` passed 119; the full `sbt check` exited 0 in 305 s
+    (`docs/agent-runs/phase-07/output-sbt-check-r1.txt`).
 
 ## Not done
 
@@ -256,7 +295,11 @@ from `${COGNITO_*}` placeholders).
 - Only the round 2 rules were mutation-tested (13 mutants); the other negative tests are
   not.
   The unknown-enum test and some config tests check only a message substring.
-- No consumer uses the contracts yet.
+- No consumer used the contracts at phase 3; later phases add modules that depend on
+  `core` (see the boundary table).
+- `scholarchain.core.aws` does not do: query-string (presigned) signing, credential
+  process, profile or IMDS providers, S3 `UNSIGNED-PAYLOAD` or chunked signing,
+  dot-segment normalization of the canonical URI.
 
 ## Known issues
 
@@ -282,12 +325,25 @@ from `${COGNITO_*}` placeholders).
   slot with no namespace, invalid self-reported ORCIDs, DBLP homonym collision in
   `normalizedName`, one WorkRecord per source, case-sensitive source IDs, no arXiv
   normalizer, no ISSN-L on `Venue`).
+- `scholarchain.core.aws` known issues (step 00 report):
+  - `HttpResponse.body` is a String, so binary S3 payloads cannot round trip; storage
+    treats them as unsupported.
+  - 2 of the AWS suite's roughly 30 cases are used as vectors (get-vanilla and
+    post-vanilla), plus the published signing-key value.
+    The vector values were typed from recall of the AWS test suite, recomputed with
+    Python `hmac`, and not fetched from AWS; the source URL is in the test.
+  - Other services' query and encoding edge cases rely on the implementation of the
+    specification.
+  - The request timeout is one value per client.
+  - The ECS link-local base `http://169.254.170.2` is a constant (the default of
+    `containerBase`).
 - Provisional file values (thresholds, windows, k-core limit, betweenness seed) come from
   the reference; the experiments phase should confirm them.
 
 ## Dependencies
 
 - External libraries only: uPickle 4.4.3 (the only JSON library) and slf4j-api 2.0.20.
+- The JDK `java.net.http` client is used by `scholarchain.core.aws`; no new library.
 - No project dependency.
 
 Allowed by the boundary table in `AGENTS.md`; no module depends on `services`.

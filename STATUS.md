@@ -29,11 +29,15 @@ resume. -->
   v1 was labeled (280 rows), v1b was not used (decision 03), and Review 2 was APPROVE
   WITH CARRIED-FORWARD ITEMS.
   See "Phase 05 task list" and "Carried forward from Phase 05 (for the human gate)".
-- Phase 06: Spark collaboration analysis. All tasks, repair round 1 and both reviews
-  are done (Review 1 REQUEST_CHANGES; Review 2 APPROVE WITH CARRIED-FORWARD ITEMS).
-  The next step is the Phase 06 human gate (ratify, commit, decide the carried items).
+- Phase 06: Spark collaboration analysis, committed.
+  `git log --oneline -3` shows 217b7fc "phase-06 spark-engineer: coauthorship graph and
+  Spark analytics" and d02da39 "phase-06: record accepted commit hash".
+  Review 1 REQUEST_CHANGES; Review 2 APPROVE WITH CARRIED-FORWARD ITEMS.
   See "Phase 06 task list", "Carried forward from Phase 06 (for the human gate)" and
   "Current state (phase 06)".
+- Phase 07: storage adapters and loading; all tasks, repair round 1 and both reviews done
+  (Review 2 REQUEST_CHANGES on a format-only ownership item); next is the Phase 07 human
+  gate. See the Phase 07 task list and "Carried forward from Phase 07".
 
 ## Carried forward from Phase 01
 
@@ -955,6 +959,159 @@ Each item names its source when it is not that report.
      orchestrator held to the one-sbt rule;
    - guard-dangerous false positives on the test-marker path and gate-file names belong
      to factory-engineer, Phase 11 (see "Carried forward from Phase 05", item 7).
+
+## Phase 07 task list
+
+Phase 07 is storage adapters and loading (storage-engineer, with domain-engineer and
+entity-resolution-engineer for the named steps), work order and human addendum in
+`docs/agent-runs/phase-07/prompt.md`.
+Reports are saved in `docs/agent-runs/phase-07/`.
+The reference material in `~/ref-phase-07/` is a starting point only; each owner adapts
+it and owns the result.
+
+| Step | Owner | Report | State |
+|---|---|---|---|
+| 00 core.aws package (HTTP client, SigV4, credentials) | domain-engineer | step-00-domain-engineer-report.md | done (sbt core/test: 115 passed, 0 failed; 21 new tests by suite counts, the report says 29) |
+| 01 T1 ports, fakes, S3 layout, DynamoDB tables | storage-engineer | step-01-storage-engineer-report.md | done (sbt storage/test: 33 passed, 0 failed) |
+| 02 T2 Neptune bulk-load manifests, CSV, templates, edge validation | storage-engineer | step-02-storage-engineer-report.md | done (sbt storage/test: 82 passed, 0 failed; 49 new) |
+| 03 T3 S3 Vectors adapter/loader, five indexes, embedder, reload, gated AWS suite | storage-engineer | agent-report.md | done (sbt storage/test: 153 passed, 0 failed, 1 ignored = gated AWS suite NOT RUN; 71 new) |
+| 04 Bedrock adjudicator adapter, full sbt check | entity-resolution-engineer | step-03-entity-resolution-engineer-report.md | done (sbt entityResolution/test 119 passed; full sbt check exit 0, 312 s: totals 153+1 ignored, 115, 68, 119, 98, 33) |
+| 05 service-limits, storage docs, modules/storage/MODULE.md | documentation-engineer | step-04-documentation-engineer-report.md | done (docs/service-limits.md, docs/storage.md, three MODULE.md files; no sbt run) |
+| Review 1 | code-reviewer (fresh) | review-report.md | done, REQUEST_CHANGES (1 major, 7 minor, 6 nits) |
+| Repair round 1 | owners named by the review | repair-01*.md | done |
+| Review 2 (only if review 1 has CRITICAL or MAJOR) | code-reviewer (fresh) | review-report-02.md | done, REQUEST_CHANGES (1 new major: R2-MAJOR-1, format-only write outside territory; 4 new nits); no second repair round, all open items carried to the gate |
+| Gate | human | human-gate.md | next |
+
+Repair round 1 tasks (routing from `docs/agent-runs/phase-07/repair-01.md`):
+
+| Task | Owner | Findings | State |
+|---|---|---|---|
+| R1-0 | documentation-engineer | STATUS: review 1 result and repair task list | done |
+| R1-1 | storage-engineer | MAJOR-1 comment, MINOR-1, MINOR-3 code, MINOR-5, MINOR-7, NIT-5 | done (MAJOR-1 comment and invariant, MINOR-1, MINOR-3, MINOR-5, MINOR-7, NIT-5; sbt storage/test 158 passed, 0 failed, 1 ignored) |
+| R1-2 | domain-engineer | NIT-3, NIT-4; then the one full `sbt check` (source changed) | done (NIT-3, NIT-4; sbt core/test 119 passed; full sbt check exit 0, 305 s: 158+1 ignored, 119, 68, 98, 33, 119) |
+| R1-3 | documentation-engineer | MAJOR-1 docs, MINOR-2, MINOR-3 docs, MINOR-4, MINOR-6 (documented), NIT-2, STATUS | done (docs only, no sbt run; see note R1-3) |
+| Review 2 | code-reviewer (fresh) | re-check, `review-report-02.md` | done, see the Review 2 row above |
+
+Note R1-3 (documentation-engineer, docs only, no sbt run; sources
+`repair-01.md`, `repair-01-storage-engineer.md`, `repair-01-domain-engineer.md`,
+`output-sbt-check-r1.txt`):
+
+- MAJOR-1 docs: `docs/storage.md` section 7 and `modules/storage/MODULE.md` Known
+  issues state the served-run invariant.
+- MINOR-2: the cleanup section says a run's semantic-context prefix may be deleted only
+  with the vectors whose `textUri` points into it; the load report holds counts and
+  rejections only.
+- MINOR-3 docs: bound is 25 HTTP attempts including retries (counting transport); the
+  variable is `SCHOLARCHAIN_IT_TEST_VECTOR_INDEX`, a dedicated test index.
+- MINOR-4: restated as a wiring requirement (callers use `maxAttempts` 1 under a
+  `RetryPolicy`).
+- MINOR-6 documented; MINOR-1 behavior documented (a missing input directory is one
+  visible malformed-row rejection, the stage still records Succeeded).
+- NIT-2 and the R1-2 core changes are in `modules/core/MODULE.md`.
+- Not replayed: no command was run; the gated suite is still NOT RUN.
+
+## Carried forward from Phase 07 (for the human gate)
+
+Source: `docs/agent-runs/phase-07/review-report-02.md`, section "MANUAL ACTION REQUIRED"
+(items 1 to 9).
+Review 1 and repair round 1 are in `review-report.md` and `repair-01.md`.
+The human may overrule the MAJOR-1 decision at the gate.
+There is no second repair round; every item below goes to the gate.
+
+1. R2-MAJOR-1: a format-only write outside territory.
+   domain-engineer's `sbt scalafmtAll` reformatted `NeptuneAdapters.scala` and
+   `Tables.scala` (storage-engineer's files), and its report says it did not.
+   Decide: storage-engineer accepts the two files, or the human discloses the write in
+   `human-gate.md`.
+   No behavior change; the R1-2 ownership claim is wrong.
+2. MAJOR-1 full fix: run scoping in the Neptune templates and vector reads.
+   Until then, the one-served-run invariant applies: one served run per Neptune cluster
+   and per vector index, cleaned or rebuilt by the human before a new run is loaded.
+   The human may overrule the minimum-repair decision.
+3. MINOR-6 code fix: the ledger keeps the first report after a repairing replay.
+   With the MINOR-1 residual (documented, not fixed), a run with a mistyped path stays
+   Succeeded and keeps the report of the bad run.
+4. R2-NIT-1 to R2-NIT-4 (`review-report-02.md`):
+   - R2-NIT-1 (storage-engineer): `AwsIntegrationSuite.scala:21` shows the old variable
+     name `SCHOLARCHAIN_IT_VECTOR_INDEX`; `:30` says every attempt is counted, but the
+     container-credentials fetch is not.
+   - R2-NIT-2 (storage-engineer code, documentation-engineer wording): `expectedRows = 1`
+     is met by a missing directory (`Loaders.scala:69` and `:277`,
+     `VectorLoader.scala:320`).
+   - R2-NIT-3 (documentation-engineer): `docs/service-limits.md:36-39` and `:232-233`
+     still describe the old "48 hours" comment.
+   - R2-NIT-4 (documentation-engineer): the stale "conditional" row and the duplicate
+     carry-forward list in this file were corrected in the STATUS update that wrote
+     this list.
+5. NIT-1: the step 00 report says 29 new tests; the suite counts give 21 (the report
+   stays as written).
+6. NIT-6: more published SigV4 vectors (optional).
+7. Spark-engineer observation: `load-manifests/neptune.json` lists
+   `coauthoredWith.windows = ["1950-2026"]`, while the export has 1950-2026 and 2010-2014
+   partitions.
+8. Already open:
+   - the Parquet reader gap (the real run `run-769e0d672ecd3c19` has not been loaded
+     through the storage code);
+   - Spark export gaps (`institutionId`, paper-abstract rows);
+   - adjudication sharing `models.synthesisModel` (the Bedrock adapter reuses it);
+   - the Phase 05 NIT-4 `_SUCCESS` rule is not implemented.
+9. Not run: the gated AWS integration suite (`SCHOLARCHAIN_AWS_IT=true`); no cloud
+   resource exists.
+
+Step 00 notes for MODULE.md: new package scholarchain.core.aws (AwsHttp, SigV4,
+credentials providers); signer vectors get-vanilla and post-vanilla taken from recall of
+the published suite and recomputed with python hmac, not fetched; HttpResponse.body is a
+String (binary S3 payloads unsupported).
+
+Step 01 notes: DynamoDB tables use pk/sk strings and a ttl attribute (TTL on QuerySession
+only, 7 days default); ResearcherMetricCache included (config requires it in aws mode);
+reports and logs zones are in curatedBucket pending infra-engineer; S3 get is UTF-8 text
+only; DynamoDB TTL lag unverified.
+
+Step 02 notes: Neptune CSV and load manifest built from typed core rows (GraphNode,
+GraphEdge, CoauthorEdge) and proven on a fixture shaped like the Phase 06 export;
+RESOLVES_TO, DERIVED_FROM and SUPPORTED_BY are not exported by Phase 06 and are listed
+as not exported in the load manifest.
+Open gap for the human gate: the Phase 06 export is Parquet and the storage module has
+no Parquet reader, so the real run run-769e0d672ecd3c19 has not been loaded through the
+storage code (options: a Parquet dependency via build-engineer, JSON-lines exports via
+spark-engineer, or a reader in a later phase).
+Researcher metrics stay in DynamoDB ResearcherMetricCache, not on Neptune nodes.
+
+Step 03 notes: five vector indexes wired with chunkId keys, compact filterable metadata
+and long text in S3 semantic-context; batch 100, bounded retry of 408/429/5xx; every
+loader replays without change.
+The gated AWS integration suite (opt-in SCHOLARCHAIN_AWS_IT=true) was NOT RUN.
+Open for the human gate: the real Parquet run was not loaded (no Parquet reader); the
+Spark export has no institutionId in semantic summaries and no paper-abstract rows
+(paper-abstract-v1 would come from Hadoop abstracts, absent locally).
+
+Step 04 notes: the Bedrock adjudicator adapter (`BedrockAdjudicator`) was tested against a
+local stub only and is not wired into `MatchJob` (`--adjudicator bedrock` and
+`models.llmEnabled=true` are still refused).
+The model ID is reused from `models.synthesisModel` pending a human decision (keep sharing
+it, or add a core config field).
+er-v1, the prompt `er-adjudication-v1` and the cache key are unchanged; the gold-set
+evaluation was not rerun.
+The full `sbt check` exited 0 and is the phase's single full check (output in
+`docs/agent-runs/phase-07/output-sbt-check-step04.txt`).
+
+Step 05 notes (documentation-engineer, report `step-04-documentation-engineer-report.md`):
+`docs/service-limits.md` re-checked each limit on 2026-11-23 with the aws-docs tools, and
+marks the rest unverified.
+Findings to route: the comment at `modules/storage/.../Tables.scala:304` says DynamoDB TTL
+deletion lags "up to 48 hours" but the documentation says "typically within a few days"
+(storage-engineer, comment only); the step 00 report says 29 new core tests, but its suite
+counts and the 94 to 115 change give 21 (noted in `modules/core/MODULE.md`).
+New files: `docs/service-limits.md`, `docs/storage.md`.
+Rewritten or updated: `modules/storage/MODULE.md`, `modules/core/MODULE.md`,
+`modules/entity-resolution/MODULE.md`.
+No sbt was run; no AWS call was made other than the read-only documentation tools.
+
+STATUS is updated by documentation-engineer after each owner.
+No cloud, no AWS call, no OpenSearch in this phase; the bounded AWS integration suite is
+written but NOT RUN.
+One sbt at a time; full sbt check once at the end of step 04.
 
 ## Previous state (phase 05, closed)
 

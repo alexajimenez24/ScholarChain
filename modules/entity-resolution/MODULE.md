@@ -43,6 +43,27 @@ Package `scholarchain.er` (T2, `agent-report.md`):
   `Adjudicator.recheck` re-validates every cache hit (preloaded or in-run) against the
   current request, with the same strict validator as a fresh reply.
   A hit that fails is not used and gives `LLM_INVALID_OUTPUT` with no call.
+- `AdjudicatorMode.BEDROCK` and `AdjudicatorMode.BedrockNotInJob` (the refusal message;
+  `AdjudicatorMode.parse("bedrock")` still returns Left with it).
+- `BedrockAdjudicator` (Phase 07 step 04, `BedrockAdjudicator.scala`), an
+  `AdjudicatorPort` over core `AwsHttp` (service `bedrock`, InvokeModel):
+  `mode`, `modelVersion` (the configured model ID, which enters the cache key as before),
+  `promptVersion`, `maxTokens`, `endpoint`, `complete(prompt, request)` (never throws) and
+  `requestBody(prompt)`.
+  `BedrockAdjudicator.fromConfig(cfg, template, credentials, maxTokens = 512,
+  maxAttempts = 1, requestTimeout, transport, clock, endpointOverride)` takes the model ID
+  from `cfg.models.synthesisModel` and the region from `cfg.application.region`.
+  It returns Left when `llmEnabled` is false, the model ID or region is empty, the model
+  is not Anthropic family (pattern `(^|[./:])anthropic\.`), or `maxTokens` or
+  `maxAttempts` is below 1.
+  Body: Anthropic Messages (`anthropic_version` `bedrock-2023-05-31`, `max_tokens`,
+  `temperature` 0, one user message).
+  Any non-2xx status, transport failure, missing credentials or malformed envelope gives
+  `LLM_CALL_FAILED`; text that breaks the schema gives `LLM_INVALID_OUTPUT`; both leave
+  the case UNRESOLVED and cache nothing.
+  Limits and documentation URLs: [docs/service-limits.md](../../docs/service-limits.md).
+- `MatchJob.portFor(mode, template)`: OFF gives `OffAdjudicator`, FAKE gives
+  `FakeAdjudicator`, BEDROCK gives `Left(BedrockNotInJob)`.
 - `Resolver`, `DecisionAudit` and `Resolved`.
 - `MatchJob`: jobs ER-J1 and ER-J2, the Tool driver, `MatchArgs`, `MatchPaths`, the
   counters and `LocalMatchRunner`.
@@ -107,11 +128,29 @@ plus `run-manifests/<id>.json` and `<id>-summary.json`.
   `MatchJob.LogicVersion` (er-job-v1) was not bumped.
 - Last `sbt check` (R1-1): exit 0, entityResolution 112 tests (106 before), 14 project
   test runs.
+- Phase 07 step 04 (`docs/agent-runs/phase-07/step-03-entity-resolution-engineer-report.md`):
+  the Bedrock adjudicator adapter, tested against a local `com.sun.net.httpserver` stub
+  only (no AWS call, no real credentials).
+  New `BedrockAdjudicatorSuite` has 7 tests; `sbt entityResolution/test` passed 119 (112
+  before).
+  The full `sbt check` exited 0 in 312 s with project totals 153 (1 ignored), 115, 68,
+  119, 98 and 33 (`docs/agent-runs/phase-07/output-sbt-check-step04.txt`).
+  er-v1 is unchanged: policy resource sha256 starts 82ce9ae5, thresholds 0.9, 0.35 and
+  band [0.7, 0.9), prompt `er-adjudication-v1` sha256 starts fbcf4b13, and the cache key
+  `sha256(inputHash|promptVersion|modelVersion|policyVersion)` is pinned independently in
+  the tests.
+  The gold-set evaluation was not rerun, so the Phase 05 numbers stand.
+  `MatchJob.LogicVersion` stays er-job-v1 (job behavior is unchanged).
 
 ## Not done
 
-- Any Bedrock adjudicator (Phase 07); `models.llmEnabled=true` and Bedrock mode are
-  refused.
+- Bedrock wiring in `MatchJob` and any live Bedrock run: the adapter exists but
+  `--adjudicator bedrock` and `models.llmEnabled=true` are still refused (exit codes 2 and
+  3, tested in MatchJobSuite).
+  Wiring needs credentials in the task JVMs, a per-task budget above the default
+  `ER_MAX_LLM_CALLS=0` and the human's cost sign-off.
+- Gold-set measurement of the `LLM_ADJUDICATED` path: no Bedrock run exists.
+- Converse API support, non-Anthropic request bodies and a DynamoDB adjudication cache.
 - `sbt packageJobs` with the new sources and any EMR run.
 - A gold set with valid NON_MATCH labels: the reject side is effectively unmeasured.
 - Citation evidence (the contract gap below).
@@ -153,13 +192,25 @@ plus `run-manifests/<id>.json` and `<id>-summary.json`.
 - guard-dangerous gives false positives on commands and report text that name the
   test-marker task literally (Phase 11 item).
 - The harness moves `sbt` to the background after 180 s, even with a longer timeout.
+- The Bedrock adapter reuses `models.synthesisModel` (`${SYNTHESIS_MODEL_ID}`) as its
+  model ID because core config has no adjudication model field.
+  Human decision pending: keep sharing it, or have domain-engineer add a field.
+  Not blocking.
+- Only the Anthropic Messages body is supported; other model families, and an
+  application-inference-profile ARN without `anthropic.` in it, are refused at
+  construction.
+- A budget unit equals one port call, not one HTTP attempt: with retries enabled in the
+  injected `AwsHttp` (default `maxAttempts` 1), one unit can cover several attempts.
+- The Bedrock host `bedrock-runtime.<region>.amazonaws.com` is built from the configured
+  region and was proven only against the stub; request signing against the live service
+  is unverified (see [docs/service-limits.md](../../docs/service-limits.md)).
 - Doc-comment pitfall: a `*/` inside a doc comment closes it and breaks the build.
 - The evaluation copy under `target/` could not be written because `target/**` has no
   owner (open item 3 for the human).
 
 ## Dependencies
 
-- Project: `core`.
+- Project: `core` (since Phase 07 also `scholarchain.core.aws` for `BedrockAdjudicator`).
 - `hadoop-client-api` at Provided scope (Hadoop test runtime at Test scope, from
   `project/Versions.scala`).
 - Packaged by `packageJobs` into `target/jobs/` (not run for the new sources).

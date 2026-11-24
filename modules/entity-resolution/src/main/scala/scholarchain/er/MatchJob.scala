@@ -306,11 +306,9 @@ class DecideReducer
       )
       template <- PromptTemplate.load()
       mode <- AdjudicatorMode.parse(c.get(ErKeys.Adjudicator, "off"))
+      port <- MatchJob.portFor(mode, template)
       cache <- MatchJob.readCache(c)
     yield
-      val port = mode match
-        case AdjudicatorMode.OFF  => OffAdjudicator
-        case AdjudicatorMode.FAKE => new FakeAdjudicator(template.version)
       adjudicator =
         new Adjudicator(port, template, cache, c.getInt(ErKeys.BudgetPerTask, 0), p.policyVersion)
       new Resolver(new MatchPolicy(p, t), adjudicator, runId, c.get(ErKeys.DecidedAt))
@@ -503,19 +501,18 @@ class MatchJob(
       _ <- Either.cond(
         !cfg.models.llmEnabled,
         (),
-        "models.llmEnabled is true, but LLM adjudication through Bedrock arrives in Phase 07"
+        s"models.llmEnabled is true, but ${AdjudicatorMode.BedrockNotInJob}"
       )
       policy <- MatchPolicy.load(cfg.entityResolution)
       template <- PromptTemplate.load()
+      port <- MatchJob.portFor(a.adjudicator, template)
       conf = new Configuration(getConf)
       up <- MatchJob.upstream(conf, a)
       cacheGlob <- a.cache.fold[Either[String, String]](Right(""))(c => MatchJob.cacheGlob(conf, c))
       cacheSha <- Right(MatchJob.cacheDigest(conf, cacheGlob))
     yield
       val t = policy.thresholds
-      val (promptVersion, modelVersion) = a.adjudicator match
-        case AdjudicatorMode.OFF  => ("none", "none")
-        case AdjudicatorMode.FAKE => (template.version, FakeAdjudicator.ModelVersion)
+      val (promptVersion, modelVersion) = (port.promptVersion, port.modelVersion)
       val budget = cfg.entityResolution.maxLlmCallsPerRun
       val manifest = ujson
         .Obj(
@@ -660,6 +657,15 @@ class MatchJob(
 object MatchJob:
   /** Bumped on any change to the job logic, so a run before the change has another run ID. */
   val LogicVersion = "er-job-v1"
+
+  /** The job's adjudicator port for a mode. Off and fake only: [[BedrockAdjudicator]] exists, but
+    * the job does not wire it (see [[AdjudicatorMode.BedrockNotInJob]]).
+    */
+  def portFor(mode: AdjudicatorMode, template: PromptTemplate): Either[String, AdjudicatorPort] =
+    mode match
+      case AdjudicatorMode.OFF     => Right(OffAdjudicator)
+      case AdjudicatorMode.FAKE    => Right(new FakeAdjudicator(template.version))
+      case AdjudicatorMode.BEDROCK => Left(AdjudicatorMode.BedrockNotInJob)
 
   /** Adjudication reason codes that also get a counter of their own. */
   val LlmCounterCodes: Set[String] =

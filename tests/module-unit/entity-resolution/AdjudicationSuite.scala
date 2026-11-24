@@ -271,9 +271,18 @@ class AdjudicationSuite extends munit.FunSuite:
     assertEquals(fake.complete("", req), fake.complete("", req))
   }
 
-  test("bedrock mode is not available before Phase 07") {
-    assert(AdjudicatorMode.parse("bedrock").left.exists(_.contains("Phase 07")))
+  test("the match job refuses bedrock mode: the adapter exists but is not wired into the job") {
+    assertEquals(AdjudicatorMode.parse("bedrock"), Left(AdjudicatorMode.BedrockNotInJob))
+    assertEquals(
+      MatchJob.portFor(AdjudicatorMode.BEDROCK, template),
+      Left(AdjudicatorMode.BedrockNotInJob)
+    )
     assertEquals(AdjudicatorMode.parse("off"), Right(AdjudicatorMode.OFF))
+    assertEquals(MatchJob.portFor(AdjudicatorMode.OFF, template), Right(OffAdjudicator))
+    assertEquals(
+      MatchJob.portFor(AdjudicatorMode.FAKE, template).map(p => (p.promptVersion, p.modelVersion)),
+      Right((template.version, FakeAdjudicator.ModelVersion))
+    )
   }
 
 class ResolverSuite extends munit.FunSuite:

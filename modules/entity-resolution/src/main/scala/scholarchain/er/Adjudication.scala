@@ -60,15 +60,20 @@ final case class AdjudicationRecord(
 ) derives ReadWriter
 
 enum AdjudicatorMode:
-  case OFF, FAKE
+  case OFF, FAKE, BEDROCK
 
 object AdjudicatorMode:
+  /** Why the match job refuses bedrock mode although [[BedrockAdjudicator]] exists. */
+  val BedrockNotInJob =
+    "the match job does not wire the bedrock adjudicator yet (task credentials and the cost " +
+      "sign-off come with the cloud phases); use off or fake"
+
+  /** The match job's `--adjudicator` values; bedrock is refused there, see [[BedrockNotInJob]]. */
   def parse(s: String): Either[String, AdjudicatorMode] = s match
     case "off"     => Right(OFF)
     case "fake"    => Right(FAKE)
-    case "bedrock" =>
-      Left("the bedrock adjudicator arrives with storage in Phase 07; use off or fake")
-    case other => Left(s"unknown adjudicator mode '$other' (off or fake)")
+    case "bedrock" => Left(BedrockNotInJob)
+    case other     => Left(s"unknown adjudicator mode '$other' (off or fake)")
 
 /** The adjudicator port: a prompt in, raw reply text out. Implementations never see or return
   * records; the reply is validated by [[Adjudication.validate]] before anything uses it.
@@ -87,10 +92,10 @@ object OffAdjudicator extends AdjudicatorPort:
   def complete(prompt: String, request: AdjudicationRequest): Either[String, String] =
     Left("adjudication is off")
 
-/** Deterministic local stand-in for an LLM, for wiring tests and local runs until Bedrock arrives.
-  * It answers from the request features only, through the same JSON schema and validator a model
-  * would face. Its decisions name model version `fake-deterministic-v1` so they can never pass for
-  * a model's. The cutoffs are the fake's own behavior, not part of any policy.
+/** Deterministic local stand-in for an LLM, for wiring tests and local runs without Bedrock. It
+  * answers from the request features only, through the same JSON schema and validator a model would
+  * face. Its decisions name model version `fake-deterministic-v1` so they can never pass for a
+  * model's. The cutoffs are the fake's own behavior, not part of any policy.
   */
 final class FakeAdjudicator(
     val promptVersion: String,

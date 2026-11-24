@@ -1,0 +1,387 @@
+[info] welcome to sbt 1.13.1 (Amazon.com Inc. Java 17.0.21.1)
+[info] loading settings for project scholarchain-build from plugins.sbt...
+[info] loading project definition from /home/ajcreator/scholarchain/project
+[info] loading settings for project root from build.sbt...
+[info] resolving key references (12593 settings) ...
+[info] set current project to scholarchain (in build file:/home/ajcreator/scholarchain/)
+[info] scalafmt: Checking 3 Scala sources (/home/ajcreator/scholarchain/modules/entity-resolution)...
+[info] scalafmt: Checking 3 Scala sources (/home/ajcreator/scholarchain/modules/core)...
+[info] scalafmt: Checking 1 Scala sources (/home/ajcreator/scholarchain/modules/core)...
+[info] scalafmt: Checking 2 Scala sources (/home/ajcreator/scholarchain/modules/entity-resolution)...
+[success] Total time: 6 s, completed Nov 23, 2026, 10:20:06 PM
+[info] scalafmt: Checking 1 Scala sources (/home/ajcreator/scholarchain)...
+[info] scalafmt: Checking 2 Scala sources (/home/ajcreator/scholarchain)...
+[success] Total time: 0 s, completed Nov 23, 2026, 10:20:07 PM
+[success] Total time: 2 s, completed Nov 23, 2026, 10:20:09 PM
+[success] Total time: 1 s, completed Nov 23, 2026, 10:20:10 PM
+Test run [36mscholarchain.storage.AwsIntegrationSuite[0m started
+[33m==> i [0m[33mscholarchain.storage.AwsIntegrationSuite[0m[33m ignored[0m [90m0.0s[0m
+Test run [36mscholarchain.storage.AwsIntegrationSuite[0m finished: 0 failed, [33m1 ignored[0m, 0 total [90m0.076s[0m
+Test run [36mscholarchain.core.NormalizeSuite[0m started
+[32mscholarchain.core.NormalizeSuite[0m: finished [90m0.159s[0m
+Test run [36mscholarchain.core.NormalizeSuite[0m finished: 0 failed, 0 ignored, 4 total [90m0.19s[0m
+Test run [36mscholarchain.storage.KeyValueFakeSuite[0m started
+[32mscholarchain.storage.KeyValueFakeSuite[0m: finished [90m0.247s[0m
+Test run [36mscholarchain.storage.KeyValueFakeSuite[0m finished: 0 failed, 0 ignored, 4 total [90m0.278s[0m
+Test run [36mscholarchain.core.aws.SigV4Suite[0m started
+[32mscholarchain.core.aws.SigV4Suite[0m: finished [90m0.25s[0m
+Test run [36mscholarchain.core.aws.SigV4Suite[0m finished: 0 failed, 0 ignored, 6 total [90m0.278s[0m
+Test run [36mscholarchain.storage.GraphTemplateSuite[0m started
+[32mscholarchain.storage.GraphTemplateSuite[0m: finished [90m0.139s[0m
+Test run [36mscholarchain.storage.GraphTemplateSuite[0m finished: 0 failed, 0 ignored, 8 total [90m0.14s[0m
+Test run [36mscholarchain.core.IdsSuite[0m started
+[32mscholarchain.core.IdsSuite[0m: finished [90m0.413s[0m
+Test run [36mscholarchain.core.IdsSuite[0m finished: 0 failed, 0 ignored, 12 total [90m0.44s[0m
+Test run [36mscholarchain.storage.InMemoryVectorStoreSuite[0m started
+[32mscholarchain.storage.InMemoryVectorStoreSuite[0m: finished [90m0.174s[0m
+Test run [36mscholarchain.storage.InMemoryVectorStoreSuite[0m finished: 0 failed, 0 ignored, 3 total [90m0.174s[0m
+Test run [36mscholarchain.core.ValidateSuite[0m started
+[32mscholarchain.core.ValidateSuite[0m: finished [90m0.723s[0m
+Test run [36mscholarchain.core.ValidateSuite[0m finished: 0 failed, 0 ignored, 25 total [90m0.75s[0m
+Test run [36mscholarchain.storage.NeptuneIdentifierSuite[0m started
+[32mscholarchain.storage.NeptuneIdentifierSuite[0m: finished [90m0.498s[0m
+Test run [36mscholarchain.storage.NeptuneIdentifierSuite[0m finished: 0 failed, 0 ignored, 7 total [90m0.501s[0m
+Test run [36mscholarchain.storage.AwsIntegrationHarnessSuite[0m started
+[32mscholarchain.storage.AwsIntegrationHarnessSuite[0m: finished [90m0.907s[0m
+Test run [36mscholarchain.storage.AwsIntegrationHarnessSuite[0m finished: 0 failed, 0 ignored, 2 total [90m0.939s[0m
+Test run [36mscholarchain.storage.RowSourceSuite[0m started
+[32mscholarchain.storage.RowSourceSuite[0m: finished [90m0.732s[0m
+Test run [36mscholarchain.storage.RowSourceSuite[0m finished: 0 failed, 0 ignored, 2 total [90m0.733s[0m
+Test run [36mscholarchain.er.TextSimilaritySuite[0m started
+[32mscholarchain.er.TextSimilaritySuite[0m: finished [90m0.282s[0m
+Test run [36mscholarchain.storage.AwsGateSuite[0m started
+[32mscholarchain.storage.AwsGateSuite[0m: finished [90m0.104s[0m
+Test run [36mscholarchain.storage.AwsGateSuite[0m finished: 0 failed, 0 ignored, 5 total [90m0.104s[0m
+Test run [36mscholarchain.er.TextSimilaritySuite[0m finished: 0 failed, 0 ignored, 2 total [90m0.35s[0m
+Test run [36mscholarchain.storage.LoadManifestSuite[0m started
+[32mscholarchain.storage.LoadManifestSuite[0m: finished [90m0.112s[0m
+Test run [36mscholarchain.storage.LoadManifestSuite[0m finished: 0 failed, 0 ignored, 2 total [90m0.112s[0m
+Test run [36mscholarchain.storage.NeptuneLoadJobSuite[0m started
+[32mscholarchain.storage.NeptuneLoadJobSuite[0m: finished [90m0.831s[0m
+Test run [36mscholarchain.storage.NeptuneLoadJobSuite[0m finished: 0 failed, 0 ignored, 2 total [90m0.832s[0m
+Test run [36mscholarchain.storage.ResearcherMetricsLoaderSuite[0m started
+[32mscholarchain.storage.ResearcherMetricsLoaderSuite[0m: finished [90m0.956s[0m
+Test run [36mscholarchain.storage.ResearcherMetricsLoaderSuite[0m finished: 0 failed, 0 ignored, 7 total [90m0.957s[0m
+Test run [36mscholarchain.storage.NeptuneCsvSuite[0m started
+[32mscholarchain.storage.NeptuneCsvSuite[0m: finished [90m0.304s[0m
+Test run [36mscholarchain.storage.NeptuneCsvSuite[0m finished: 0 failed, 0 ignored, 8 total [90m0.304s[0m
+Test run [36mscholarchain.storage.SemanticDocumentSuite[0m started
+[32mscholarchain.storage.SemanticDocumentSuite[0m: finished [90m0.276s[0m
+Test run [36mscholarchain.storage.SemanticDocumentSuite[0m finished: 0 failed, 0 ignored, 5 total [90m0.278s[0m
+Test run [36mscholarchain.storage.ArtifactWriterSuite[0m started
+[32mscholarchain.storage.ArtifactWriterSuite[0m: finished [90m0.053s[0m
+Test run [36mscholarchain.storage.ArtifactWriterSuite[0m finished: 0 failed, 0 ignored, 4 total [90m0.055s[0m
+Test run [36mscholarchain.storage.SerializationSuite[0m started
+[32mscholarchain.storage.SerializationSuite[0m: finished [90m0.043s[0m
+Test run [36mscholarchain.storage.SerializationSuite[0m finished: 0 failed, 0 ignored, 2 total [90m0.043s[0m
+Test run [36mscholarchain.storage.S3LayoutSuite[0m started
+[32mscholarchain.storage.S3LayoutSuite[0m: finished [90m0.046s[0m
+Test run [36mscholarchain.storage.S3LayoutSuite[0m finished: 0 failed, 0 ignored, 3 total [90m0.05s[0m
+Test run [36mscholarchain.storage.VectorLimitsSuite[0m started
+[32mscholarchain.storage.VectorLimitsSuite[0m: finished [90m0.18s[0m
+Test run [36mscholarchain.storage.VectorLimitsSuite[0m finished: 0 failed, 0 ignored, 5 total [90m0.18s[0m
+Test run [36mscholarchain.core.aws.CredentialsSuite[0m started
+[32mscholarchain.core.aws.CredentialsSuite[0m: finished [90m1.421s[0m
+Test run [36mscholarchain.core.aws.CredentialsSuite[0m finished: 0 failed, 0 ignored, 6 total [90m1.45s[0m
+Test run [36mscholarchain.core.SerializationSuite[0m started
+[32mscholarchain.core.SerializationSuite[0m: finished [90m1.007s[0m
+Test run [36mscholarchain.core.SerializationSuite[0m finished: 0 failed, 0 ignored, 29 total [90m1.007s[0m
+Test run [36mscholarchain.storage.TablesSuite[0m started
+[32mscholarchain.storage.TablesSuite[0m: finished [90m0.417s[0m
+Test run [36mscholarchain.storage.TablesSuite[0m finished: 0 failed, 0 ignored, 10 total [90m0.418s[0m
+Test run [36mscholarchain.core.ConfigSuite[0m started
+[32mscholarchain.core.ConfigSuite[0m: finished [90m1.726s[0m
+Test run [36mscholarchain.core.ConfigSuite[0m finished: 0 failed, 0 ignored, 24 total [90m1.753s[0m
+Test run [36mscholarchain.storage.NeptuneAdapterSuite[0m started
+[32mscholarchain.storage.NeptuneAdapterSuite[0m: finished [90m1.318s[0m
+Test run [36mscholarchain.storage.NeptuneAdapterSuite[0m finished: 0 failed, 0 ignored, 7 total [90m1.319s[0m
+SLF4J(W): Class path contains multiple SLF4J providers.
+SLF4J(W): Found provider [ch.qos.logback.classic.spi.LogbackServiceProvider@22aa4354]
+SLF4J(W): Found provider [org.apache.logging.slf4j.SLF4JServiceProvider@4f072938]
+SLF4J(W): See https://www.slf4j.org/codes.html#multiple_bindings for an explanation.
+Test run [36mscholarchain.storage.S3StubSuite[0m started
+[32mscholarchain.storage.S3StubSuite[0m: finished [90m0.968s[0m
+Test run [36mscholarchain.storage.S3StubSuite[0m finished: 0 failed, 0 ignored, 5 total [90m0.968s[0m
+Test run [36mscholarchain.storage.BedrockEmbedderSuite[0m started
+[32mscholarchain.storage.BedrockEmbedderSuite[0m: finished [90m2.029s[0m
+Test run [36mscholarchain.storage.BedrockEmbedderSuite[0m finished: 0 failed, 0 ignored, 5 total [90m2.06s[0m
+Test run [36mscholarchain.storage.NeptuneValidationSuite[0m started
+[32mscholarchain.storage.NeptuneValidationSuite[0m: finished [90m0.898s[0m
+Test run [36mscholarchain.storage.NeptuneValidationSuite[0m finished: 0 failed, 0 ignored, 19 total [90m0.9s[0m
+Test run [36mscholarchain.storage.DynamoStubSuite[0m started
+[32mscholarchain.storage.DynamoStubSuite[0m: finished [90m2.34s[0m
+Test run [36mscholarchain.storage.DynamoStubSuite[0m finished: 0 failed, 0 ignored, 5 total [90m2.373s[0m
+SLF4J(I): Actual provider is of type [ch.qos.logback.classic.spi.LogbackServiceProvider@22aa4354]
+Test run [36mscholarchain.storage.S3VectorsStubSuite[0m started
+[32mscholarchain.storage.S3VectorsStubSuite[0m: finished [90m2.05s[0m
+Test run [36mscholarchain.storage.S3VectorsStubSuite[0m finished: 0 failed, 0 ignored, 8 total [90m2.05s[0m
+Test run [36mscholarchain.storage.VectorLoaderSuite[0m started
+[32mscholarchain.storage.VectorLoaderSuite[0m: finished [90m2.674s[0m
+Test run [36mscholarchain.storage.VectorLoaderSuite[0m finished: 0 failed, 0 ignored, 25 total [90m2.705s[0m
+[info] Passed: Total 153, Failed 0, Errors 0, Passed 153, Ignored 1
+Test run [36mscholarchain.er.eval.EvaluationSuite[0m started
+[32mscholarchain.er.eval.EvaluationSuite[0m: finished [90m1.191s[0m
+Test run [36mscholarchain.er.eval.EvaluationSuite[0m finished: 0 failed, 0 ignored, 14 total [90m1.192s[0m
+SLF4J(W): No SLF4J providers were found.
+SLF4J(W): Defaulting to no-operation (NOP) logger implementation
+SLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.
+Test run [36mscholarchain.core.aws.AwsHttpSuite[0m started
+[32mscholarchain.core.aws.AwsHttpSuite[0m: finished [90m3.401s[0m
+Test run [36mscholarchain.core.aws.AwsHttpSuite[0m finished: 0 failed, 0 ignored, 9 total [90m3.429s[0m
+[info] Passed: Total 115, Failed 0, Errors 0, Passed 115
+OBSERVE DblpXmlAttackSuite reader status heads at 64: Vector(Oversize:<article mdate="2026-11-01" key="journals/adv/big">, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ba, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ov, BadEncoding:<article mdate="2026-11-01" key="journals/adv/su, Truncated:<article mdate="2026-11-01" key="journals/adv/cut")
+OBSERVE DblpXmlAttackSuite reader status heads at 100: Vector(Oversize:<article mdate="2026-11-01" key="journals/adv/big">, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ba, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ov, BadEncoding:<article mdate="2026-11-01" key="journals/adv/su, Truncated:<article mdate="2026-11-01" key="journals/adv/cut")
+OBSERVE DblpXmlAttackSuite reader status heads at 128: Vector(Oversize:<article mdate="2026-11-01" key="journals/adv/big">, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ba, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ov, BadEncoding:<article mdate="2026-11-01" key="journals/adv/su, Truncated:<article mdate="2026-11-01" key="journals/adv/cut")
+OBSERVE DblpXmlAttackSuite reader status heads at 257: Vector(Oversize:<article mdate="2026-11-01" key="journals/adv/big">, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ba, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ov, BadEncoding:<article mdate="2026-11-01" key="journals/adv/su, Truncated:<article mdate="2026-11-01" key="journals/adv/cut")
+OBSERVE DblpXmlAttackSuite reader status heads at 1000: Vector(Oversize:<article mdate="2026-11-01" key="journals/adv/big">, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ba, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ov, BadEncoding:<article mdate="2026-11-01" key="journals/adv/su, Truncated:<article mdate="2026-11-01" key="journals/adv/cut")
+OBSERVE DblpXmlAttackSuite reader status heads at 9223372036854775807: Vector(Oversize:<article mdate="2026-11-01" key="journals/adv/big">, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ba, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ov, BadEncoding:<article mdate="2026-11-01" key="journals/adv/su, Truncated:<article mdate="2026-11-01" key="journals/adv/cut")
+OBSERVE DuplicateIdSuite D1 J01 counters: HashMap(ACCEPTED_RECORDS -> 6, DBLP_TYPE_ARTICLE -> 6, DUPLICATE_RECORDS -> 2, CONFLICT_RECORDS -> 1, UNIQUE_RECORDS -> 4, INPUT_RECORDS -> 6)
+OBSERVE DuplicateIdSuite kept d/conf version: (Conflict Version Alpha,2021,2)
+{
+  "runId": "run-6a2ea72585e9fd62",
+  "decisions": "/tmp/sc-er-job-3207290558144175557/scratch-out/match-decisions/policy=er-v1/snapshot=2026-11-22/run_id=run-6a2ea72585e9fd62",
+  "total": 10,
+  "byOutcome": {
+    "ACCEPTED": 5,
+    "REJECTED": 2,
+    "UNRESOLVED": 1,
+    "CONFLICT": 2
+  },
+  "byKindOutcome": {
+    "RESEARCHER_ACCEPTED": 3,
+    "RESEARCHER_REJECTED": 1,
+    "RESEARCHER_UNRESOLVED": 1,
+    "RESEARCHER_CONFLICT": 1,
+    "WORK_ACCEPTED": 2,
+    "WORK_REJECTED": 1,
+    "WORK_UNRESOLVED": 0,
+    "WORK_CONFLICT": 1
+  },
+  "byPath": {
+    "EXACT_ID": 6,
+    "DETERMINISTIC_BIBLIOGRAPHIC": 2,
+    "PROBABILISTIC": 2,
+    "LLM_ADJUDICATED": 0
+  },
+  "unresolvedRate": 0.1,
+  "counters": {
+    "DECISIONS": 10,
+    "INPUT_RECORDS": 11,
+    "LLM_OFF": 1,
+    "PATH_DETERMINISTIC_BIBLIOGRAPHIC": 2,
+    "PATH_EXACT_ID": 6,
+    "PATH_PROBABILISTIC": 2,
+    "REJECTED_RECORDS": 1,
+    "RESEARCHER_ACCEPTED": 3,
+    "RESEARCHER_CONFLICT": 1,
+    "RESEARCHER_REJECTED": 1,
+    "RESEARCHER_UNRESOLVED": 1,
+    "SCHEMA_FAILURE": 1,
+    "WORK_ACCEPTED": 2,
+    "WORK_CONFLICT": 1,
+    "WORK_REJECTED": 1
+  }
+}
+{
+  "runId": "run-6a2ea72585e9fd62",
+  "decisions": "/tmp/sc-er-job-3207290558144175557/scratch-out/match-decisions/policy=er-v1/snapshot=2026-11-22/run_id=run-6a2ea72585e9fd62",
+  "total": 10,
+  "byOutcome": {
+    "ACCEPTED": 5,
+    "REJECTED": 2,
+    "UNRESOLVED": 1,
+    "CONFLICT": 2
+  },
+  "byKindOutcome": {
+    "RESEARCHER_ACCEPTED": 3,
+    "RESEARCHER_REJECTED": 1,
+    "RESEARCHER_UNRESOLVED": 1,
+    "RESEARCHER_CONFLICT": 1,
+    "WORK_ACCEPTED": 2,
+    "WORK_REJECTED": 1,
+    "WORK_UNRESOLVED": 0,
+    "WORK_CONFLICT": 1
+  },
+  "byPath": {
+    "EXACT_ID": 6,
+    "DETERMINISTIC_BIBLIOGRAPHIC": 2,
+    "PROBABILISTIC": 2,
+    "LLM_ADJUDICATED": 0
+  },
+  "unresolvedRate": 0.1,
+  "counters": {
+    "DECISIONS": 10,
+    "INPUT_RECORDS": 11,
+    "LLM_OFF": 1,
+    "PATH_DETERMINISTIC_BIBLIOGRAPHIC": 2,
+    "PATH_EXACT_ID": 6,
+    "PATH_PROBABILISTIC": 2,
+    "REJECTED_RECORDS": 1,
+    "RESEARCHER_ACCEPTED": 3,
+    "RESEARCHER_CONFLICT": 1,
+    "RESEARCHER_REJECTED": 1,
+    "RESEARCHER_UNRESOLVED": 1,
+    "SCHEMA_FAILURE": 1,
+    "WORK_ACCEPTED": 2,
+    "WORK_CONFLICT": 1,
+    "WORK_REJECTED": 1
+  }
+}
+entity resolution error: refusing a path in human-only territory: /tmp/sc-er-job-3207290558144175557/x/datasets/gold/out
+entity resolution error: models.llmEnabled is true, but the match job does not wire the bedrock adjudicator yet (task credentials and the cost sign-off come with the cloud phases); use off or fake
+entity resolution error: configured thresholds Thresholds(0.95,0.35,0.7,0.9) differ from the pinned er-v1 thresholds Thresholds(0.9,0.35,0.7,0.9); a threshold change needs a new policy version
+usage error: the match job does not wire the bedrock adjudicator yet (task credentials and the cost sign-off come with the cloud phases); use off or fake
+usage: --run-root <hadoop output root> --output <dir> [--run-id <run-...>] [--adjudicator off|fake] [--adjudication-cache <decision run dir or file>] [--reducers 4] [--compress true]
+usage error: --reducers must be an integer >= 1, got '0'
+usage: --run-root <hadoop output root> --output <dir> [--run-id <run-...>] [--adjudicator off|fake] [--adjudication-cache <decision run dir or file>] [--reducers 4] [--compress true]
+usage error: unknown argument '--surprise'
+usage: --run-root <hadoop output root> --output <dir> [--run-id <run-...>] [--adjudicator off|fake] [--adjudication-cache <decision run dir or file>] [--reducers 4] [--compress true]
+Test run [36mscholarchain.er.MatchJobSuite[0m started
+[32mscholarchain.er.MatchJobSuite[0m: finished [90m19.137s[0m
+Test run [36mscholarchain.er.MatchJobSuite[0m finished: 0 failed, 0 ignored, 9 total [90m19.138s[0m
+Test run [36mscholarchain.er.review.ReviewSupplementSuite[0m started
+[32mscholarchain.er.review.ReviewSupplementSuite[0m: finished [90m0.288s[0m
+Test run [36mscholarchain.er.review.ReviewSupplementSuite[0m finished: 0 failed, 0 ignored, 11 total [90m0.288s[0m
+OBSERVE DblpXmlAttackSuite hostile J01 reject reasons: Vector(unreadable record (OversizeNone) at byte 264, unreadable record (BadEncodingSome(, UTF-8)) at byte 3649, unreadable record (BadEncodingSome(, UTF-8)) at byte 3831, unreadable record (BadEncodingSome(, UTF-8)) at byte 4017, unreadable record (TruncatedNone) at byte 4377)
+OBSERVE DblpXmlAttackSuite hostile J01 counters: HashMap(ACCEPTED_RECORDS -> 3, DBLP_TYPE_ARTICLE -> 3, REJECTED_RECORDS -> 5, UNIQUE_RECORDS -> 3, INPUT_RECORDS -> 8)
+Test run [36mscholarchain.er.BedrockAdjudicatorSuite[0m started
+[32mscholarchain.er.BedrockAdjudicatorSuite[0m: finished [90m1.136s[0m
+Test run [36mscholarchain.er.BedrockAdjudicatorSuite[0m finished: 0 failed, 0 ignored, 7 total [90m1.136s[0m
+Test run [36mscholarchain.er.AdjudicationSuite[0m started
+[32mscholarchain.er.AdjudicationSuite[0m: finished [90m0.055s[0m
+Test run [36mscholarchain.er.AdjudicationSuite[0m finished: 0 failed, 0 ignored, 12 total [90m0.056s[0m
+Test run [36mscholarchain.er.review.ReviewQueueSuite[0m started
+[32mscholarchain.er.review.ReviewQueueSuite[0m: finished [90m1.29s[0m
+Test run [36mscholarchain.er.review.ReviewQueueSuite[0m finished: 0 failed, 0 ignored, 15 total [90m1.291s[0m
+Test run [36mscholarchain.er.FeaturesSuite[0m started
+[32mscholarchain.er.FeaturesSuite[0m: finished [90m0.046s[0m
+Test run [36mscholarchain.er.FeaturesSuite[0m finished: 0 failed, 0 ignored, 9 total [90m0.046s[0m
+Test run [36mscholarchain.er.MatchPolicySuite[0m started
+[32mscholarchain.er.MatchPolicySuite[0m: finished [90m0.073s[0m
+Test run [36mscholarchain.er.MatchPolicySuite[0m finished: 0 failed, 0 ignored, 15 total [90m0.073s[0m
+Test run [36mscholarchain.er.ExactIdsSuite[0m started
+[32mscholarchain.er.ExactIdsSuite[0m: finished [90m0.01s[0m
+Test run [36mscholarchain.er.ExactIdsSuite[0m finished: 0 failed, 0 ignored, 4 total [90m0.01s[0m
+Test run [36mscholarchain.er.LeakageSuite[0m started
+[32mscholarchain.er.LeakageSuite[0m: finished [90m0.015s[0m
+Test run [36mscholarchain.er.LeakageSuite[0m finished: 0 failed, 0 ignored, 2 total [90m0.015s[0m
+Test run [36mscholarchain.er.ErNormalizeSuite[0m started
+[32mscholarchain.er.ErNormalizeSuite[0m: finished [90m0.021s[0m
+Test run [36mscholarchain.er.ErNormalizeSuite[0m finished: 0 failed, 0 ignored, 11 total [90m0.021s[0m
+Test run [36mscholarchain.er.ResolverSuite[0m started
+[32mscholarchain.er.ResolverSuite[0m: finished [90m0.241s[0m
+Test run [36mscholarchain.er.ResolverSuite[0m finished: 0 failed, 0 ignored, 8 total [90m0.242s[0m
+SLF4J(W): No SLF4J providers were found.
+SLF4J(W): Defaulting to no-operation (NOP) logger implementation
+SLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.
+OBSERVE CommonNameSuite J04 counters: HashMap(ACCEPTED_RECORDS -> 84, BLOCKED_CANDIDATES -> 15, REJECTED_RECORDS -> 3, INPUT_RECORDS -> 84, FALLBACK_BLOCKS_COMPARED -> 4, OVERSIZE_BLOCKS -> 3)
+OBSERVE CommonNameSuite J04 rejects: Vector(block wang_w/wei wang has 9 clusters > 5, block r:zhang_h has 60 members > hard cap 50; not expanded, work block wk:2019:common+graph has 7 works > 5)
+OBSERVE CommonNameSuite candidates per block key: Vector((fallback_l,1), (qiu_l,1), (ray_b,10), (wang_w|co:zorander_k,1), (wk:2019:common+graph|a:fallback_l,1), (zorander_k,1))
+OBSERVE CommonNameSuite Wang-Wang candidates: Vector((wang_w|co:zorander_k,{"venue_overlap":0,"cross_source":0,"initials_compatible":1,"same_full_name":0,"orcid_conflict":0,"affiliation_overlap":0,"name_jw":0.9249999999999999,"coauthor_overlap":1,"title_token_overlap":0,"orcid_equal":0,"shared_work":0,"year_gap":0,"external_id_conflict":0,"dblp_homonym_distinct":0,"affiliation_known":0,"external_id_equal":0}))
+OBSERVE CommonNameSuite Zhang-Zhang candidates: 0
+OBSERVE CommonNameSuite title-title candidates: Vector((wk:2019:common+graph|a:fallback_l,Set(dblp:c/title6, dblp:c/title7)))
+OBSERVE CommonNameSuite Ray candidates: 10
+OBSERVE CommonNameSuite largestBlockObserved: {"key":"r:zhang_h","members":60}
+OBSERVE CommonNameSuite fallback Wang candidates: Vector({"schemaVersion":"match-candidate-v1","candidateId":"mc:researcher:d3637c8353796b2f3e55","kind":"RESEARCHER","sourceId":"m:601209cc38a196c9131e","targetId":"m:f0eb763fa9533d8d44e2","blockKey":"wang_w|co:zorander_k","features":{"venue_overlap":0,"cross_source":0,"initials_compatible":1,"same_full_name":0,"orcid_conflict":0,"affiliation_overlap":0,"name_jw":0.9249999999999999,"coauthor_overlap":1,"title_token_overlap":0,"orcid_equal":0,"shared_work":0,"year_gap":0,"external_id_conflict":0,"dblp_homonym_distinct":0,"affiliation_known":0,"external_id_equal":0},"sourceIdentifiers":{},"targetIdentifiers":{},"provenance":{"source":"SCHOLARCHAIN","sourceRecordId":"wang_w|co:zorander_k","snapshot":"2026-11-22","runId":"run-f0c073ea006928b4","schemaVersion":"match-candidate-v1","policyVersion":"norm-v1"}})
+OBSERVE CommonNameSuite fallback title candidates: Vector({"schemaVersion":"match-candidate-v1","candidateId":"mc:work:eb269fe542d90da4f96e","kind":"WORK","sourceId":"dblp:c/title6","targetId":"dblp:c/title7","blockKey":"wk:2019:common+graph|a:fallback_l","features":{"cross_source":0,"same_source_duplicate":1,"title_jaccard":1,"doi_conflict":0,"doi_equal":0,"same_title":1,"year_distance":0,"author_overlap":0.3333333333333333,"same_venue_name":1},"sourceIdentifiers":{},"targetIdentifiers":{},"provenance":{"source":"SCHOLARCHAIN","sourceRecordId":"wk:2019:common+graph|a:fallback_l","snapshot":"2026-11-22","runId":"run-f0c073ea006928b4","schemaVersion":"match-candidate-v1","policyVersion":"norm-v1"}})
+Test run [36mscholarchain.adversarial.hadoop.CommonNameSuite[0m started
+[32mscholarchain.adversarial.hadoop.CommonNameSuite[0m: finished [90m31.409s[0m
+Test run [36mscholarchain.adversarial.hadoop.CommonNameSuite[0m finished: 0 failed, 0 ignored, 10 total [90m31.456s[0m
+OBSERVE GiantTeamSuite run1 pairs per work: Vector((dblp:g/n12,66), (dblp:g/n2,1), (dblp:g/n3,3), (dblp:g/rep,3))
+OBSERVE GiantTeamSuite run1 oversize reject stages: Vector(J06)
+OBSERVE GiantTeamSuite run1 summary maxTeamObserved: {"workId":"dblp:g/n13","teamSize":13}
+OBSERVE GiantTeamSuite run1 summary largestPairExpansion: 78
+OBSERVE UnicodeSuite NFC/NFD candidates: Vector("nunez_j")
+OBSERVE UnicodeSuite normalized names cyr/lat: (аnna kowalska,anna kowalska)
+Test run [36mscholarchain.adversarial.hadoop.UnicodeSuite[0m started
+[32mscholarchain.adversarial.hadoop.UnicodeSuite[0m: finished [90m46.421s[0m
+Test run [36mscholarchain.adversarial.hadoop.UnicodeSuite[0m finished: 0 failed, 0 ignored, 8 total [90m46.467s[0m
+Test run [36mscholarchain.hadoop.RejectsAndLimitsSuite[0m started
+[32mscholarchain.hadoop.RejectsAndLimitsSuite[0m: finished [90m26.737s[0m
+Test run [36mscholarchain.hadoop.RejectsAndLimitsSuite[0m finished: 0 failed, 0 ignored, 10 total [90m26.778s[0m
+Test run [36mscholarchain.hadoop.DblpParserSuite[0m started
+[32mscholarchain.hadoop.DblpParserSuite[0m: finished [90m1.118s[0m
+Test run [36mscholarchain.hadoop.DblpParserSuite[0m finished: 0 failed, 0 ignored, 22 total [90m1.118s[0m
+Test run [36mscholarchain.hadoop.NormalizerSuite[0m started
+[32mscholarchain.hadoop.NormalizerSuite[0m: finished [90m0.121s[0m
+Test run [36mscholarchain.hadoop.NormalizerSuite[0m finished: 0 failed, 0 ignored, 10 total [90m0.122s[0m
+Test run [36mscholarchain.hadoop.JobLogicSuite[0m started
+[32mscholarchain.hadoop.JobLogicSuite[0m: finished [90m0.215s[0m
+Test run [36mscholarchain.hadoop.JobLogicSuite[0m finished: 0 failed, 0 ignored, 20 total [90m0.215s[0m
+OBSERVE MissingFieldSuite stages: Vector(J01, J02-CROSSREF, J02-OPENALEX, J02-ORCID, J03, J04, J05, J06, J07)
+OBSERVE MissingFieldSuite J01 counters: HashMap(INVALID_IDENTIFIER -> 2, ACCEPTED_RECORDS -> 8, DBLP_TYPE_ARTICLE -> 8, REJECTED_RECORDS -> 9, MISSING_KEY -> 2, UNIQUE_RECORDS -> 8, INPUT_RECORDS -> 17)
+OBSERVE MissingFieldSuite m/noyear: work=1 reject=0
+OBSERVE MissingFieldSuite m/noauthor: work=1 reject=0
+OBSERVE MissingFieldSuite m/badyear: work=0 reject=1
+OBSERVE MissingFieldSuite m/oldyear: work=0 reject=1
+OBSERVE MissingFieldSuite m/notitle: work=0 reject=1
+OBSERVE MissingFieldSuite m/novenue: work=1 reject=0
+OBSERVE MissingFieldSuite INVALID_IDENTIFIER per stage: Vector((J01,2), (J02-CROSSREF,0), (J02-OPENALEX,0), (J02-ORCID,0), (J03,0), (J04,0), (J05,0), (J06,0), (J07,0))
+OBSERVE MissingFieldSuite J01 _counters.json: HashMap(INVALID_IDENTIFIER -> 2, ACCEPTED_RECORDS -> 8, DBLP_TYPE_ARTICLE -> 8, REJECTED_RECORDS -> 9, MISSING_KEY -> 2, UNIQUE_RECORDS -> 8, INPUT_RECORDS -> 17)
+OBSERVE MissingFieldSuite J02-OPENALEX counters: HashMap(ACCEPTED_RECORDS -> 1, WORKS_WRITTEN -> 1, REJECTED_RECORDS -> 4, INPUT_RECORDS -> 5, TOPICS_WRITTEN -> 1)
+OBSERVE MissingFieldSuite ORCID researchers: Vector(Some(0000-0009-1000-0019))
+Test run [36mscholarchain.adversarial.hadoop.MissingFieldSuite[0m started
+[32mscholarchain.adversarial.hadoop.MissingFieldSuite[0m: finished [90m58.387s[0m
+Test run [36mscholarchain.adversarial.hadoop.MissingFieldSuite[0m finished: 0 failed, 0 ignored, 12 total [90m58.429s[0m
+Test run [36mscholarchain.hadoop.RepairDblpSuite[0m started
+[32mscholarchain.hadoop.RepairDblpSuite[0m: finished [90m8.627s[0m
+Test run [36mscholarchain.hadoop.RepairDblpSuite[0m finished: 0 failed, 0 ignored, 10 total [90m8.627s[0m
+Test run [36mscholarchain.hadoop.RepairLogicSuite[0m started
+[32mscholarchain.hadoop.RepairLogicSuite[0m: finished [90m0.045s[0m
+Test run [36mscholarchain.hadoop.RepairLogicSuite[0m finished: 0 failed, 0 ignored, 6 total [90m0.045s[0m
+Test run [36mscholarchain.adversarial.hadoop.GiantTeamSuite[0m started
+[32mscholarchain.adversarial.hadoop.GiantTeamSuite[0m: finished [90m65.496s[0m
+Test run [36mscholarchain.adversarial.hadoop.GiantTeamSuite[0m finished: 0 failed, 0 ignored, 14 total [90m65.542s[0m
+OBSERVE DblpXmlAttackSuite dtd run output bytes: 10508
+OBSERVE DblpXmlAttackSuite dtd run works: Vector(journals/adv/safe1, journals/adv/safe2)
+OBSERVE DblpXmlAttackSuite dtd run J01 rejects: Vector(undeclared entities: xxe, undeclared entities: lol6, DOCTYPE or ENTITY declaration inside a record)
+OBSERVE DuplicateIdSuite D1 team work IDs: Vector(crossref:10.5555/adv.dup.1, dblp:d/conf, dblp:d/doi, dblp:d/same, dblp:d/solo, openalex:W9200000001)
+OBSERVE DuplicateIdSuite DOIs: Vector(Some(10.5555/adv.dup.1), Some(10.5555/adv.dup.1), Some(10.5555/adv.dup.1), Some(10.5555/adv.dup.1))
+OBSERVE DuplicateIdSuite exact candidates: Vector((mc:work:e36f958f1bb2c6407df2,crossref:10.5555/adv.dup.1,dblp:d/doi), (mc:work:1fe869a4ab15a42db2ed,crossref:10.5555/adv.dup.1,openalex:W9200000001), (mc:work:39b7c8922e8eca519d3a,dblp:d/doi,openalex:W9200000001))
+OBSERVE DuplicateIdSuite J03 counters: HashMap(ACCEPTED_RECORDS -> 7, EXACT_CANDIDATES -> 3, DUPLICATE_RECORDS -> 2, INPUT_RECORDS -> 7, MISSING_DOI -> 3, MISSING_KEY -> 3)
+OBSERVE DuplicateIdSuite DUPLICATE/CONFLICT per stage: Vector((J01,2,1), (J02-CROSSREF,0,0), (J02-OPENALEX,0,0), (J03,2,0), (J04,0,0), (J05,1,0), (J06,0,0), (J07,3,0))
+usage error: --output <path> is required
+usage: --dblp <path> --output <path> --snapshot <YYYY-MM-DD> [--openalex <path>] [--crossref <path>] [--orcid <path>] [--max-team 300] [--max-block 200] [--reducers 4] [--compress true]
+Test run [36mscholarchain.hadoop.PipelineIntegrationSuite[0m started
+[32mscholarchain.hadoop.PipelineIntegrationSuite[0m: finished [90m33.96s[0m
+Test run [36mscholarchain.hadoop.PipelineIntegrationSuite[0m finished: 0 failed, 0 ignored, 18 total [90m33.96s[0m
+Test run [36mscholarchain.hadoop.RepairArgsSuite[0m started
+[32mscholarchain.hadoop.RepairArgsSuite[0m: finished [90m0.006s[0m
+Test run [36mscholarchain.hadoop.RepairArgsSuite[0m finished: 0 failed, 0 ignored, 2 total [90m0.007s[0m
+22:21:54 WARN Utils: Your hostname, LAPTOP-FCA5P702, resolves to a loopback address: 127.0.1.1; using 10.255.255.254 instead (on interface lo)
+22:21:54 WARN Utils: Set SPARK_LOCAL_IP if you need to bind to another address
+22:21:55 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+Test run [36mscholarchain.adversarial.hadoop.DblpXmlAttackSuite[0m started
+[32mscholarchain.adversarial.hadoop.DblpXmlAttackSuite[0m: finished [90m109.158s[0m
+Test run [36mscholarchain.adversarial.hadoop.DblpXmlAttackSuite[0m finished: 0 failed, 0 ignored, 13 total [90m109.203s[0m
+Test run [36mscholarchain.adversarial.hadoop.DuplicateIdSuite[0m started
+[32mscholarchain.adversarial.hadoop.DuplicateIdSuite[0m: finished [90m119.001s[0m
+Test run [36mscholarchain.adversarial.hadoop.DuplicateIdSuite[0m finished: 0 failed, 0 ignored, 11 total [90m119.045s[0m
+[info] Passed: Total 68, Failed 0, Errors 0, Passed 68
+Test run [36mscholarchain.spark.CanonicalSuite[0m started
+[32mscholarchain.spark.CanonicalSuite[0m: finished [90m55.045s[0m
+Test run [36mscholarchain.spark.CanonicalSuite[0m finished: 0 failed, 0 ignored, 6 total [90m55.058s[0m
+Test run [36mscholarchain.spark.CollaborationSuite[0m started
+[32mscholarchain.spark.CollaborationSuite[0m: finished [90m1.951s[0m
+Test run [36mscholarchain.spark.CollaborationSuite[0m finished: 0 failed, 0 ignored, 3 total [90m1.952s[0m
+Test run [36mscholarchain.spark.WindowAnalyticsSuite[0m started
+[32mscholarchain.spark.WindowAnalyticsSuite[0m: finished [90m35.769s[0m
+Test run [36mscholarchain.spark.WindowAnalyticsSuite[0m finished: 0 failed, 0 ignored, 5 total [90m35.769s[0m
+Test run [36mscholarchain.spark.RunManifestSuite[0m started
+[32mscholarchain.spark.RunManifestSuite[0m: finished [90m0.076s[0m
+Test run [36mscholarchain.spark.RunManifestSuite[0m finished: 0 failed, 0 ignored, 6 total [90m0.077s[0m
+Test run [36mscholarchain.spark.TemporalSuite[0m started
+[32mscholarchain.spark.TemporalSuite[0m: finished [90m22.326s[0m
+Test run [36mscholarchain.spark.TemporalSuite[0m finished: 0 failed, 0 ignored, 2 total [90m22.326s[0m
+Test run [36mscholarchain.spark.GraphAlgorithmsSuite[0m started
+[32mscholarchain.spark.GraphAlgorithmsSuite[0m: finished [90m23.608s[0m
+Test run [36mscholarchain.spark.GraphAlgorithmsSuite[0m finished: 0 failed, 0 ignored, 6 total [90m23.608s[0m
+22:24:11 WARN SparkStringUtils: Truncated the string representation of a plan since it was too large. This behavior can be adjusted by setting 'spark.sql.debug.maxToStringFields'.
+Test run [36mscholarchain.spark.PipelineSuite[0m started
+[32mscholarchain.spark.PipelineSuite[0m: finished [90m70.42s[0m
+Test run [36mscholarchain.spark.PipelineSuite[0m finished: 0 failed, 0 ignored, 5 total [90m70.42s[0m
+[info] Passed: Total 119, Failed 0, Errors 0, Passed 119
+[info] Passed: Total 98, Failed 0, Errors 0, Passed 98
+[info] Passed: Total 33, Failed 0, Errors 0, Passed 33
+[info] markTestRun: 14 project test runs passed, touched /home/ajcreator/scholarchain/.claude/.last-test-run
+[success] Total time: 312 s (0:05:12.0), completed Nov 23, 2026, 10:25:22 PM
