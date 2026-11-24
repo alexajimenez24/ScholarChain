@@ -319,3 +319,29 @@ DBLP, UTF-8 when none is declared) and reject bytes that are invalid in the decl
 encoding."
 It is implemented in repair round 1 (HR2, brief B5) and described under "Reject outputs".
 A black-box ISO-8859-1 case from test-engineer is not yet written.
+
+## Phase 08 real-scale runs
+
+Sources, in `docs/agent-runs/phase-08/`: `step-S2-hadoop-engineer-report.md` and
+`step-S2b-hadoop-engineer-report.md`.
+No code changed; the runs used `LocalRunner` with a 2 GB heap and absolute paths.
+The commands were not replayed here (they need sbt).
+
+| Run | Input | Wall time | Export |
+|---|---|---|---|
+| `run-834f71c82961a194` | 100,000 DBLP works, OpenAlex 49,749, Crossref 4,516 | 570 s | 154,246 works, 545,366 mentions, 980,859 pairs |
+| `run-03a81f6f54f3fc3c` | 25,000 DBLP works, OpenAlex 12,433, Crossref 1,137 | 187 s | 38,564 works, 136,266 mentions, 241,686 pairs |
+
+- The first attempt of the 100,000 run failed because relative paths resolve against the
+  forked JVM's directory `modules/hadoop`; the second used absolute paths.
+- Maximum team size: 133 at 100,000 works, 75 at 25,000.
+  Largest pair expansion: 8,778 and 2,775.
+- Largest blocking group: `r:wang_y`, 1,578 members at 100,000 and 361 at 25,000, both
+  above `maxBlock` 200, so the fallback path handled it.
+- 25,000-run abstracts: 6,292 from OpenAlex; J02 rejected 6 OpenAlex records, whose
+  reasons were not inspected.
+  The 100,000 run rejected 19 OpenAlex records, also not inspected.
+- No ORCID file existed, so the ORCID stage was skipped.
+- The per-source DOI match rate was not computed.
+- The S2b report warns that its team-size statistics are not comparable to the
+  100,000 run, and gives the subset's per-year quota as the reason.

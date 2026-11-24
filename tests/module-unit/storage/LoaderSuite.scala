@@ -34,7 +34,7 @@ class VectorLoaderSuite extends munit.FunSuite:
         uri
       )
       assertEquals(v.metadata("textSha256"), MetaValue.Str(d.textHash))
-      assertEquals(v.metadata("embeddingModel"), MetaValue.Str("hash-embed-v1"))
+      assertEquals(v.metadata("embeddingModel"), MetaValue.Str("hash-embed-v1@16"))
       val stored = upickle.default.read[SemanticDocument](r.objects.getText(uri).toOption.get)
       assertEquals(stored, d) // the long text is in S3, whole
       assertEquals(v.data.size, dim)
@@ -479,8 +479,10 @@ class VectorLoaderSuite extends munit.FunSuite:
         Some("norm-v1")
       )
     )
-    val abstracts = RowSource.of(Seq(pa)).mapE(SemanticDocument.fromAbstract(_, mv))
-    val res = r.loader.load(run, abstracts).toOption.get
+    val res = r.loader
+      .loadRendered(run, RowSource.of(Seq(SourceRecord.Abstract(pa))), RenderFx.stub())
+      .toOption
+      .get
     assertEquals(res.written, 1L)
     val v = r.fake.get("paper-abstract-v1", r.fake.keys("paper-abstract-v1")).toOption.get.head
     assertEquals(v.metadata("source"), MetaValue.Str("DBLP"))

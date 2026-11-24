@@ -155,6 +155,19 @@ plus `run-manifests/<id>.json` and `<id>-summary.json`.
 - A gold set with valid NON_MATCH labels: the reject side is effectively unmeasured.
 - Citation evidence (the contract gap below).
 
+### Phase 08 done
+
+Sources, in `docs/agent-runs/phase-08/`:
+`step-S3-entity-resolution-engineer-report.md` and
+`step-S3b-entity-resolution-engineer-report.md`.
+No public API change and no code change; er-v1 is unchanged, the adjudicator is off and
+the gold set was not re-evaluated.
+
+- `run-85fd79957d197ffc`: 100,000 works, 4,561,097 decisions in 1:21:47 with `-Xmx2g`.
+- `run-cb5a0421c406737d`: 25,000 works, 903,286 decisions in 1:19:48, peak RSS about
+  1.4 GB.
+- Outcome counts are in [docs/entity-resolution.md](../../docs/entity-resolution.md).
+
 ## Known issues
 
 - **Labeling errors in the gold set (human decision 04).**
@@ -207,6 +220,17 @@ plus `run-manifests/<id>.json` and `<id>-summary.json`.
 - Doc-comment pitfall: a `*/` inside a doc comment closes it and breaks the build.
 - The evaluation copy under `target/` could not be written because `target/**` has no
   owner (open item 3 for the human).
+
+### Phase 08 known issues
+
+- `LocalMatchRunner` needs absolute paths, like `LocalRunner`.
+- The runtime is close to the 90-minute step-down limit (about 8 and 10 minutes under).
+  At 25,000 works the wall time did not scale with the input and CPU use was 36 percent;
+  the report suspects I/O wait or host contention and did not verify it.
+- The default Test heap of 1g was not tried at this scale.
+- The empty `adjudications/` and `rejects-v1/` folders are absent in these runs.
+- Researcher CONFLICT volume is mostly ORCID_DISAGREES between holders of different
+  ORCIDs in large blocks; a candidate er-v2 refinement, not changed (er-v1 is frozen).
 
 ## Dependencies
 

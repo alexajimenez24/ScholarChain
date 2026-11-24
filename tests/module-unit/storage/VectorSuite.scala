@@ -553,24 +553,62 @@ class SemanticDocumentSuite extends munit.FunSuite:
     )
   )
 
-  test("a Spark semantic-summary row becomes a document; every required field is checked") {
-    val d = SemanticDocument.fromEvidence(ev).toOption.get
+  test("a Spark semantic-summary row and its rendering become one document per chunk") {
+    val rd = RenderFx.stub(maxChunk = 1000).renderSummary(ev).toOption.get
+    val ds = SemanticDocument.fromEvidence(ev, rd).toOption.get
+    assertEquals(ds.size, 1)
+    val d = ds.head
     assertEquals(
       (d.docType, d.entityId, d.window, d.declaredIndex),
       ("researcher-profile", r1, Some(w2010), Some("researcher-profile-v1"))
     )
     assertEquals((d.runId, d.snapshot, d.evidenceId.isDefined), (run, "2026-11-22", true))
-    def bad(e: EvidenceItem, part: String) =
-      assert(SemanticDocument.fromEvidence(e).left.exists(_.contains(part)), part)
-    bad(ev.copy(chunkId = None), "chunkId")
-    bad(ev.copy(text = None), "text")
-    bad(ev.copy(textHash = Some("sha256:00")), "textHash")
-    bad(ev.copy(evidenceType = EvidenceType.TEXT_CHUNK), "SEMANTIC_PROFILE")
+    assertEquals(
+      (d.template, d.chunkPolicy, d.ordinal, d.chunkCount, d.documentTextHash),
+      ("tpl-stub-v1", "chunk-stub-v1", 0, 1, rd.textHash)
+    )
+    def bad(e: EvidenceItem, part: String, r: RenderedDocument = rd) =
+      assert(SemanticDocument.fromEvidence(e, r).left.exists(_.contains(part)), part)
     bad(ev.copy(values = ev.values - "docType"), "docType")
     bad(ev.copy(values = ev.values - "entityId"), "entityId")
     bad(ev.copy(values = ev.values - "window"), "window")
     bad(ev.copy(values = ev.values.updated("window", "2010")), "window")
     bad(ev.copy(schemaVersion = "evidence-v9"), "schema")
+    bad(ev.copy(evidenceType = EvidenceType.TEXT_CHUNK), "SEMANTIC_PROFILE")
+    // the rendering must name the row's identity
+    bad(ev, "another document type, entity or window", rd.copy(entityId = "sc:r:v1:other"))
+    bad(ev, "another document type, entity or window", rd.copy(window = Some(w1950)))
+    bad(ev, "another evidence ID", rd.copy(evidenceId = Some("ev:x:0123456789abcdef")))
+  }
+
+  test("a rendering that is not self-consistent is refused, never repaired") {
+    val rd = RenderFx.stub(maxChunk = 3).renderSummary(ev).toOption.get
+    assert(rd.chunks.size > 1)
+    def bad(r: RenderedDocument, part: String) =
+      assert(SemanticDocument.fromEvidence(ev, r).left.exists(_.contains(part)), part)
+    bad(rd.copy(textHash = "sha256:00"), "textHash")
+    bad(rd.copy(chunks = Vector.empty), "no chunks")
+    bad(rd.copy(chunks = rd.chunks.reverse), "ordinals")
+    bad(rd.copy(chunks = rd.chunks.updated(0, rd.chunks(0).copy(text = "zzz"))), "span")
+    bad(
+      rd.copy(chunks = rd.chunks.updated(0, rd.chunks(0).copy(textHash = "sha256:00"))),
+      "chunk textHash"
+    )
+    bad(
+      rd.copy(chunks = rd.chunks.updated(0, rd.chunks(0).copy(chunkId = "c:zz"))),
+      "malformed chunk ID"
+    )
+    bad(
+      rd.copy(chunks = rd.chunks.map(_.copy(chunkId = rd.chunks.head.chunkId))),
+      "duplicate chunk IDs"
+    )
+    bad(rd.copy(template = ""), "template")
+    // a one-chunk document keeps the core chunk ID formula
+    val one = RenderFx.stub(maxChunk = 1000).renderSummary(ev).toOption.get
+    bad(
+      one.copy(chunks = Vector(one.chunks.head.copy(chunkId = Ids.chunk("x", mv, "y", 0, "z")))),
+      "core Ids.chunk"
+    )
   }
 
   test("documents round-trip through uPickle and through strict JSON lines") {
@@ -584,18 +622,22 @@ class SemanticDocumentSuite extends munit.FunSuite:
     assertEquals(JsonLines.decode[PaperAbstract](JsonLines.encode(pa)), Right(pa))
   }
 
-  test("a Hadoop abstract gets the core chunk ID and no window; a bad hash is refused") {
+  test("an abstract and its rendering become documents with no window; bad input is refused") {
     val text = "An abstract about distributed graph processing"
     val pa = PaperAbstract("dblp:conf/x/P", Hashing.tagged(text), text, ev.provenance)
-    val d = SemanticDocument.fromAbstract(pa, "norm-v1").toOption.get
-    assertEquals(d.chunkId, Ids.chunk("dblp:conf/x/P", "norm-v1", "paper-abstract", 0, text))
+    val rd = RenderFx.stub().renderAbstract(pa).toOption.get
+    val d = SemanticDocument.fromAbstract(pa, rd).toOption.get.head
     assertEquals((d.docType, d.window, d.entityId), ("paper-abstract", None, "dblp:conf/x/P"))
-    assert(SemanticDocument.fromAbstract(pa.copy(textHash = "sha256:00"), "norm-v1").isLeft)
+    assertEquals(d.text, rd.text) // the rendered text, not the raw abstract
+    assertNotEquals(d.text, text)
+    assertEquals(d.chunkId, rd.chunks.head.chunkId)
+    assert(SemanticDocument.fromAbstract(pa.copy(textHash = "sha256:00"), rd).isLeft)
     assert(
       SemanticDocument
-        .fromAbstract(pa.copy(text = "", textHash = Hashing.tagged("")), "norm-v1")
+        .fromAbstract(pa.copy(text = "", textHash = Hashing.tagged("")), rd)
         .isLeft
     )
+    assert(SemanticDocument.fromAbstract(pa.copy(workId = "dblp:other"), rd).isLeft)
   }
 
   test("metadata fields per document type: filterable fields and references, nothing else") {
@@ -612,7 +654,9 @@ class SemanticDocumentSuite extends munit.FunSuite:
       "textUri",
       "textSha256",
       "sourceUri",
-      "evidenceId"
+      "evidenceId",
+      "chunkOrdinal",
+      "chunkCount"
     )
     assertEquals(
       profile.keySet,

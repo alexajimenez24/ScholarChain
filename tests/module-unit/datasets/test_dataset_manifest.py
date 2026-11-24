@@ -40,7 +40,9 @@ class ManifestTest(unittest.TestCase):
         self.assertFalse([f for f in os.listdir(real) if "orcid" in f.lower()])
 
     def test_committed_samples_are_small(self):
-        total = sum(os.path.getsize(os.path.join(dp, f)) for dp, _, fs in os.walk(os.path.join(ROOT, "datasets", "samples")) for f in fs)
+        # the git-ignored datasets/samples/local/ (raw downloads, up to GBs) is not committed content
+        total = sum(os.path.getsize(os.path.join(dp, f)) for sub in ("real", "fixtures")
+                    for dp, _, fs in os.walk(os.path.join(ROOT, "datasets", "samples", sub)) for f in fs)
         self.assertLess(total, 1_000_000)
 
     def test_tampered_sample_fails_validation(self):
@@ -104,6 +106,62 @@ class FetchBoundsTest(unittest.TestCase):
             for f in os.listdir(t):
                 self.assertEqual(open(os.path.join(t, f), "rb").read(),
                                  open(os.path.join(ROOT, "datasets", "samples", "fixtures", f), "rb").read(), f)
+
+
+class StratifiedSelectionTest(unittest.TestCase):
+    def _recs(self):
+        out = []
+        for y in (2001, 2002):
+            for i in range(6):
+                out.append(f'<article key="journals/x/{y}-{i}"><author>A{i}</author><author>B{i}</author><title>t{i}</title><year>{y}</year></article>')
+        out.append('<article key="journals/x/one"><author>A</author><title>t</title><year>2001</year></article>')
+        out.append('<article key="journals/x/old"><author>A</author><author>B</author><title>t</title><year>1999</year></article>')
+        return out
+
+    def _run(self, d):
+        import gzip, shutil
+        xml = '<?xml version="1.0" encoding="ISO-8859-1"?>\n<dblp>\n' + "\n".join(self._recs()) + "\n</dblp>\n"
+        with gzip.open(os.path.join(d, "dblp.xml.gz"), "wb") as f:
+            f.write(xml.encode("iso-8859-1"))
+        subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "fetch_samples.py"), "dblp", "--years", "2001-2002", "--records", "6",
+                        "--min-authors", "2", "--out", d, "--force"], check=True, capture_output=True)
+        return open(os.path.join(d, "dblp-sample.xml"), encoding="iso-8859-1").read()
+
+    def test_quota_per_year_min_authors_year_range_and_determinism(self):
+        with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
+            a, b = self._run(d1), self._run(d2)
+            self.assertEqual(a, b)
+            keys = re.findall(r'key="([^"]+)"', a)
+            self.assertEqual(len(keys), 6)
+            self.assertEqual(sum(k.startswith("journals/x/2001-") for k in keys), 3)
+            self.assertEqual(sum(k.startswith("journals/x/2002-") for k in keys), 3)
+            self.assertNotIn("journals/x/one", keys)
+            self.assertNotIn("journals/x/old", keys)
+            r = json.load(open(os.path.join(d1, "retrieval.json")))["dblp"]
+            self.assertEqual(r["selectedPerYear"], {"2001": 3, "2002": 3})
+
+
+class SubsetCommandTest(unittest.TestCase):
+    def test_subset_filters_dblp_and_rows_by_doi_without_network(self):
+        def rec(y, i):
+            return (f'<article key="journals/x/{y}-{i}"><author>A</author><author>B</author><title>t</title><year>{y}</year>'
+                    f'<ee>https://doi.org/10.1234/{y}-{i}</ee></article>')
+        with tempfile.TemporaryDirectory() as p, tempfile.TemporaryDirectory() as o:
+            xml = '<?xml version="1.0" encoding="ISO-8859-1"?>\n<dblp>\n' + "\n".join(rec(y, i) for y in (2001, 2002) for i in range(4)) + "\n</dblp>\n"
+            open(os.path.join(p, "dblp-sample.xml"), "w", encoding="iso-8859-1").write(xml)
+            open(os.path.join(p, "dblp.dtd"), "w").write("<!-- dtd -->")
+            oa = [{"doi": f"https://doi.org/10.1234/{y}-{i}", "abstract_inverted_index": {"a": [0]} if i == 0 else None} for y in (2001, 2002) for i in range(4)]
+            cr = [{"DOI": f"10.1234/{y}-{i}"} for y in (2001, 2002) for i in range(4)]
+            open(os.path.join(p, "openalex-works.jsonl"), "w").write("".join(json.dumps(r) + "\n" for r in oa))
+            open(os.path.join(p, "crossref-works.jsonl"), "w").write("".join(json.dumps(r) + "\n" for r in cr))
+            json.dump({"dblp": {"sha256": "x", "minAuthors": 2}, "openalex": {"sha256": "y"}, "crossref": {"sha256": "z"}}, open(os.path.join(p, "retrieval.json"), "w"))
+            env = dict(os.environ, http_proxy="http://127.0.0.1:9", https_proxy="http://127.0.0.1:9")
+            subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "fetch_samples.py"), "subset", "--parent", p, "--out", o,
+                            "--years", "2001-2002", "--records", "4"], check=True, capture_output=True, env=env)
+            r = json.load(open(os.path.join(o, "retrieval.json")))
+            self.assertEqual(r["dblp"]["selectedPerYear"], {"2001": 2, "2002": 2})
+            self.assertEqual((r["dblp"]["dblpDois"], r["openalex"]["works"], r["openalex"]["worksWithAbstract"], r["crossref"]["works"]), (4, 4, 2, 4))
+            subprocess.run([sys.executable, "-I", os.path.join(SCRIPTS, "fetch_samples.py"), "verify", "--out", o], check=True, capture_output=True)
 
 
 class OrcidOptInTest(unittest.TestCase):

@@ -29,6 +29,14 @@ in STATUS.md. -->
 | Config loader strictness | plain decimal numbers only, a round-trip check against the typed schema, and integers below 2^53 | a typed read would otherwise clamp or drop values silently (review 2 MINOR-1, repair round 2) |
 | DBLP encoding | decode with the encoding declared in the XML prolog (ISO-8859-1 for DBLP, UTF-8 when none is declared) and reject bytes invalid in it; unsupported encodings refuse the whole file | human decision of 2026-11-23, verbatim: "the reader must decode with the encoding declared in the XML prolog (ISO-8859-1 for DBLP, UTF-8 when none is declared) and reject bytes that are invalid in the declared encoding"; implemented in Phase 04 repair round 1 |
 | Phase 04 repair budget | one repair round only; findings still open after Review 2 carry forward to the human | human decision of 2026-11-23 |
+| Dataset scale for the integrated run | 25,000 works, stepped down from 100,000 | the Spark stage failed at 100,000 (OOM after 23:04, then the 90-minute limit), so the human's step-down rule reran the chain at 25,000; 25,000 yields 223,953 source rows, above 10,000 (Phase 08) |
+| Graph component bound | `graph.componentMaxIterations` 100 | components did not converge at 40 in 1950-2026 (observed maximum distance 39); 100 is about 2.1 times the 47 iterations observed in 1950-2026 (00d) (Phase 08 step 00c) |
+| Path pair rule | `spark-v4`: targets from each source's reach within 6 hops, at most 112 pairs per window | the old rule paired the sources with one another and found no path, leaving collaboration-path-v1 empty (Phase 08 step 00d) |
+| Renderer port | `DocumentRenderer` defined in storage, implemented by `SemanticRenderer` in rag | rag depends on storage, so storage cannot import rag; storage takes text only from the renderer, so one key has one text (Phase 08) |
+| Abstract template | `tpl-paper-abstract-v2`, no work ID in the text | storage refuses text that repeats a metadata value of 40 or more characters; 71 of 6,292 work IDs are that long (Phase 08 step 01b) |
+| Embedding work queue | manifest-driven batch with a bounded in-process queue, not SQS | no cloud this phase, every step is idempotent, and an SQS stack belongs to infra-engineer; `WorkQueue` is the seam for a Phase 10 SQS adapter (Phase 08 step 02a) |
+| Embedding version | `<modelId>@<dimension>`, locally `hash-embed-v1@256`; a change means a new index version | one index holds one embedding version, and a changed model never overwrites vectors (Phase 08) |
+| Semantic context | `semantic-context-v1`, untrusted data, `score` the only number; graph values only from graph evidence | vector similarity must never supply a count, path, component or bridge value (Phase 08 step 03) |
 | Region and budget | us-east-2, $25 hard cap | course limits |
 
 ## Plan

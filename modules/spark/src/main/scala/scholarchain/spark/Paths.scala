@@ -1,6 +1,7 @@
 package scholarchain.spark
 
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.*
 import scholarchain.core.TimeWindow
 
@@ -12,6 +13,12 @@ import scholarchain.core.TimeWindow
   * the depth bound), never with all pairs, and nothing but the requested pairs reaches the driver.
   * Path evidence is bounded: at most `pathMaxDepth` hops, each with the COAUTHORED_WITH edge ID
   * that supports it, so a path claim can be checked against the edge table.
+  *
+  * Pair selection for the pipeline ([[sampledEvidence]], logic spark-v4): the sources are the
+  * window's sampled betweenness sources, and each source's targets are chosen from its own BFS
+  * reach within `pathMaxDepth` hops, so every requested pair is reachable by construction (the
+  * earlier rule paired the sources with one another, and on a fragmented graph none was within the
+  * depth bound). See [[reachablePairs]] for the rule and its budget.
   *
   * Distance statistics: average path length and effective diameter (the 90th percentile of
   * shortest-path lengths, Leskovec et al. 2005) are estimated per component from BFS runs started
@@ -30,6 +37,71 @@ object Paths:
     val requested = pairs.select("src", "tgt").filter(col("src") =!= col("tgt")).distinct()
     val sources = requested.select("src").distinct()
     val (levels, _) = GraphAlgorithms.multiSourceBfs(sources, graph, maxDepth)
+    fromLevels(edges, levels, requested, maxDepth, w)
+
+  /** Targets per source for a sample of `k` sources: max(1, floor((k - 1) / 2)). For k >= 3 the
+    * window budget k x that is at most k (k - 1) / 2, the pair count of the earlier
+    * sources-with-sources rule (16 sources: 7 targets each, at most 112 pairs).
+    */
+  def targetsPerSource(k: Int): Int = math.max(1, (k - 1) / 2)
+
+  /** Reachable targets from BFS levels `(src, node, dist, ...)` (depth-bounded): at most
+    * `perSource` pairs `(src, tgt)` per source, every one with tgt reached within the bound.
+    *
+    * Rule, deterministic for a given seed: candidates are the nodes at distance 1 or more. A pair
+    * of two sources is kept only from the smaller ID (src < tgt), so one undirected pair is
+    * requested once. Within each (source, distance) the candidates are ranked by SHA-256 of
+    * `src|tgt|seed` (ties by ID); the source then takes them round-robin over distances, longest
+    * distance first: one candidate at each distance (6, 5, ..., 1 with depth 6), then a second at
+    * each, and so on, until `perSource` are chosen or the reach is exhausted. So multi-hop paths
+    * are preferred and the chosen distances are spread over the reach. Distributed window functions
+    * only; the levels hold at most (sources x nodes within the depth bound) rows.
+    */
+  def reachablePairs(levels: DataFrame, perSource: Int, seed: Long): DataFrame =
+    val sources = levels.filter(col("dist") === 0).select(col("src").as("tgt"))
+    val candidates = levels
+      .filter(col("dist") >= 1)
+      .select(col("src"), col("node").as("tgt"), col("dist"))
+      .join(sources.withColumn("tgtIsSource", lit(true)), Seq("tgt"), "left")
+      .filter(col("tgtIsSource").isNull || col("src") < col("tgt"))
+      .withColumn("h", sha2(concat_ws("|", col("src"), col("tgt"), lit(seed.toString)), 256))
+    val inLevel = Window.partitionBy("src", "dist").orderBy(col("h").asc, col("tgt").asc)
+    val inSource = Window.partitionBy("src").orderBy(col("round").asc, col("dist").desc)
+    candidates
+      .withColumn("round", row_number().over(inLevel))
+      .withColumn("pick", row_number().over(inSource))
+      .filter(col("pick") <= perSource)
+      .select("src", "tgt")
+
+  /** Path evidence of the pipeline: BFS from `sources(src)` up to `maxDepth` hops, at most
+    * `perSource` targets per source by [[reachablePairs]] (the pipeline passes [[targetsPerSource]]
+    * of `betweennessSampleSources`), then the shortest paths. Every requested pair is found; one
+    * that is not is the pipeline invariant `pathRequestedNotFound`.
+    */
+  def sampledEvidence(
+      edges: DataFrame,
+      sources: DataFrame,
+      maxDepth: Int,
+      perSource: Int,
+      seed: Long,
+      w: TimeWindow
+  ): DataFrame =
+    val graph = CoauthorGraph.graphEdges(edges)
+    val src = sources.select("src").distinct()
+    val (levels, _) = GraphAlgorithms.multiSourceBfs(src, graph, maxDepth)
+    val requested = Lineage.cut(reachablePairs(levels, perSource, seed))
+    fromLevels(edges, levels, requested, maxDepth, w)
+
+  /** Shortest paths of the `requested(src, tgt)` pairs from BFS levels whose sources include every
+    * src, with one COAUTHORED_WITH edge ID per hop.
+    */
+  private def fromLevels(
+      edges: DataFrame,
+      levels: DataFrame,
+      requested: DataFrame,
+      maxDepth: Int,
+      w: TimeWindow
+  ): DataFrame =
     val found = Lineage.cut(GraphAlgorithms.reconstructPaths(levels, requested, maxDepth))
     val hops = found
       .select(

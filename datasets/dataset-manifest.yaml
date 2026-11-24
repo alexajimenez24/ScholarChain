@@ -7,6 +7,8 @@
 # account ID is written here. Full dumps are never downloaded by default; only bounded samples are.
 manifest_version: "datasets-v1"
 observed_on: "2026-11-22"
+scale_up_observed_on: "2026-11-24 (UTC): the 100,000-work integrated-run subset, kept only under git-ignored datasets/samples/local/2026-11-24/; nothing from it is committed or uploaded"
+derived_subset_25k: "2026-11-24 (UTC): datasets/samples/local/2026-11-24-25k/ (git-ignored), a derived subset of the 2026-11-24 snapshot made for the Phase 08 step-down rerun, no new fetch. Command: python3 datasets/scripts/fetch_samples.py subset --parent datasets/samples/local/2026-11-24 --out datasets/samples/local/2026-11-24-25k --snapshot 2026-11-24 --years 2000-2024 --records 25000. Rule: DBLP first 1000 records per year (2000-2024) of the parent dblp-sample.xml, ordered by (year, hash), which equals fetch_samples.py dblp --years 2000-2024 --records 25000 --min-authors 2 on the local dblp.xml.gz (byte-identical, observed). Observed: 25000 DBLP records (13590096 bytes, sha256 9acfd36f11aa8fcd154d090174f509082d25fe692bef514f5e5fd6f429ae6a84), 22602 distinct DOIs; OpenAlex 12433 works (12432 distinct DOIs, 6292 with an abstract, 89275380 bytes, sha256 74c7cdfbff8633696a1fa84c19c12b01a71a31d06c9a86684b4bde1e2228de10), covering only DOIs inside the parent's partial OpenAlex set; Crossref 1137 works (1054873 bytes, sha256 68bb5aaedd9983f622f2eb433794d5d2b91fbeedca7699c32bfea4e387b29c67), covering only the parent's 5000 hash-ordered DOIs. Licenses and limitations are those of the parent entries below."
 datasets:
   dblp:
     name: "DBLP computer science bibliography (XML)"
@@ -20,17 +22,17 @@ datasets:
     license_source: "https://dblp.org/xml/README.txt (Legal Information, version of November 22nd, 2019, observed 2026-11-22). The dblp.org FAQ and copyright HTML pages sit behind a bot challenge and could not be fetched."
     observed_on: "2026-11-22"
     snapshot_date: "2026-11-21 (Last-Modified of dblp.xml.gz: Sat, 21 Nov 2026 22:20:07 GMT; the dump is rebuilt about monthly, release archive at https://drops.dagstuhl.de/entities/collection/10.4230/dblp.xml)"
-    retrieval: "python3 datasets/scripts/fetch_samples.py dblp --records 1000 --min-authors 2 --snapshot YYYY-MM-DD"
+    retrieval: "committed sample: python3 datasets/scripts/fetch_samples.py dblp --records 1000 --min-authors 2 --snapshot YYYY-MM-DD. Phase 08 scale-up (resumable): fetch_samples.py download --snapshot 2026-11-24 --max-seconds 540; fetch_samples.py dblp --years 2000-2024 --records 100000 --min-authors 2 --max-bytes 8589934592 --snapshot 2026-11-24; fetch_samples.py dtd --snapshot 2026-11-24"
     format: "xml, gzip-compressed (dblp.xml.gz); the dump declares encoding ISO-8859-1 and relies on dblp.dtd for character entities"
     expected_size: "full dump 1122680761 bytes compressed (Content-Length observed 2026-11-22); uncompressed size UNVERIFIED (not downloaded)"
-    observed_size: "sample: 40 records, 17713 bytes (datasets/samples/real/dblp-sample.xml); the full dump was not downloaded"
+    observed_size: "committed sample: 40 records, 17713 bytes (datasets/samples/real/dblp-sample.xml). Scale-up 2026-11-24 (git-ignored, datasets/samples/local/2026-11-24/): full dump downloaded once with the human's approval (2026-11-23, prompt.md): dblp.xml.gz 1123907757 bytes (Last-Modified Tue, 24 Nov 2026 00:53:55 GMT, ETag 42fd78ad-660fb25144590), decompressed 5423281510 bytes scanned to EOF, 8793669 records of the retained types; selected subset dblp-sample.xml 100000 records, 54366532 bytes, 90285 with a DOI ee link, 85006 author elements carrying an orcid attribute (count of orcid= occurrences)"
     raw_prefix: "s3://${RAW_BUCKET}/dblp/snapshot_date=YYYY-MM-DD/"
-    integrity: "full dump: upstream publishes dblp.xml.gz.md5 = dcb2e8cd2d1c05e18a1e8f18165b2c5e (observed 2026-11-22, https://dblp.org/xml/dblp.xml.gz.md5) and ETag 42eabfb9-660d0c35bcf23; no upstream SHA-256 is published, so the SHA-256 of a full download is UNVERIFIED until the human approves one. Samples: sha256 recorded below and in datasets/samples/real/retrieval.json."
+    integrity: "full dump: upstream publishes dblp.xml.gz.md5 = dcb2e8cd2d1c05e18a1e8f18165b2c5e (observed 2026-11-22, https://dblp.org/xml/dblp.xml.gz.md5) and ETag 42eabfb9-660d0c35bcf23; no upstream SHA-256 is published. Scale-up download 2026-11-24: md5 of the local dblp.xml.gz 6b77a16838853f4e40935a15914904f4 equals the upstream dblp.xml.gz.md5 fetched the same day; gzip -t passed; locally computed sha256 aaadc94557c8cddd85e581f5194f898b693ac555c21dfe4b8e1a7f02e1fd3c33 (not an upstream value). Subset dblp-sample.xml sha256 6f62a0ef27505759372e15b885fcad65402454d0918160e856420cd29a60a15d (retrieval.json, local snapshot, checked by fetch_samples.py verify). Committed samples: sha256 recorded below and in datasets/samples/real/retrieval.json."
     sample_files:
       - "datasets/samples/real/dblp-sample.xml sha256=7ea9e5152121a7a8c97d3a5b08ce2439d5ce6c0611f5a30081c85519dfb4934e bytes=17713"
       - "datasets/samples/real/dblp.dtd sha256=2d864498f9eef9298662df11e3874171ff24cd4a21ab5974f1369c90acdb1ef6 bytes=13134"
     schema_version: "dblp.dtd (https://dblp.org/xml/dblp.dtd, 13134 bytes, Last-Modified Wed, 28 Jun 2023 14:19:09 GMT, observed 2026-11-22); schema notes in datasets/schemas/README.md. The DTD is committed at datasets/samples/real/dblp.dtd (fetched by `fetch_samples.py dtd`, Last-Modified and ETag in retrieval.json). Redistribution basis, observed 2026-11-22: the file header states the dblp metadata and its XML export formats are CC0 1.0 and credits Schloss Dagstuhl as copyright holder, and https://dblp.org/xml/README.txt says the same; neither names dblp.dtd itself, so applying CC0 to the DTD is an inference (flagged for the human). Offline parsers resolve entities by pointing the XML parser at this file (see tests/module-unit/datasets)."
-    subset_rule: "stream the dump in file order; keep the first N records of type article, inproceedings, incollection, book, phdthesis or mastersthesis that have at least K author elements (committed sample N=40, K=2; default run N=1000); stop after N records or 128 MiB of decompressed input; www, proceedings and data records are skipped"
+    subset_rule: "PHASE 08 SCALE-UP RULE (stratified hash, whole dump scanned, deterministic): among records of type article, inproceedings, incollection, book, phdthesis or mastersthesis with at least 2 author elements and a <year> from 2000 to 2024, for each year Y keep the 4000 (= 100000 / 25) records with the smallest h = int(sha256(dblp key as bytes).hexdigest()[:16], 16); output ordered by (year, h); www, proceedings and data records are skipped. Eligible records per year (2000..2024): 59350, 64234, 74119, 91023, 108379, 127160, 144117, 156014, 167547, 182867, 192217, 210970, 225931, 241984, 252451, 264416, 277071, 299927, 335258, 378652, 395639, 420920, 443179, 484579, 544263. Selected: 4000 per year, 100000 in total. Every configured graph window (scholarchain-v1.yaml graph.windows: 1950-2026, 2000-2009, 2010-2014, 2015-2026) has data: 40000, 20000 and 40000 works in the three sub-windows. Rule is equal-per-year, so it flattens the real growth of DBLP by year; it is a pure function of the dump, so it is reproducible against the same dump (a later monthly dump gives a different subset). COMMITTED SAMPLE RULE (unchanged): stream the dump in file order; keep the first N records of type article, inproceedings, incollection, book, phdthesis or mastersthesis that have at least K author elements (committed sample N=40, K=2; default run N=1000); stop after N records or 128 MiB of decompressed input; www, proceedings and data records are skipped"
     update_strategy: "monthly dump; re-run with a new snapshot date (new S3 snapshot_date prefix, never overwrite) and compare run manifests; the incremental form is a full re-parse per snapshot"
     linkage_fields:
       - "dblp key"
@@ -42,6 +44,7 @@ datasets:
       - "author orcid attribute (when present)"
     privacy: "public bibliographic metadata about named researchers (names, publications, some ORCID iDs); no contact data. DBLP numeric name suffixes (for example 0004) are homonym disambiguators, not personal data."
     limitations:
+      - "Scale-up subset is stratified equal-per-year (4000 per year), not a random sample of DBLP; per-year volume in the real dump grows from 59350 (2000) to 544263 (2024) eligible records."
       - "A matching author name is not sufficient evidence of author identity."
       - "DBLP disambiguates homonyms with 4-digit suffixes; disambiguation errors propagate."
       - "File order is not random: a prefix sample over-represents the reference works at the start of the dump (committed sample: Springer reference-work chapters)."
@@ -51,8 +54,8 @@ datasets:
       - "python3 datasets/scripts/fetch_samples.py verify --out datasets/samples/real"
       - "curl -sI https://dblp.org/xml/dblp.xml.gz | grep -i content-length (full dump only: gzip -t dblp.xml.gz and md5sum against dblp.xml.gz.md5)"
     unverified:
-      - "SHA-256 of the full dump"
-      - "uncompressed size of the full dump"
+      - "upstream SHA-256 of the full dump (none is published; the md5 matched)"
+      - "uncompressed size of the full dump is now observed (5423281510 bytes on 2026-11-24 for that dump)"
       - "DBLP FAQ license page (bot-protected); the license is taken from xml/README.txt"
   openalex:
     name: "OpenAlex works"
@@ -66,16 +69,16 @@ datasets:
     license_source: "https://help.openalex.org/access/overview.md ('all the data is free and open under CC0'); https://openalex.s3.amazonaws.com/LICENSE.txt is the CC0 1.0 Universal legal code (both observed 2026-11-22)"
     observed_on: "2026-11-22"
     snapshot_date: "API sample: retrieval date 2026-11-22 (the API changes continuously). Public snapshot: quarterly; the docs state 'as of the September 2026 release'; the exact release date was not observed (UNVERIFIED)."
-    retrieval: "python3 datasets/scripts/fetch_samples.py openalex --max-dois 50"
-    format: "API: jsonl, one OpenAlex Work object per line, projected with select=id,doi,display_name,publication_year,type,authorships,topics,primary_location; snapshot: JSON Lines gzip parts, about 400000 records each"
+    retrieval: "committed sample: python3 datasets/scripts/fetch_samples.py openalex --max-dois 50. Phase 08 scale-up (resumable, 50 DOIs per request): fetch_samples.py openalex --max-dois 1000000 --max-seconds 540 --snapshot 2026-11-24, then --max-dois 50000 to finalize the partial result"
+    format: "API: jsonl, one OpenAlex Work object per line, projected with select=id,doi,display_name,publication_year,type,authorships,topics,primary_location,abstract_inverted_index (abstract_inverted_index added 2026-11-24; the committed sample predates it); snapshot: JSON Lines gzip parts, about 400000 records each"
     expected_size: "snapshot: about 745 GB compressed JSON Lines for all entities, about 615 GB for works (https://help.openalex.org/access/snapshot.md, September 2026 release, about 626 million records per format); API sample about 4.4 KB per projected work"
-    observed_size: "sample: 25 works, 110720 bytes (datasets/samples/real/openalex-works.jsonl); the snapshot was not downloaded"
+    observed_size: "committed sample: 25 works, 110720 bytes (datasets/samples/real/openalex-works.jsonl). Scale-up 2026-11-24 (git-ignored): 50000 of the 90285 DBLP DOIs requested, 49749 works returned (49742 distinct DOIs), 25078 with a non-empty abstract_inverted_index, 356609118 bytes; the snapshot was not downloaded. Coverage is PARTIAL: see limitations."
     raw_prefix: "s3://${RAW_BUCKET}/openalex/snapshot_date=YYYY-MM-DD/"
-    integrity: "sha256 of the sample JSONL (below and in retrieval.json). The snapshot ships a manifest.json under s3://openalex/data/jsonl/; per-file checksums were not inspected (UNVERIFIED)."
+    integrity: "sha256 of the sample JSONL (below and in retrieval.json); scale-up openalex-works.jsonl sha256 30e8d31b2ff6e4e674c684952d3620d2c34494df4f7789d3817b1f32f173f1c0 (local snapshot retrieval.json, checked by verify). The snapshot ships a manifest.json under s3://openalex/data/jsonl/; per-file checksums were not inspected (UNVERIFIED)."
     sample_files:
       - "datasets/samples/real/openalex-works.jsonl sha256=1223f4ec6229ed9567e536534a227dbb3147aad7049e09f43a4b67bce12c2fd7 bytes=110720"
     schema_version: "OpenAlex Work object as served by the API on the retrieval date; no published schema version was observed"
-    subset_rule: "works whose DOI appears in the DBLP sample, at most --max-dois (default 50, committed sample 25), requested in batches of 50 with a DOI filter"
+    subset_rule: "works whose DOI appears in the DBLP subset (lower-cased, distinct, sorted ascending), at most --max-dois (default 50, committed sample 25), requested in batches of 50 with a DOI filter. Scale-up: the first 50000 of the 90285 DOIs in that order (sorted ascending: 10.1002 ... 10.1109/ismar.2015.33), because the free daily budget ended; the other 40285 DOIs (10.1109 after ismar.2015.33, all 10.1145, 10.48550 and later prefixes) were not requested"
     update_strategy: "re-query by DOI for each new DBLP snapshot; the full-scale alternative is the quarterly public snapshot via the AWS CLI (no sign-in), which needs approval for its size and cost"
     linkage_fields:
       - "doi"
@@ -86,6 +89,8 @@ datasets:
       - "topic id"
     privacy: "public author names, ORCID iDs and institutional affiliations of researchers"
     limitations:
+      - "Scale-up coverage is partial and biased by DOI prefix: only 50000 of 90285 DOIs were requested, the sorted prefix order excludes ACM (10.1145, 7347 DOIs) and arXiv (10.48550, 6832 DOIs) entirely. 49749 works were returned, and 25078 of them (50.4 percent) carry an abstract_inverted_index. 61 DBLP DOIs contain XML entities such as &lt; that the extractor does not unescape, so those lookups cannot match."
+      - "Observed 2026-11-24: the keyless free budget ($0.10, 1000 requests) ran out after 1000 batch requests; HTTP 429 retry-after 63404 s (reset midnight UTC). A free OpenAlex key (needs an e-mail address, the human's) lifts it; completing the other 40285 DOIs then needs a rerun."
       - "OpenAlex author disambiguation is automated and can split or merge people."
       - "Works without a DOI in DBLP are not enriched by the DOI filter."
       - "Without an API key the API shares a small free daily budget per IP (observed notice: $0.10 shared; a free key gives $1 per day); set OPENALEX_API_KEY in the environment, never in a file."
@@ -94,6 +99,7 @@ datasets:
       - "python3 datasets/scripts/fetch_samples.py verify --out datasets/samples/real"
     unverified:
       - "exact date of the snapshot release the docs call September 2026"
+      - "OpenAlex has no per-response snapshot or version identifier; the scale-up retrieval date is 2026-11-24 only"
       - "per-file checksums in the snapshot manifest"
   crossref:
     name: "Crossref REST API works"
@@ -106,16 +112,16 @@ datasets:
     license_source: "https://www.crossref.org/documentation/retrieve-metadata/rest-api/ (observed 2026-11-22)"
     observed_on: "2026-11-22"
     snapshot_date: "retrieval date 2026-11-22 (the API changes continuously)"
-    retrieval: "python3 datasets/scripts/fetch_samples.py crossref --max-dois 50"
+    retrieval: "committed sample: python3 datasets/scripts/fetch_samples.py crossref --max-dois 50. Phase 08 scale-up (resumable): fetch_samples.py crossref --max-dois 5000 --doi-order hash --max-seconds 540 --snapshot 2026-11-24 (rerun until it prints the final count)"
     format: "jsonl, one Crossref message object per line, projected to DOI, title, author, issued, container-title, type, publisher"
     expected_size: "full message about 10 KB per work (observed 10389 bytes for one response); projected about 0.6 KB per work"
-    observed_size: "sample: 25 works, 13976 bytes (datasets/samples/real/crossref-works.jsonl). The Crossref public data file was not inspected: its size and date are UNVERIFIED."
+    observed_size: "committed sample: 25 works, 13976 bytes (datasets/samples/real/crossref-works.jsonl). Scale-up 2026-11-24 (git-ignored): 5000 DOIs requested, 4516 found (484 answered 404), 4205290 bytes. The Crossref public data file was not inspected: its size and date are UNVERIFIED."
     raw_prefix: "s3://${RAW_BUCKET}/crossref/snapshot_date=YYYY-MM-DD/"
-    integrity: "sha256 of the sample JSONL (below and in retrieval.json)"
+    integrity: "sha256 of the sample JSONL (below and in retrieval.json); scale-up crossref-works.jsonl sha256 8f39c0d9807458f2be758469bb82774332d285acdafacf01b6b8eaf64163fc13 (local snapshot, checked by verify)"
     sample_files:
       - "datasets/samples/real/crossref-works.jsonl sha256=ba32fc243fbbab73446c9a8594a6d4427715d4ac941ca17cab0765afdfe5eb50 bytes=13976"
     schema_version: "Crossref REST API message, message-version 1.0.0 as observed on 2026-11-22"
-    subset_rule: "DOIs found in the DBLP sample, at most --max-dois (default 50, committed sample 25), one request per DOI; DOIs answering 404 are skipped and counted"
+    subset_rule: "DOIs found in the DBLP subset, at most --max-dois (default 50, committed sample 25), one request per DOI; DOIs answering 404 are skipped and counted. Order sorted ascending by default; scale-up uses --doi-order hash: the 5000 DOIs with the smallest sha256(doi lower-case) among the 90285, so the 5000 are not biased by prefix"
     update_strategy: "re-query by DOI for each DBLP snapshot; the full-scale alternative is the Crossref public data file (https://www.crossref.org/services/metadata-retrieval/public-data-file/, not inspected)"
     linkage_fields:
       - "doi"

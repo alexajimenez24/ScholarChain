@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "scholarchain/prompts/schemas/semantic-context-v1.json",
+  "title": "semantic-context-v1",
+  "description": "Compact semantic context for the synthesis agent. Untrusted descriptive data read from ordinary S3 through each vector's textUri, hash-checked against textSha256, sanitized (untrusted-text-v1) and bounded (ContextBudget.V1). The only number is score, a cosine similarity used for ranking; no count, path, hop, component, community size or bridge value is carried. Owner: rag-engineer; encoded by scholarchain.rag.SemanticContext.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "trust", "embeddingModel", "items"],
+  "properties": {
+    "format": { "const": "semantic-context-v1" },
+    "trust": { "const": "untrusted-data" },
+    "embeddingModel": { "type": "string", "pattern": "^\\S+@[0-9]+$" },
+    "items": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evidenceId",
+          "evidenceType",
+          "chunkId",
+          "index",
+          "documentType",
+          "entityId",
+          "window",
+          "researcherIds",
+          "score",
+          "embeddingModel",
+          "textUri",
+          "textSha256",
+          "sourceUri",
+          "provenance",
+          "text",
+          "sanitized",
+          "truncated"
+        ],
+        "properties": {
+          "evidenceId": { "type": "string", "pattern": "^ev:(semantic_profile|text_chunk):[0-9a-f]{16}$" },
+          "evidenceType": { "enum": ["SEMANTIC_PROFILE", "TEXT_CHUNK"] },
+          "chunkId": { "type": "string", "pattern": "^c:[0-9a-f]{20}$" },
+          "index": { "type": "string" },
+          "documentType": {
+            "enum": [
+              "researcher-profile",
+              "collaboration-community",
+              "collaboration-path",
+              "topic-institution-summary",
+              "paper-abstract"
+            ]
+          },
+          "entityId": { "type": "string" },
+          "window": { "type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{4}$" },
+          "researcherIds": { "type": "array", "maxItems": 16, "items": { "type": "string" } },
+          "score": { "type": "number", "minimum": -1, "maximum": 1 },
+          "embeddingModel": { "type": "string" },
+          "textUri": { "type": "string", "pattern": "^s3://" },
+          "textSha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "sourceUri": { "type": "string" },
+          "provenance": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "sourceRecordId", "snapshot", "runId", "template", "chunkPolicy"],
+            "properties": {
+              "source": { "enum": ["DBLP", "OPENALEX", "ORCID", "CROSSREF", "SCHOLARCHAIN"] },
+              "sourceRecordId": { "type": "string" },
+              "snapshot": { "type": "string" },
+              "runId": { "type": "string", "pattern": "^run-[0-9a-f]{16}$" },
+              "template": { "type": "string" },
+              "chunkPolicy": { "type": "string" }
+            }
+          },
+          "text": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "sanitized": { "type": "boolean" },
+          "truncated": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

@@ -216,19 +216,22 @@ final class RunLedger(kv: KeyValueStore, table: String, clock: Clock = Clock.sys
   def stages(runId: String): Either[KvError, Vector[Versioned[LedgerEntry]]] =
     pk(runId).flatMap(t.list(_, "stage#", 1000))
 
-  /** Records a failed subject: first time count 1, then +1 per call (version-guarded). */
+  /** Records a failed subject: first time count `times` (default 1), then `+times` per call
+    * (version-guarded). A loader that retried a call n times records it with `times = n`.
+    */
   def recordFailure(
       runId: String,
       stage: String,
       subject: String,
-      reason: String
+      reason: String,
+      times: Int = 1
   ): Either[KvError, Versioned[FailureRecord]] =
     for
       p <- pk(runId)
       st <- keyPart("stage", stage)
       sub <- keyPart("subject", subject)
       s = s"fail#$st#$sub"
-      rec = FailureRecord(runId, stage, subject, reason.take(500), 1, stamp)
+      rec = FailureRecord(runId, stage, subject, reason.take(500), math.max(1, times), stamp)
       out <- f.create(p, s, rec) match
         case Right(_)                            => Right(Versioned(rec, 1L))
         case Left(KvError.ConditionFailed(_, _)) =>
@@ -236,7 +239,7 @@ final class RunLedger(kv: KeyValueStore, table: String, clock: Clock = Clock.sys
             case Some(cur) =>
               val next = cur.value.copy(
                 reason = rec.reason,
-                retryCount = cur.value.retryCount + 1,
+                retryCount = cur.value.retryCount + math.max(1, times),
                 updatedAt = stamp
               )
               f.replace(p, s, next, cur.version).map(_ => Versioned(next, cur.version + 1))

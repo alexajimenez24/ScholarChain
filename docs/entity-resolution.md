@@ -394,3 +394,37 @@ the loaded policy (`samePolicy`), and writes nothing in that case.
 - The sample has no REJECTED decisions.
 - A gold set with valid NON_MATCH labels is needed before any precision or reject-side
   claim; deciding on one is the human's.
+
+## Phase 08 real-scale runs
+
+Sources, in `docs/agent-runs/phase-08/`:
+`step-S3-entity-resolution-engineer-report.md` and
+`step-S3b-entity-resolution-engineer-report.md`.
+Policy er-v1 is unchanged, the adjudicator is off and the gold set was not re-evaluated,
+so the Phase 05 metrics stand (this file's evaluation section).
+`LocalMatchRunner` ran with a 2 GB heap and absolute paths; no code changed.
+The commands were not replayed here (they need sbt).
+
+| Run | Hadoop input | Decisions | Wall time |
+|---|---|---|---|
+| `run-85fd79957d197ffc` | `run-834f71c82961a194` (100,000 works) | 4,561,097 | 1:21:47 |
+| `run-cb5a0421c406737d` | `run-03a81f6f54f3fc3c` (25,000 works) | 903,286 | 1:19:48 |
+
+| Outcome | 100,000 works | 25,000 works |
+|---|---|---|
+| ACCEPTED | 543,851 | 122,405 |
+| REJECTED | 3,928,560 | 771,520 |
+| UNRESOLVED | 65,759 | 7,370 |
+| CONFLICT | 22,927 | 1,991 |
+| LLM_ADJUDICATED | 0 | 0 |
+
+- The 100,000 run's unresolved rate is 0.0144.
+- Both runs finished once, within the 90-minute limit, with no step-down.
+- The 25,000 run used 36 percent CPU and about 1.4 GB peak RSS, and its wall time barely
+  fell with the input.
+  The report guesses I/O wait or host contention and did not verify it.
+- At 100,000 works, 21,974 of 22,362 researcher conflicts are ORCID_DISAGREES, mostly
+  from blocking pairs inside large blocks such as `r:wang_y`.
+  They stay CONFLICT and are never merged; they inflate the review count.
+  A refinement would be er-v2, and er-v1 is frozen.
+- Review-queue generation and adjudication were not run.

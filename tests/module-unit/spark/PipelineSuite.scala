@@ -36,13 +36,23 @@ import LocalSpark.*
   *     alone: one community of two or more members;
   *   - coreness 2 in the triangle, 0 for Dan; 3 connected researchers <= 16 sampled sources, so
   *     betweenness is exact: 0 in a triangle; participation 0, one community connected;
-  *   - path evidence: the 3 pairs of the 3 sources, each 1 hop, 1 shortest path;
+  *   - path evidence: each of the 3 sources takes its reach (2 others); a pair of two sources is
+  *     requested from the smaller ID only, so 3 pairs, each 1 hop, 1 shortest path;
   *   - topics: T1 on p1 and p2 (2 works, 2020-2021, 3 researchers, Inst One on 1 work, Venue One on
   *     2); T2 on p2 (1 work, 2021-2021, 3 researchers, Inst One 1, Venue One 1).
   *
   * Documents: per non-empty window 4 profiles + 1 community + 3 paths + 2 topics = 10; 20 in all.
   * Graph: nodes 4 researchers + 3 works + 2 topics + 1 institution + 1 venue = 11; edges AUTHORED
   * 6, COAUTHORED_WITH 3 per non-empty window = 6, HAS_TOPIC 3, PUBLISHED_IN 2, AFFILIATED_WITH 1 = 18.
+  *
+  * Institutions (`values.institutionId`): Ann's own mention on p2 is affiliated with I1, so Ann's
+  * profiles, the community and both topics (I1 is on p2) name openalex:I1; Bob, Cat, Dan and the
+  * path documents have none.
+  *
+  * Abstracts (J02-OPENALEX `abstracts`, located through the Hadoop summary): dblp:p1 with its
+  * `abstractTextRef` (emitted, canonical work dblp:p1), dblp:p2 whose `textHash` is not the hash of
+  * its text (ABSTRACT_HASH_MISMATCH) and openalex:W404, not an exported work
+  * (ABSTRACT_WORK_NOT_FOUND): 3 read, 1 row, 2 counted rejects.
   */
 class PipelineSuite extends munit.FunSuite:
   override val munitTimeout = scala.concurrent.duration.Duration(8, "min")
@@ -136,6 +146,12 @@ class PipelineSuite extends munit.FunSuite:
       prov(SourceType.DBLP, w.id, SchemaVersions.Mention)
     )
   }
+  private val P1Abstract = "Graph mining \"basics\": a naïve 図 approach, with commas, and\ttabs."
+  private val P2Abstract = "Scaling graph mining."
+  private def abstractRef(id: String): Option[String] = id match
+    case "dblp:p1" => Some(Hashing.tagged(P1Abstract))
+    case "dblp:p2" => Some(Hashing.tagged(P2Abstract))
+    case _         => None
   private def work(w: W) = WorkRecord(
     SchemaVersions.Work,
     w.id,
@@ -154,9 +170,19 @@ class PipelineSuite extends munit.FunSuite:
     mentions(w),
     w.topics,
     w.insts,
-    None,
+    abstractRef(w.id),
     prov(SourceType.DBLP, w.id, SchemaVersions.Work)
   )
+  private val abstractsDir =
+    root.resolve(s"hadoop/normalized/source=openalex/snapshot=$Snap/run_id=$hId")
+  private def abstractLine(workId: String, hash: String, text: String, rec: String) = ujson
+    .Obj(
+      "workId" -> workId,
+      "textHash" -> hash,
+      "text" -> text,
+      "provenance" -> upickle.default.writeJs(prov(SourceType.OPENALEX, rec, "abstract-v1"))
+    )
+    .render()
   private def authorPaper(w: W, am: AuthorMention) = ujson
     .Obj(
       "mentionId" -> am.mentionId,
@@ -262,6 +288,14 @@ class PipelineSuite extends munit.FunSuite:
       )
     )
     write(exportDir.resolve("_SUCCESS"), "")
+    write(
+      abstractsDir.resolve("abstracts/part-m-00000"),
+      Seq(
+        abstractLine("dblp:p1", Hashing.tagged(P1Abstract), P1Abstract, "W1"),
+        abstractLine("dblp:p2", "sha256:" + "0" * 64, P2Abstract, "W2"),
+        abstractLine("openalex:W404", Hashing.tagged("Lost."), "Lost.", "W404")
+      ).mkString("", "\n", "\n")
+    )
     part(decisionsDir, "accepted", Seq(decision(a1, a2, 0.95), decision(b1, b2, 0.97)))
     write(decisionsDir.resolve("_SUCCESS"), "")
     write(root.resolve(s"hadoop/run-manifests/$hId.json"), hManifest)
@@ -270,7 +304,10 @@ class PipelineSuite extends munit.FunSuite:
       ujson
         .Obj(
           "runId" -> hId,
-          "stages" -> ujson.Obj("J07" -> ujson.Obj("output" -> exportDir.toString))
+          "stages" -> ujson.Obj(
+            "J07" -> ujson.Obj("output" -> exportDir.toString),
+            "J02-OPENALEX" -> ujson.Obj("output" -> abstractsDir.toString)
+          )
         )
         .render()
     )
@@ -333,15 +370,20 @@ class PipelineSuite extends munit.FunSuite:
     assertEquals(s("status").str, "SUCCEEDED")
     assertEquals(outcome.invariantFailures, 0L, s("invariantsNonZero").render())
     assert(s("invariantsChecked").num >= 40, "every job's invariants are collected")
-    // The not-JSON works line is a counted reject, written to the rejects table.
+    // The not-JSON works line and the two bad abstracts are counted rejects in the rejects table.
     assertEquals(s("report")("inputs")("works")("rejected").num, 1.0)
     assertEquals(
       table("rejects")
         .select("stage", "reason")
         .collect()
         .map(r => (r.getString(0), r.getString(1)))
-        .toVector,
-      Vector("spark-read-works" -> "SCHEMA_MISMATCH")
+        .toVector
+        .sorted,
+      Vector(
+        "spark-abstracts" -> "ABSTRACT_HASH_MISMATCH",
+        "spark-abstracts" -> "ABSTRACT_WORK_NOT_FOUND",
+        "spark-read-works" -> "SCHEMA_MISMATCH"
+      )
     )
   }
 
@@ -552,10 +594,18 @@ class PipelineSuite extends munit.FunSuite:
     assertEquals(n("runId").str, outcome.runId)
     // COAUTHORED_WITH is window-scoped: one edge per pair per window, filtered on `window`.
     assertEquals(n("coauthoredWith")("windowProperty").str, "window")
+    // Every exported coauthor window is listed (here both are configured), with its row counts.
     assertEquals(
       n("coauthoredWith")("windows").arr.map(_.str).toVector,
       cfg.graph.windows.map(_.label)
     )
+    val exported = Map("1950-2026" -> 3.0, "2015-2026" -> 3.0)
+    assertEquals(n("coauthoredWith")("exportedWindows").obj.view.mapValues(_.num).toMap, exported)
+    assertEquals(
+      n("coauthoredWith")("graphEdgesByWindow").obj.view.mapValues(_.num).toMap,
+      exported
+    )
+    assertEquals(n("coauthorEdges")("rows").num, 6.0)
     val d = lm("dynamodb")("tables")(0)
     assertEquals(d("tableConfigKey").str, "dynamo.researcherMetricTable")
     assertEquals(d("source")("rows").num, 8.0)
@@ -583,9 +633,172 @@ class PipelineSuite extends munit.FunSuite:
         "path-evidence",
         "metric-comparisons",
         "semantic-summaries",
+        "paper-abstracts",
         "rejects"
       )
     )
+    val ab = v("abstracts")
+    assertEquals(
+      (ab("docType").str, ab("index").str, ab("rows").num),
+      ("paper-abstract", cfg.vectors.indexes("abstracts"), 1.0)
+    )
+    // The key rule names who makes abstract chunk IDs (rag's renderer), not a Spark formula.
+    val keyRule = ab("keyRule").str
+    assert(keyRule.contains("rag's renderer"), keyRule)
+    assert(keyRule.contains("tpl-paper-abstract-v2"), keyRule)
+    assert(keyRule.contains("several chunks"), keyRule)
+    assert(!keyRule.contains("ordinal 0, text"), keyRule)
     // Partitioned Parquet: one folder per window of a windowed table.
     assert(Files.isDirectory(Path.of(s"${outcome.base}/researcher-metrics/windowLabel=1950-2026")))
+  }
+
+  // Phase 08 step 00 (Phase 07 gate decisions) ------------------------------------------------------
+
+  private def lines(dir: Path): Vector[String] =
+    import scala.jdk.CollectionConverters.*
+    Files
+      .walk(dir)
+      .iterator
+      .asScala
+      .filter(p => Files.isRegularFile(p) && p.getFileName.toString.endsWith(".json"))
+      .toVector
+      .sorted
+      .flatMap(p => new String(Files.readAllBytes(p), UTF_8).linesIterator.filter(_.nonEmpty))
+
+  /** The table's rows as Spark reads the Parquet back, every column, nulls written. */
+  private def parquetRows(name: String): Set[ujson.Value] =
+    val df = table(name)
+    jsonLines(df, df.columns.toSeq).map(ujson.read(_)).toSet
+
+  private final case class AbstractRow(
+      workId: String,
+      textHash: String,
+      text: String,
+      provenance: Provenance
+  ) derives upickle.default.ReadWriter
+
+  test("JSON lines: every loader table, same rows and fields as the Parquet, listed in manifests") {
+    def lm(k: String) =
+      ujson.read(Files.readAllBytes(Path.of(s"${outcome.base}/load-manifests/$k.json")))
+    val s3 = lm("s3")("tables").arr.map(t => t("table").str -> t).toMap
+    val withJson = s3.filter(_._2.obj.contains("jsonLines")).keySet
+    assertEquals(
+      withJson,
+      Set(
+        "graph-nodes",
+        "graph-edges",
+        "coauthor-edges",
+        "researcher-metrics",
+        "semantic-summaries",
+        "paper-abstracts"
+      )
+    )
+    // The target manifests carry the same blocks.
+    assertEquals(lm("neptune")("nodes")("jsonLines"), s3("graph-nodes")("jsonLines"))
+    assertEquals(lm("neptune")("edges")("jsonLines"), s3("graph-edges")("jsonLines"))
+    assertEquals(lm("neptune")("coauthorEdges")("jsonLines"), s3("coauthor-edges")("jsonLines"))
+    assertEquals(
+      lm("dynamodb")("tables")(0)("source")("jsonLines"),
+      s3("researcher-metrics")("jsonLines")
+    )
+    assertEquals(lm("s3vectors")("source")("jsonLines"), s3("semantic-summaries")("jsonLines"))
+    assertEquals(
+      lm("s3vectors")("abstracts")("source")("jsonLines"),
+      s3("paper-abstracts")("jsonLines")
+    )
+
+    def decoded[T: upickle.default.ReadWriter](
+        name: String,
+        validate: T => Validate.Errors
+    ): Vector[T] =
+      val t = s3(name)
+      val j = t("jsonLines")
+      val dir = Path.of(j("path").str)
+      assertEquals(dir, Path.of(s"${outcome.base}/jsonl/$name"))
+      // Listed files exist, and nothing else holds data.
+      val listed = j("files").arr.map(f => f("file").str).toVector.sorted
+      assert(listed.nonEmpty, name)
+      listed.foreach(f => assert(Files.isRegularFile(dir.resolve(f)), s"$name: $f"))
+      val ls = lines(dir)
+      assertEquals(ls.size.toDouble, t("rows").num, name)
+      assertEquals(j("rows").num, t("rows").num, name)
+      assertEquals(j("rowsByPartition"), t("rowsByPartition"), name)
+      // Identical rows and fields: every column of the Parquet table, partition columns included.
+      assertEquals(ls.map(ujson.read(_)).toSet, parquetRows(name), name)
+      // Dropping the declared extra fields leaves the core record, decoded strictly.
+      val extras = j("extraFields").arr.map(_.str).toSet
+      ls.map { l =>
+        val o = ujson.read(l).obj
+        extras.foreach(o.remove)
+        JsonLines
+          .decodeValid[T](ujson.write(o), validate)
+          .fold(e => fail(s"$name: $e\n$l"), identity)
+      }
+
+    val nodes = decoded[GraphNode]("graph-nodes", Validate.graphNode)
+    assertEquals(nodes.size, 11)
+    assertEquals(decoded[GraphEdge]("graph-edges", Validate.graphEdge).size, 18)
+    assertEquals(decoded[CoauthorEdge]("coauthor-edges", Validate.edge).size, 6)
+    assertEquals(decoded[ResearcherMetrics]("researcher-metrics", Validate.metrics).size, 8)
+    val docs = decoded[EvidenceItem]("semantic-summaries", Validate.evidence)
+    assertEquals(docs.size, 20)
+    assert(docs.forall(d => d.textHash == d.text.map(Hashing.tagged)))
+    assertEquals(decoded[AbstractRow]("paper-abstracts", _ => Vector.empty).size, 1)
+    // Partition folders mirror the Parquet layout.
+    assert(
+      Files.isDirectory(
+        Path.of(
+          s"${outcome.base}/jsonl/semantic-summaries/docType=researcher-profile/windowLabel=1950-2026"
+        )
+      )
+    )
+    val inv = outcome.summary("report")("job11")
+    assertEquals(inv("jsonLinesRows_graph-edges").num, 18.0)
+    assertEquals(inv("invariant_jsonLinesIdMismatch_researcher-metrics").num, 0.0)
+  }
+
+  test("semantic summaries carry institutionId: the first institution of the document's list") {
+    val docs = evidence("semantic-summaries").filter(_.values("window") == "1950-2026")
+    def inst(docType: String, entity: String) =
+      docs
+        .find(d => d.values("docType") == docType && d.values("entityId") == entity)
+        .flatMap(_.values.get("institutionId"))
+    assertEquals(inst("researcher-profile", ann), Some("openalex:I1"))
+    assertEquals(inst("researcher-profile", bob), None)
+    assertEquals(inst("researcher-profile", dan), None)
+    val community = docs.find(_.values("docType") == "collaboration-community").get
+    assertEquals(community.values.get("institutionId"), Some("openalex:I1"))
+    assertEquals(inst("topic-institution-summary", "openalex:T1"), Some("openalex:I1"))
+    assertEquals(inst("topic-institution-summary", "openalex:T2"), Some("openalex:I1"))
+    assert(
+      docs
+        .filter(_.values("docType") == "collaboration-path")
+        .forall(!_.values.contains("institutionId"))
+    )
+  }
+
+  test("paper abstracts: source text only, canonical work, provenance, counted rejects") {
+    val rows = lines(Path.of(s"${outcome.base}/jsonl/paper-abstracts")).map(ujson.read(_))
+    assertEquals(rows.size, 1)
+    val r = rows.head
+    assertEquals(r("workId").str, "dblp:p1")
+    assertEquals(r("text").str, P1Abstract, "the text is the source row's, byte for byte")
+    assertEquals(r("textHash").str, Hashing.tagged(P1Abstract))
+    assertEquals(r("sourceWorkId").str, "dblp:p1")
+    assertEquals(r("upstreamRunId").str, hId)
+    val p = upickle.default.read[Provenance](r("provenance"))
+    assertEquals(
+      p,
+      Provenance(SourceType.OPENALEX, "W1", Snap, outcome.runId, "abstract-v1", Some("er-v1"))
+    )
+    val a = outcome.summary("report")("abstracts")
+    assertEquals(
+      (a("inputPresent").bool, a("read").num, a("emitted").num, a("notEmitted").num),
+      (true, 3.0, 1.0, 2.0)
+    )
+    assertEquals(a("notEmitted_ABSTRACT_HASH_MISMATCH").num, 1.0)
+    assertEquals(a("notEmitted_ABSTRACT_WORK_NOT_FOUND").num, 1.0)
+    val mf = ujson.read(Files.readAllBytes(Path.of(outcome.manifestPath)))
+    assertEquals(mf("inputs")("hadoop")("abstracts").str, s"$abstractsDir/abstracts")
+    assertEquals(mf("logic").str, "spark-v4")
   }

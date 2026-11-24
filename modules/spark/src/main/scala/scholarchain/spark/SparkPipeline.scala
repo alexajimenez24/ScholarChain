@@ -11,6 +11,7 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import scala.util.Try
 import scholarchain.core.{
   ConfigLoader,
+  GraphLabels,
   RejectRecord,
   ScholarChainConfig,
   SchemaVersions,
@@ -19,10 +20,10 @@ import scholarchain.core.{
 
 /** Phase 06 driver: jobs 1 to 11 in one Spark application.
   *
-  * Inputs come only from the Phase 04 Hadoop J07 export and the Phase 05 er-v1 decisions, located
-  * through their run manifests ([[Upstream.locate]]); raw datasets and the gold set are never read.
-  * The Spark run manifest ([[SparkRunManifest]]) hashes to the run ID, so a rerun with the same
-  * inputs, config and code writes the same folder.
+  * Inputs come only from the Phase 04 Hadoop J07 export, the Phase 04 J02 OpenAlex abstracts and
+  * the Phase 05 er-v1 decisions, located through their run manifests ([[Upstream.locate]]); raw
+  * datasets and the gold set are never read. The Spark run manifest ([[SparkRunManifest]]) hashes
+  * to the run ID, so a rerun with the same inputs, config and code writes the same folder.
   *
   * Layout under `--output`:
   *   - `run-manifests/<runId>.json` (written first) and `<runId>-summary.json` (counts, invariant
@@ -225,6 +226,14 @@ object SparkPipeline:
       )
     val (venues, vRej) = load("venues", j07("venues"), Schemas.venue, Schemas.Required.venue, h)
     val outcomes = Seq("accepted", "rejected", "unresolved", "conflict")
+    val abstractFiles = up.abstractsDir.toSeq.flatMap(partFiles(spark, _))
+    val (abstracts, aRej) = load(
+      "abstracts",
+      up.abstractsDir.toSeq,
+      Schemas.abstractRecord,
+      Schemas.Required.abstractRecord,
+      h
+    )
     val (decisions, dRej) = load(
       "decisions",
       outcomes.map(o => s"${up.decisionsDir}/$o"),
@@ -265,8 +274,17 @@ object SparkPipeline:
       val r = WindowAnalytics.run(canonical.authored, pairResult.pairWorks, w, run)
       stage(s"paths-${w.label}")
       val paths = pathEvidence(r, w, run)
-      Report.put(r.report, "pathPairsRequested", paths.count())
-      Report.put(r.report, "pathPairsFound", paths.filter(col("found")).count())
+      val pathsRequested = paths.count()
+      val pathsFound = paths.filter(col("found")).count()
+      Report.put(
+        r.report,
+        "pathTargetsPerSource",
+        Paths.targetsPerSource(g.betweennessSampleSources)
+      )
+      Report.put(r.report, "pathPairsRequested", pathsRequested)
+      Report.put(r.report, "pathPairsFound", pathsFound)
+      // Targets come from each source's reach within pathMaxDepth, so every pair must be found.
+      Report.put(r.report, "invariant_pathRequestedNotFound", pathsRequested - pathsFound)
       // Integrity: a found path has one coauthor edge ID per hop.
       Report.put(
         r.report,
@@ -359,6 +377,18 @@ object SparkPipeline:
     )
     report("job10") = summaryReport
 
+    // Paper abstracts (source text, not rendered) ------------------------------------------------
+    stage("job10-abstracts")
+    val paperAbstracts = Abstracts.build(
+      abstracts,
+      works,
+      canonical.workMap,
+      run,
+      up.erPolicyVersion,
+      abstractFiles.nonEmpty
+    )
+    report("abstracts") = paperAbstracts.report
+
     // Job 11 -------------------------------------------------------------------------------------
     stage("job11-export")
     def union(dfs: Iterable[DataFrame]) = dfs.reduce(_.unionByName(_))
@@ -385,24 +415,54 @@ object SparkPipeline:
         edges.join(nodeIds.toDF("toId"), Seq("toId"), "left_anti").count()
     )
     val rejects = union(
-      Seq(wRej, mRej, apRej, pRej, tRej, iRej, vRej, dRej) ++ Seq(
+      Seq(wRej, mRej, apRej, pRej, tRej, iRej, vRej, aRej, dRej) ++ Seq(
         canonical.authoredRejects.withColumn("stage", lit("spark-job1-authored")),
-        pairResult.rejects.withColumn("stage", lit("spark-job2-pairs"))
+        pairResult.rejects.withColumn("stage", lit("spark-job2-pairs")),
+        paperAbstracts.rejects.withColumn("stage", lit(Abstracts.Stage))
       )
     ).select(coreReject(col("stage"), col("reason"), col("input"), lit(runId)).as("r"))
       .select("r.*")
     def ev(name: String, df: DataFrame, parts: String*) =
       Export.write(df, base, name, SchemaVersions.Evidence, parts)
+    import Export.JsonSpec
     val tables = Seq(
-      Export.write(nodes, base, "graph-nodes", SchemaVersions.GraphNode, Seq("label")),
-      Export.write(edges, base, "graph-edges", SchemaVersions.GraphEdge, Seq("edgeType")),
-      Export.write(coauthorEdges, base, "coauthor-edges", SchemaVersions.Edge, Seq("windowLabel")),
+      Export.write(
+        nodes,
+        base,
+        "graph-nodes",
+        SchemaVersions.GraphNode,
+        Seq("label"),
+        Some(JsonSpec("core GraphNode", Seq("nodeId"), Nil))
+      ),
+      Export.write(
+        edges,
+        base,
+        "graph-edges",
+        SchemaVersions.GraphEdge,
+        Seq("edgeType"),
+        Some(JsonSpec("core GraphEdge", Seq("edgeId"), Nil))
+      ),
+      Export.write(
+        coauthorEdges,
+        base,
+        "coauthor-edges",
+        SchemaVersions.Edge,
+        Seq("windowLabel"),
+        Some(JsonSpec("core CoauthorEdge", Seq("edgeId"), Seq("supportingWorkIds", "windowLabel")))
+      ),
       Export.write(
         union(windowed.map(_.metrics)),
         base,
         "researcher-metrics",
         SchemaVersions.Metrics,
-        Seq("windowLabel")
+        Seq("windowLabel"),
+        Some(
+          JsonSpec(
+            "core ResearcherMetrics",
+            Seq("researcherId", "windowLabel"),
+            Seq("maximumTeamWorkCount", "inLargestComponent", "windowLabel")
+          )
+        )
       ),
       ev(
         "components",
@@ -430,11 +490,61 @@ object SparkPipeline:
         }),
         "windowLabel"
       ),
-      ev("semantic-summaries", docs, "docType", "windowLabel"),
+      Export.write(
+        docs,
+        base,
+        "semantic-summaries",
+        SchemaVersions.Evidence,
+        Seq("docType", "windowLabel"),
+        Some(JsonSpec("core EvidenceItem", Seq("chunkId"), Seq("docType", "windowLabel")))
+      ),
+      Export.write(
+        paperAbstracts.rows,
+        base,
+        "paper-abstracts",
+        Abstracts.SchemaVersion,
+        Nil,
+        Some(
+          JsonSpec(
+            "storage PaperAbstract (hadoop AbstractRecord shape)",
+            Seq("workId"),
+            Abstracts.ExtraFields
+          )
+        )
+      ),
       Export.write(rejects, base, "rejects", "reject-record", Seq("stage"))
     ) ++ (if comparisonTables.isEmpty then Nil
           else Seq(ev("metric-comparisons", union(comparisonTables), "comparison")))
     val byName = tables.map(t => t.name -> t).toMap
+    // JSON-lines copies: same line counts per partition and the same identifiers as the Parquet.
+    tables.foreach { t =>
+      t.jsonLines.foreach { j =>
+        val keys = t.byPartition.keySet ++ j.byPartition.keySet
+        val differ =
+          keys.count(k => t.byPartition.getOrElse(k, 0L) != j.byPartition.getOrElse(k, 0L)) +
+            (if j.rows != t.rows then 1 else 0)
+        Report.put(exportReport, s"jsonLinesRows_${t.name}", j.rows)
+        Report.put(exportReport, s"invariant_jsonLinesRowsDiffer_${t.name}", differ.toLong)
+        Report.put(exportReport, s"invariant_jsonLinesIdMismatch_${t.name}", j.idMismatches)
+      }
+    }
+    // Coauthor windows: every exported window is listed in neptune.json, and per window the
+    // coauthor-edges rows equal the COAUTHORED_WITH graph edges.
+    val graphEdgesByWindow = edges
+      .filter(col("edgeType") === GraphLabels.CoauthoredWith)
+      .groupBy(col("properties").getItem("window"))
+      .count()
+      .collect() // one row per window: at most the configured windows
+      .map(r => String.valueOf(r.get(0)) -> r.getLong(1))
+      .toMap
+    val coauthorWindows =
+      Export.coauthorWindows(byName("coauthor-edges"), graphEdgesByWindow, g.windows.map(_.label))
+    Report.put(
+      exportReport,
+      "invariant_coauthorWindowRowsDiffer",
+      coauthorWindows.mismatched.size.toLong
+    )
+    exportReport("coauthorWindowsListed") = ujson.Arr(coauthorWindows.listed.map(ujson.Str(_))*)
     exportReport("tables") = ujson.Obj.from(tables.map(t => t.name -> t.json))
     report("job11") = exportReport
     val manifests = Export.loadManifests(
@@ -443,7 +553,7 @@ object SparkPipeline:
       up.snapshot,
       indexes,
       cfg.vectors.dimension,
-      g.windows.map(_.label),
+      coauthorWindows,
       manifestPath,
       summaryPath
     )
@@ -484,8 +594,10 @@ object SparkPipeline:
     writeText(spark, summaryPath, summary.render(indent = 2))
     Outcome(runId, base, manifestPath, summaryPath, summary, total)
 
-  /** Path evidence of one window: every pair of the window's sampled betweenness sources (the same
-    * deterministic sample WindowAnalytics uses), searched up to `pathMaxDepth` hops.
+  /** Path evidence of one window: the window's sampled betweenness sources (the same deterministic
+    * sample WindowAnalytics uses), each with up to
+    * `Paths.targetsPerSource(betweennessSampleSources)` targets chosen from its own BFS reach
+    * within `pathMaxDepth` hops (`Paths.reachablePairs`).
     */
   private def pathEvidence(r: WindowAnalytics.Result, w: TimeWindow, run: RunInfo): DataFrame =
     val g = run.graph
@@ -493,11 +605,13 @@ object SparkPipeline:
       r.metrics.filter(col("distinctCoauthorCount") > 0).select(col("researcherId").as("id"))
     val sources =
       GraphAlgorithms.sampleSources(connected, g.betweennessSampleSources, g.betweennessSeed)
-    val pairs = sources
-      .crossJoin(sources.select(col("src").as("tgt")))
-      .filter(col("src") < col("tgt"))
+    val perSource = Paths.targetsPerSource(g.betweennessSampleSources)
     Lineage.cut(
-      Export.withPathIds(Paths.evidence(r.edges, pairs, g.pathMaxDepth, w), w, g.policyVersion)
+      Export.withPathIds(
+        Paths.sampledEvidence(r.edges, sources, g.pathMaxDepth, perSource, g.betweennessSeed, w),
+        w,
+        g.policyVersion
+      )
     )
 
   private val RejectType = StructType(

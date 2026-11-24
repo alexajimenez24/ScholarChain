@@ -71,6 +71,11 @@ class ConfigSuite extends munit.FunSuite:
     assertEquals(cfg.services.query.port, 9002, "override beats placeholder")
     assertEquals(cfg.services.graph.port, 8080, "file default when nothing else is set")
   }
+  test("shipped componentMaxIterations leaves margin over the observed 25k-run diameter") {
+    val cfg = load(Map.empty)
+    assertEquals(cfg.graph.componentMaxIterations, 100)
+    assert(cfg.graph.componentMaxIterations > 39 + 2, "diameter 39 plus a quiet round")
+  }
   test("overrides can replace the time windows and keep the type of the replaced value") {
     val cfg = load(
       Map("SCHOLARCHAIN__GRAPH__WINDOWS" -> """[{"startYear":2000,"endYear":2001}]""")

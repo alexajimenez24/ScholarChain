@@ -530,3 +530,46 @@ The Parquet table carries the label as `windowLabel`.
   under `scala/collection/`, 0 `ScalaRunTime` entries and 377 `upickle/` entries (RB).
   Absence is still checked by those markers only, and no test covers the exclusion.
   `sbt packageJobs` itself was not run.
+
+## Phase 08 real-scale runs
+
+Sources, in `docs/agent-runs/phase-08/`: `step-00-spark-engineer-report.md`,
+`step-00b-spark-engineer-report.md` and `step-00d-spark-engineer-report.md`.
+The commands were not replayed here; no sbt was run by the documentation-engineer.
+
+New in Phase 08 step 00 (logic `spark-v3`, then `spark-v4`):
+
+- JSON-lines copies of six tables under `jsonl/`, listed in the load manifests, with
+  the same identifiers and fields as the Parquet tables.
+- `institutionId` in the summaries, in `values.institutionId` of each summary row.
+- A `paper-abstracts` table built from the Hadoop abstracts.
+- Every coauthor window in `neptune.json`.
+- `LocalPipelineRun --shuffle-partitions`.
+- `spark-v4`: path-evidence targets come from each sampled source's reach within 6 hops.
+  `targetsPerSource(k) = max(1, floor((k-1)/2))`, 7 for 16 sources, so at most 112 pairs
+  per window.
+  The old rule paired the sources with one another and found no path on a fragmented
+  graph.
+
+Runs:
+
+| Run | Input | Result |
+|---|---|---|
+| `run-c4b35c788d05a93c` | 100,000 works | not usable: OOM after 23:04, then killed at 90 minutes |
+| `run-c73766e8001fce5a` | 25,000 works | 24:56, INVARIANT_FAILURES: components not converged in 1950-2026, 0 path documents |
+| `run-ccf619c509611f06` | 25,000 works | 25:14, SUCCEEDED, 114 invariants checked, 0 nonzero |
+
+- `run-ccf619c509611f06` uses `-Xmx2g`, 8 shuffle partitions, `local[2]`,
+  `componentMaxIterations` 100 and peak RSS 2,923,636 kB.
+- Rows (Parquet equals JSON-lines): graph-nodes 118,960; graph-edges 543,699;
+  coauthor-edges 337,677; researcher-metrics 167,600; semantic-summaries 217,661;
+  paper-abstracts 6,292.
+- Summary documents: researcher-profile 167,600; collaboration-community 43,826;
+  collaboration-path 278; topic-institution-summary 5,957.
+- Components in 1950-2026: 15,830, largest 8,615, converged in 47 iterations.
+  An offline union-find over the exported edges gave the same two numbers.
+- Path pairs requested and found per window: 85, 63, 52 and 78, all found.
+- Known limits: the 100,000-work local run does not fit 2 GB and 90 minutes.
+  The partition count of the checkpointed state grows across iterations (stages up to
+  633 tasks with 8 shuffle partitions), a likely cost at scale that was not investigated.
+  Path documents are a bounded sample, not all pairs.

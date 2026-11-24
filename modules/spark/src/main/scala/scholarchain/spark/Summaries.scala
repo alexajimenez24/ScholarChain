@@ -28,12 +28,24 @@ import scholarchain.core.{EvidenceType, TimeWindow}
   * `Ids.chunk(entityId, metricVersion, docType, 0, text)`, `textHash` = `sha256:` + hex digest of
   * the text, `evidenceId` = core `Ids.evidence(SEMANTIC_PROFILE, chunkId)`, the vector index name
   * from `vectors.indexes` and the window in `values`.
+  *
+  * `values.institutionId` (Phase 07 gate): the one institution a document is filed under, for the
+  * vector metadata. It is the first entry of the document's own institution list: the institution
+  * with the most distinct works, ties broken by name, then by institution ID. Researcher profiles
+  * use the researcher's own mention affiliations in the window, community profiles the members'
+  * mention affiliations, topic summaries the institutions on the topic's works. Path documents and
+  * documents with no recorded institution have no `institutionId` key.
+  *
+  * Paper abstracts are not made here: they are source text, exported by [[Abstracts]] in the
+  * storage `PaperAbstract` shape for the `abstracts` index.
   */
 object Summaries:
   val ResearcherProfile = "researcher-profile"
   val CommunityProfile = "collaboration-community"
   val PathSummary = "collaboration-path"
   val TopicSummary = "topic-institution-summary"
+  val PaperAbstract = "paper-abstract"
+  val AbstractIndexKey = "abstracts"
 
   /** docType -> key of `vectors.indexes` in scholarchain-v1.yaml. */
   val IndexKeys: Map[String, String] = Map(
@@ -58,11 +70,14 @@ object Summaries:
       tableUri: String => String
   )
 
-  /** The vector index of every docType, or the config keys that are missing. */
+  /** The vector index of every docType (paper-abstract included), or the config keys that are
+    * missing.
+    */
   def indexes(configured: Map[String, String]): Either[String, Map[String, String]] =
-    val missing = IndexKeys.values.filterNot(configured.contains).toVector.sorted
+    val keys = IndexKeys + (PaperAbstract -> AbstractIndexKey)
+    val missing = keys.values.filterNot(configured.contains).toVector.sorted
     if missing.nonEmpty then Left(s"vectors.indexes lacks ${missing.mkString(", ")}")
-    else Right(IndexKeys.view.mapValues(configured).toMap)
+    else Right(keys.view.mapValues(configured).toMap)
 
   private val None_ = lit("none recorded")
   private def txt(parts: Column*): Column = concat_ws("", parts*)
@@ -86,6 +101,15 @@ object Summaries:
           "; "
         ).as(out))*
       )
+
+  /** `rows(keys..., institutionId, label, n)` -> one row per key with `institutionId` = the first
+    * entry of [[countedList]] over the same rows (n descending, then name), ties then broken by ID.
+    */
+  private def topInstitution(rows: DataFrame, keys: Seq[String]): DataFrame =
+    rows
+      .groupBy(keys.map(col)*)
+      .agg(min(struct((-col("n")).as("k"), col("label"), col("institutionId"))).as("top"))
+      .select((keys.map(col) :+ col("top.institutionId").as("institutionId"))*)
 
   /** `keyed(keys..., workId)`: topics of those works, counted in distinct works. */
   private def topicRows(keyed: DataFrame, keys: Seq[String], ctx: Context): DataFrame =
@@ -128,7 +152,9 @@ object Summaries:
   private def names(ctx: Context): DataFrame =
     ctx.researchers.select(col("researcherId"), col("displayName"))
 
-  /** Finishes documents `(entityId, researcherIds, graphPath, text)` into evidence rows. */
+  /** Finishes documents `(entityId, researcherIds, graphPath, institutionId, text)` into evidence
+    * rows; a null `institutionId` leaves the key out of `values`.
+    */
   private def finish(
       docs: DataFrame,
       docType: String,
@@ -165,7 +191,8 @@ object Summaries:
             "docType" -> lit(docType),
             "vectorIndex" -> lit(ctx.vectorIndexes(docType)),
             "entityId" -> col("entityId"),
-            "window" -> lit(w.label)
+            "window" -> lit(w.label),
+            "institutionId" -> col("institutionId")
           ),
           ctx.run,
           g.metricVersion,
@@ -182,7 +209,9 @@ object Summaries:
     val aw = windowAuthored(ctx, w)
     val topics = countedList(topicRows(aw, keys, ctx), keys, "topicList")
     val venues = countedList(venueRows(aw, keys, ctx), keys, "venueList")
-    val insts = countedList(institutionRows(aw, keys, ctx), keys, "institutionList")
+    val instRows = institutionRows(aw, keys, ctx)
+    val insts = countedList(instRows, keys, "institutionList")
+    val topInst = topInstitution(instRows, keys)
     val maxTeam = r.metrics
       .select(col("researcherId"), posexplode(col("maximumTeamWorkIds")).as(Seq("pos", "workId")))
       .join(
@@ -227,11 +256,13 @@ object Summaries:
       .join(topics, keys, "left")
       .join(venues, keys, "left")
       .join(insts, keys, "left")
+      .join(topInst, keys, "left")
       .join(maxTeam, keys, "left")
       .select(
         col("researcherId").as("entityId"),
         array(col("researcherId")).as("researcherIds"),
         Evidence.nullStrings.as("graphPath"),
+        col("institutionId"),
         concat_ws(
           " ",
           txt(lit(s"Researcher profile, window ${w.label}. Name: "), col("displayName")),
@@ -327,16 +358,20 @@ object Summaries:
       windowAuthored(ctx, w).join(members.select("researcherId", "communityId"), "researcherId")
     val topics = countedList(topicRows(aw, keys, ctx), keys, "topicList")
     val venues = countedList(venueRows(aw, keys, ctx), keys, "venueList")
-    val insts = countedList(institutionRows(aw, keys, ctx), keys, "institutionList")
+    val instRows = institutionRows(aw, keys, ctx)
+    val insts = countedList(instRows, keys, "institutionList")
+    val topInst = topInstitution(instRows, keys)
     val docs = big
       .join(memberList, keys, "left")
       .join(topics, keys, "left")
       .join(venues, keys, "left")
       .join(insts, keys, "left")
+      .join(topInst, keys, "left")
       .select(
         col("communityId").as("entityId"),
         Cols.emptyStrings.as("researcherIds"),
         Evidence.nullStrings.as("graphPath"),
+        col("institutionId"),
         concat_ws(
           " ",
           txt(lit("Collaboration community "), col("communityId"), lit(s", window ${w.label}.")),
@@ -442,6 +477,7 @@ object Summaries:
         col("pathEvidenceId").as("entityId"),
         array(col("src"), col("tgt")).as("researcherIds"),
         col("path").as("graphPath"),
+        Cols.nullString.as("institutionId"),
         concat_ws(
           " ",
           txt(
@@ -482,18 +518,19 @@ object Summaries:
       .join(ctx.authored.select("workId", "researcherId"), "workId")
       .groupBy("topicId")
       .agg(countDistinct("researcherId").as("researchers"))
-    val insts = countedList(
-      tw.join(
+    val instRows = tw
+      .join(
         ww.select(col("workId"), explode(col("institutionIds")).as("institutionId")),
         "workId"
-      ).join(
+      )
+      .join(
         ctx.institutions.select(col("institutionId"), col("name").as("label")),
         "institutionId"
-      ).groupBy("topicId", "institutionId", "label")
-        .agg(countDistinct("workId").as("n")),
-      keys,
-      "institutionList"
-    )
+      )
+      .groupBy("topicId", "institutionId", "label")
+      .agg(countDistinct("workId").as("n"))
+    val insts = countedList(instRows, keys, "institutionList")
+    val topInst = topInstitution(instRows, keys)
     val venues = countedList(
       tw.join(ww.select(col("workId"), explode(col("venueNames")).as("label")), "workId")
         .groupBy("topicId", "label")
@@ -504,11 +541,13 @@ object Summaries:
     val docs = stats
       .join(researchers, keys, "left")
       .join(insts, keys, "left")
+      .join(topInst, keys, "left")
       .join(venues, keys, "left")
       .select(
         col("topicId").as("entityId"),
         Cols.emptyStrings.as("researcherIds"),
         Evidence.nullStrings.as("graphPath"),
+        col("institutionId"),
         concat_ws(
           " ",
           txt(

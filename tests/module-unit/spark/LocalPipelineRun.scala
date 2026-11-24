@@ -86,7 +86,9 @@ final class CaptureListener extends SparkListener:
   * local[2], 4 shuffle partitions, Spark UI off, reliable checkpoints under the output folder.
   *
   * Usage (sbt): `sparkAnalytics/Test/runMain scholarchain.spark.LocalPipelineRun --capture <dir>
-  * --hadoop-manifest <...> --er-manifest <...> --output <dir> [--checkpoint-dir <dir>]`.
+  * [--shuffle-partitions <n>] --hadoop-manifest <...> --er-manifest <...> --output <dir>
+  * [--checkpoint-dir <dir>]`. `--shuffle-partitions` (default 4, sized for the committed fixtures)
+  * sets `spark.sql.shuffle.partitions` for larger local inputs.
   *
   * Writes into `--capture`: `stages.tsv` (one row per completed stage), `phases.tsv` (totals per
   * pipeline stage), `plans.txt` (formatted physical plan of the first SQL execution of every
@@ -107,8 +109,20 @@ object LocalPipelineRun:
     val i = args.indexOf("--capture")
     require(i >= 0 && i + 1 < args.length, "--capture <dir> is required")
     val capture = Path.of(args(i + 1))
+    val rest0 = args.patch(i, Nil, 2)
+    val k = rest0.indexOf("--shuffle-partitions")
+    val shufflePartitions =
+      if k < 0 then 4
+      else
+        require(k + 1 < rest0.length, "--shuffle-partitions <n> needs a value")
+        rest0(k + 1).toIntOption
+          .filter(_ > 0)
+          .getOrElse(
+            throw new IllegalArgumentException("--shuffle-partitions must be a positive integer")
+          )
+    val rest = if k < 0 then rest0 else rest0.patch(k, Nil, 2)
     val a = SparkArgs
-      .parse(args.patch(i, Nil, 2).toSeq)
+      .parse(rest.toSeq)
       .fold(e => throw new IllegalArgumentException(e), identity)
     val cfg = ConfigLoader.load().fold(e => throw new IllegalArgumentException(e), identity)
     val spark = SparkSession
@@ -116,7 +130,7 @@ object LocalPipelineRun:
       .master("local[2]")
       .appName("scholarchain-spark-local-run")
       .config("spark.ui.enabled", "false")
-      .config("spark.sql.shuffle.partitions", "4")
+      .config("spark.sql.shuffle.partitions", shufflePartitions.toString)
       .config("spark.sql.session.timeZone", "UTC")
       .config("spark.cleaner.referenceTracking.cleanCheckpoints", "true")
       .getOrCreate()

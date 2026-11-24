@@ -27,19 +27,48 @@ object RowSource:
     new RowSource[A]:
       def rows: Iterator[Either[String, A]] = xs.iterator.map(Right(_))
 
-  /** Strict JSON lines (blank lines skipped); `validate` is the core validator of the record. */
+  /** The rows of `a` followed by the rows of `b`, mapped to one type. */
+  def concat[A, B, C](a: RowSource[A], b: RowSource[B])(fa: A => C, fb: B => C): RowSource[C] =
+    new RowSource[C]:
+      def rows: Iterator[Either[String, C]] =
+        a.rows.map(_.map(fa)) ++ b.rows.map(_.map(fb))
+
+  /** Keeps the rows `keep` accepts; a row that failed to decode is always kept (it is a rejection
+    * to report, not data to select).
+    */
+  def filter[A](src: RowSource[A])(keep: A => Boolean): RowSource[A] =
+    new RowSource[A]:
+      def rows: Iterator[Either[String, A]] = src.rows.filter(_.fold(_ => true, keep))
+
+  /** Strict JSON lines (blank lines skipped); `validate` is the core validator of the record.
+    * `dropFields` names top-level fields of the line that are not part of the core record (the
+    * Spark load manifest lists them as `extraFields`: partition columns and provenance helpers);
+    * they are removed before the strict decode, which still refuses every other unknown field.
+    */
   def jsonLines[A: ReadWriter](
       lines: => Iterator[String],
-      validate: A => Validate.Errors = (_: A) => Vector.empty
+      validate: A => Validate.Errors = (_: A) => Vector.empty,
+      dropFields: Set[String] = Set.empty
   ): RowSource[A] =
+    def strip(l: String): Either[String, String] =
+      if dropFields.isEmpty then Right(l)
+      else
+        Try {
+          val v = ujson.read(l)
+          v.obj.keysIterator.filter(dropFields).toVector.foreach(v.obj.remove(_))
+          v.render()
+        }.toEither.left.map(e => s"${e.getClass.getSimpleName}: ${e.getMessage}".take(300))
     new RowSource[A]:
       def rows: Iterator[Either[String, A]] =
-        lines.filter(_.trim.nonEmpty).map(l => JsonLines.decodeValid[A](l, validate))
+        lines
+          .filter(_.trim.nonEmpty)
+          .map(l => strip(l).flatMap(JsonLines.decodeValid[A](_, validate)))
 
   /** All `*.jsonl`, `*.json` and `*.jsonl.gz` files under a local directory, in path order. */
   def jsonLinesDir[A: ReadWriter](
       dir: Path,
-      validate: A => Validate.Errors = (_: A) => Vector.empty
+      validate: A => Validate.Errors = (_: A) => Vector.empty,
+      dropFields: Set[String] = Set.empty
   ): RowSource[A] =
     def lines: Iterator[String] =
       Files
@@ -62,7 +91,7 @@ object RowSource:
           try new String(in.readAllBytes(), UTF_8).linesIterator.toVector
           finally in.close()
         }
-    val jl = jsonLines[A](lines, validate)
+    val jl = jsonLines[A](lines, validate, dropFields)
     new RowSource[A]:
       // A missing directory is a visible error row, never zero rows (a typo must not load as empty).
       def rows: Iterator[Either[String, A]] =

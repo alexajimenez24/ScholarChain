@@ -4,8 +4,8 @@ import org.apache.spark.sql.types.*
 
 /** Explicit read schemas for the records Spark consumes: the Phase 04 Hadoop J07 export
   * (`export/{works,mentions,pairs,authorpapers,topics,institutions,venues}`, pipeline `hadoop-v2`,
-  * normalization `norm-v1`) and the Phase 05 er-v1 `MatchDecision` outputs
-  * (`match-decisions/.../{accepted,rejected,unresolved,conflict}`).
+  * normalization `norm-v1`), the Phase 04 J02 OpenAlex `abstracts` and the Phase 05 er-v1
+  * `MatchDecision` outputs (`match-decisions/.../{accepted,rejected,unresolved,conflict}`).
   *
   * Field names and types mirror the core records as committed (`WorkRecord`, `AuthorMention`,
   * `CoauthorPairCandidate`, `Topic`, `Institution`, `Venue`, `MatchDecision`) and the hadoop-local
@@ -111,6 +111,12 @@ object Schemas:
 
   val topic: StructType = StructType(Seq(s("topicId"), s("name"), prov))
 
+  /** hadoop `AbstractRecord` (abstract-v1), `<J02-OPENALEX output>/abstracts`: the abstract text of
+    * one source work, kept apart from the work record, which holds its hash as `abstractTextRef`.
+    */
+  val abstractRecord: StructType =
+    StructType(Seq(s("workId"), s("textHash"), s("text"), prov))
+
   val institution: StructType =
     StructType(Seq(s("institutionId"), s("name"), s("countryCode"), s("ror"), prov))
 
@@ -148,3 +154,4 @@ object Schemas:
     val institution: Seq[String] = Seq("institutionId")
     val venue: Seq[String] = Seq("venueId")
     val decision: Seq[String] = Seq("kind", "sourceId", "targetId", "decision")
+    val abstractRecord: Seq[String] = Seq("workId", "textHash", "text")

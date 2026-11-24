@@ -243,6 +243,13 @@ Names come from core `VectorConfig` and match the Spark run manifest `vectorInde
 | topic-institution-summary-v1 | topic-institution-summary | `topicId` | Spark, 88 rows |
 | paper-abstract-v1 | paper-abstract | `workId` | Hadoop J02 abstracts |
 
+Phase 08 update: the counts in the table above are the Phase 07 fixture counts.
+The real 25,000-work run `run-ccf619c509611f06` has 167,600, 43,826, 278, 5,957 and
+6,292 rows, and the loader now reads the JSON-lines export and takes text only from a
+rag renderer.
+See [embeddings.md](embeddings.md) for the indexes, metadata, versions, queue, batch
+and retry settings, and the local run.
+
 Row counts are from the Spark load manifest `s3vectors.json` (316 rows in 4 indexes),
 not from data read by the loader.
 paper-abstract-v1 is wired and tested on fixtures only: the Spark export has no
@@ -357,6 +364,12 @@ nothing to change and does not move the ledger.
   from spark-engineer, or a reader in a later phase.
 - Spark export gaps: no `institutionId` in the semantic summaries and no paper-abstract
   rows.
+  Phase 08 step 00 closed both gaps, and spark-engineer added a JSON-lines export, so
+  the Parquet reader gap is closed for the vector loader only (see
+  [embeddings.md](embeddings.md)).
+  The Neptune and DynamoDB loaders have not yet been run on the JSON-lines export.
+  A contract test for them is carried forward to storage-engineer.
+  The Phase 07 statements above stay as the record of that phase.
 - OpenSearch, the SQS queue adapter, `ListVectors`, query pagination beyond 100 hits and
   the `s3.json` manifest loader are not implemented.
 

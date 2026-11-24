@@ -64,7 +64,10 @@ object SparkArgs:
 
 /** The upstream runs a Spark run reads, located only through their run manifests and summaries:
   * Hadoop `<out>/run-manifests/<runId>.json` and `<runId>-summary.json` (stage `J07` gives the
-  * export folder) and the er-v1 match job's manifest and summary (field `decisions`).
+  * export folder; stage `J02-OPENALEX`, when the run normalized OpenAlex, gives the folder whose
+  * `abstracts/` holds the `abstract-v1` rows) and the er-v1 match job's manifest and summary (field
+  * `decisions`). `abstractsDir` is None when the Hadoop run has no OpenAlex stage: the run then has
+  * no abstracts, and Spark emits no paper-abstract rows.
   */
 final case class Upstream(
     snapshot: String,
@@ -75,7 +78,8 @@ final case class Upstream(
     erRunId: String,
     erPolicyVersion: String,
     erPolicySha256: String,
-    decisionsDir: String
+    decisionsDir: String,
+    abstractsDir: Option[String]
 )
 
 object Upstream:
@@ -83,6 +87,9 @@ object Upstream:
   val HadoopPipelines: Set[String] = Set("hadoop-v2")
   val Normalizations: Set[String] = Set("norm-v1")
   val ErStage = "entity-resolution"
+
+  /** The Hadoop stage that writes OpenAlex abstracts (`<output>/abstracts`). */
+  val OpenAlexStage = "J02-OPENALEX"
 
   /** Run ID named by a manifest path `.../run-manifests/<runId>.json`. */
   def runIdOf(path: String): Either[String, String] =
@@ -142,6 +149,11 @@ object Upstream:
         s"hadoop summary does not belong to $hId"
       )
       exportDir <- field("hadoop summary stages.J07.output")(hs("stages")("J07")("output").str)
+      abstractsDir <- field(s"hadoop summary stages.$OpenAlexStage.output")(
+        hs("stages").obj
+          .get(OpenAlexStage)
+          .map(st => st("output").str.stripSuffix("/") + "/abstracts")
+      )
       eLoaded <- manifest(erManifest, read)
       eId = eLoaded.id
       em = eLoaded.json
@@ -170,7 +182,18 @@ object Upstream:
         s"entity-resolution summary does not belong to $eId"
       )
       decisions <- field("entity-resolution summary decisions")(es("decisions").str)
-    yield Upstream(snapshot, hId, pipeline, norm, exportDir, eId, policy, policySha, decisions)
+    yield Upstream(
+      snapshot,
+      hId,
+      pipeline,
+      norm,
+      exportDir,
+      eId,
+      policy,
+      policySha,
+      decisions,
+      abstractsDir
+    )
 
 /** The Spark run manifest. Its canonical JSON hashes to the run ID (core `Ids.run`), so the same
   * inputs, configuration and code version always give the same run ID and the same output folder;
@@ -181,7 +204,7 @@ object Upstream:
   */
 object SparkRunManifest:
   val Stage = "spark-analytics"
-  val LogicVersion = "spark-v2"
+  val LogicVersion = "spark-v4"
 
   /** Core record versions Spark reads and writes (the `hadoop` local `author-paper-v1` included).
     */
@@ -193,7 +216,8 @@ object SparkRunManifest:
     SchemaVersions.Topic,
     SchemaVersions.Institution,
     SchemaVersions.Venue,
-    SchemaVersions.Match
+    SchemaVersions.Match,
+    Abstracts.SchemaVersion
   )
   val WriteSchemas: Vector[String] = Vector(
     SchemaVersions.GraphNode,
@@ -201,6 +225,7 @@ object SparkRunManifest:
     SchemaVersions.Edge,
     SchemaVersions.Metrics,
     SchemaVersions.Evidence,
+    Abstracts.SchemaVersion,
     "reject-record"
   )
 
@@ -214,7 +239,8 @@ object SparkRunManifest:
           "runId" -> up.hadoopRunId,
           "pipeline" -> up.hadoopPipeline,
           "normalization" -> up.normalization,
-          "export" -> up.exportDir
+          "export" -> up.exportDir,
+          "abstracts" -> up.abstractsDir.fold[ujson.Value](ujson.Null)(ujson.Str(_))
         ),
         "entityResolution" -> ujson.Obj(
           "runId" -> up.erRunId,

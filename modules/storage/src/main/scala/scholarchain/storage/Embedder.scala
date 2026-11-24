@@ -12,7 +12,18 @@ import scala.util.Try
 trait Embedder:
   def modelId: String
   def dimension: Int
+
+  /** The embedding model version stored in vector metadata (`embeddingModel`) and compared when
+    * deciding to skip: `<modelId>@<dimension>`, see [[EmbeddingVersion]].
+    */
+  final def versionId: String = EmbeddingVersion.id(modelId, dimension)
   def embed(text: String): Either[RemoteError, Vector[Float]]
+
+/** The one place storage forms the embedding model version, `<modelId>@<dimension>` (rag's rule
+  * `embedding-version-v1`; the local fake is `hash-embed-v1@256`).
+  */
+object EmbeddingVersion:
+  def id(modelId: String, dimension: Int): String = s"$modelId@$dimension"
 
 /** Deterministic feature-hashing embedder for local mode and tests (model `hash-embed-v1`). It
   * captures token overlap only and is never reported as a semantic model.

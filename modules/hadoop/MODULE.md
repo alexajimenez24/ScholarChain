@@ -357,6 +357,20 @@ Observed numbers after the repair (full tables in
   unobserved.
 - Mutation testing (not allowed by the machine limits).
 
+### Phase 08 done
+
+Sources, in `docs/agent-runs/phase-08/`: `step-S2-hadoop-engineer-report.md` and
+`step-S2b-hadoop-engineer-report.md`.
+No public API change and no code change.
+
+- `LocalRunner` on the 100,000-work snapshot: `run-834f71c82961a194`, 570 s with a 2 GB
+  heap (second attempt).
+  Maximum team size 133, largest pair expansion 8,778, largest blocking group `r:wang_y`
+  with 1,578 members.
+- `LocalRunner` on the 25,000-work subset: `run-03a81f6f54f3fc3c`, 187 s.
+  Maximum team size 75, largest pair expansion 2,775, `r:wang_y` with 361 members.
+  Counters are in [docs/hadoop-jobs.md](../../docs/hadoop-jobs.md).
+
 ## Known issues
 
 Source: hadoop-engineer repair report (HR2) and the earlier T2 report, both in
@@ -390,6 +404,19 @@ removed from this list.
 - Local output leaves `.crc` files beside the data; Spark ignores them.
 - The hadoop-local records are not core contracts yet.
 - `sbt packageJobs` was not run with the new sources.
+
+### Phase 08 known issues
+
+- `LocalRunner` needs absolute paths, because the forked JVM starts in `modules/hadoop`.
+  The first 100,000 attempt failed on this.
+- The build's Test heap is 1g; whether the run fits 1g was not tested.
+- An untracked folder `modules/hadoop/datasets/` (a run manifest of
+  `run-8e1abb4c22da9c06` from that failed attempt) sits in this module's territory and
+  is not named in the S2 report; hadoop-engineer decides whether to remove it.
+- `hadoop-out` holds `.crc` files and `_local-tmp` scratch.
+- 19 (100,000 run) and 6 (25,000 run) OpenAlex records were rejected in J02 and the
+  reasons were not inspected.
+- The per-source DOI match rate was not computed.
 
 ## Dependencies
 

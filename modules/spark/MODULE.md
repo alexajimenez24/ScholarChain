@@ -130,6 +130,28 @@ Source: `docs/agent-runs/phase-06/step-01-build-engineer-report.md`,
   `scala/collection/` and 0 `ScalaRunTime` entries and 377 `upickle/` entries.
   The scala-library exclusion is in place (see Known issues).
 
+### Phase 08 additions
+
+Sources, in `docs/agent-runs/phase-08/`: `step-00-spark-engineer-report.md`,
+`step-00b-spark-engineer-report.md` and `step-00d-spark-engineer-report.md`.
+Run details: [docs/spark-jobs.md](../../docs/spark-jobs.md).
+
+- Logic version `spark-v4` (`SparkRunManifest.LogicVersion`; spark-v3 in step 00).
+- New `Abstracts` (`build`, `ExtraFields`, `Stage`, `SchemaVersion`) and the table
+  `paper-abstracts`.
+- `Export.write` takes an optional `JsonSpec`; new `Export.JsonOut`,
+  `Export.JsonLinesExport`, `Export.CoauthorWindows` and `Export.coauthorWindows`.
+  `loadManifests` takes `CoauthorWindows`.
+  JSON-lines copies of six tables are under `jsonl/` and listed in the load manifests.
+- `Upstream.abstractsDir`, `Upstream.OpenAlexStage`, and the `Summaries.PaperAbstract`
+  and `Summaries.AbstractIndexKey` constants.
+- `Paths.targetsPerSource`, `Paths.reachablePairs` and `Paths.sampledEvidence`.
+- New report keys `pathTargetsPerSource` and `invariant_pathRequestedNotFound`.
+- `LocalPipelineRun --shuffle-partitions`.
+- `institutionId` is in `values.institutionId` of each summary row.
+- `neptune.json` lists every coauthor window.
+- The path-evidence table holds requested pairs even when none is found.
+
 ## Not done
 
 - The bounded EMR Spark run: NOT RUN.
@@ -141,6 +163,22 @@ Source: `docs/agent-runs/phase-06/step-01-build-engineer-report.md`,
 - `sbt packageJobs` itself was not run; `sbt sparkAnalytics/assembly` was run on the final
   tree in R1-2.
 - No automated test covers the scala-library exclusion.
+
+### Phase 08 done
+
+- `sbt sparkAnalytics/test`: 45 passed, 0 failed (33 in Phase 06; 41 after step 00; 4 new
+  in `PathSelectionSuite`).
+- Run `run-ccf619c509611f06` on the 25,000-work inputs: SUCCEEDED, 114 invariants, 0
+  nonzero, 25:14, peak RSS 2,923,636 kB.
+  Five indexes have rows: researcher-profile 167,600, community 43,826, path 278, topic
+  5,957, abstract 6,292.
+- Paper-abstract rows are emitted from the Phase 04 OpenAlex abstracts (6,292); none were
+  invented.
+- Phase 08 repair R1-3: the `abstracts` `keyRule` text in the `s3vectors.json` load
+  manifest now says rag's renderer makes the chunk IDs (`tpl-paper-abstract-v2`, with the
+  multi-chunk formula).
+  No API change, no computed value changed, and `LogicVersion` stays `spark-v4`.
+  A `s3vectors.json` from an earlier run keeps the old text until Spark runs again.
 
 ## Known issues
 
@@ -191,6 +229,21 @@ Source: `docs/agent-runs/phase-06/step-01-build-engineer-report.md`,
   `score` is 0.0 at export.
 - The black-box test classpath has no fork or module opens for a local SparkSession
   (Phase 02 MINOR-A, build-engineer); slf4j-api is bundled in the job jars (N-c).
+
+### Phase 08 known issues
+
+- The 100,000-work local run does not fit 2 GB and 90 minutes (OOM after 23:04, then
+  killed at 90 minutes); `run-c4b35c788d05a93c` is not usable.
+  About 2.3 GB of git-ignored output remains in
+  `datasets/samples/local/2026-11-24/spark-out`.
+- Closed on 25,000 works by `run-ccf619c509611f06`: components not converged at 40
+  iterations (fixed by core config 100) and no path documents (fixed by spark-v4).
+- Still open: the partition count of the checkpointed state grows across iterations
+  (stages up to 633 tasks with 8 shuffle partitions), a likely cost at scale, not
+  investigated.
+- Path documents are a bounded sample of at most 112 per window, not all pairs.
+- spark-engineer retried at full scale before the step-down; this is a possible
+  deviation from the step-down rule, for the human.
 
 ## Dependencies
 

@@ -73,7 +73,7 @@
     ],
     "maxTeamSizeForPairs": 300,
     "representativeWorkLimit": 5,
-    "componentMaxIterations": 40,
+    "componentMaxIterations": 100,
     "communityIterations": 8,
     "betweennessSampleSources": 16,
     "betweennessSeed": 441,

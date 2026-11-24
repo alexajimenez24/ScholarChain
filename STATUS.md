@@ -35,9 +35,30 @@ resume. -->
   Review 1 REQUEST_CHANGES; Review 2 APPROVE WITH CARRIED-FORWARD ITEMS.
   See "Phase 06 task list", "Carried forward from Phase 06 (for the human gate)" and
   "Current state (phase 06)".
-- Phase 07: storage adapters and loading; all tasks, repair round 1 and both reviews done
-  (Review 2 REQUEST_CHANGES on a format-only ownership item); next is the Phase 07 human
-  gate. See the Phase 07 task list and "Carried forward from Phase 07".
+- Phase 07: storage adapters and loading, committed.
+  `git log --oneline -3` shows 2c86331 "phase-07 storage-engineer: S3, DynamoDB, Neptune
+  and S3 Vectors adapters and loaders" and 1a727a1
+  "phase-07: record accepted commit hash".
+  The human gate is `docs/agent-runs/phase-07/human-gate.md`, which approves starting
+  Phase 08 and routes four items to Phase 08 step 00: the JSON-lines export,
+  `institutionId`, paper-abstract rows, and every coauthor window in `neptune.json`.
+  See the Phase 07 task list and "Carried forward from Phase 07".
+- Phase 08: embeddings and S3 Vectors ingestion; steps S1 to 04, Review 1 and repair
+  round 1 (R1-0 to R1-4) are done, and the next step is the human gate
+  (see Phase 08 task list).
+  No cloud was used.
+  The dataset was stepped down from 100,000 to 25,000 works (Spark failed at 100,000).
+  Spark run `run-ccf619c509611f06` is the input of every later step.
+  Local ingestion put 28,527 of 223,953 source rows (31,341 chunks) into five in-memory
+  indexes with 0 rejected.
+  `semantic-context-v1` and its smoke tests are in rag (66 tests after the repair).
+  The full `sbt check` after the repair exited 0 in 356 s
+  (`docs/agent-runs/phase-08/output-sbt-check-r1.txt`).
+  Review 2 is not needed, because Review 1 had no CRITICAL or MAJOR finding.
+  The bounded AWS ingestion of 10,000 vectors, AWS query latency and real cost are NOT
+  RUN until the cloud phases.
+  The embedding docs are `docs/embeddings.md`; lineage is `docs/data-lineage.md`.
+  See "Carried forward from Phase 08".
 
 ## Carried forward from Phase 01
 
@@ -959,6 +980,405 @@ Each item names its source when it is not that report.
      orchestrator held to the one-sbt rule;
    - guard-dangerous false positives on the test-marker path and gate-file names belong
      to factory-engineer, Phase 11 (see "Carried forward from Phase 05", item 7).
+
+## Phase 08 task list
+
+Phase 08 is embeddings and S3 Vectors ingestion (storage-engineer and rag-engineer, with
+the upstream steps owned by dataset-engineer, hadoop-engineer,
+entity-resolution-engineer and spark-engineer), work order and human addendum in
+`docs/agent-runs/phase-08/prompt.md`.
+Reports are saved in `docs/agent-runs/phase-08/`.
+The reference material in `~/ref-phase-08/` is a starting point only; each owner adapts
+it and owns the result.
+
+| Step | Owner | Scope | Report | Done means / check | State |
+|---|---|---|---|---|---|
+| pre | documentation-engineer | this task list | step-pre-documentation-engineer-report.md | table present | done |
+| S1 | dataset-engineer | 100,000 DBLP works (>=2 authors, years 2000-2024, deterministic hash rule), OpenAlex by DOI with abstracts, Crossref capped at 5,000, ORCID unchanged; raw data only in git-ignored datasets/samples/local/<snapshot>/ | step-S1-dataset-engineer-report.md | fetch, verify and manifest validation pass; counts, year distribution, checksums | done, OpenAlex partial |
+| S2 | hadoop-engineer | Phase 04 LocalRunner J01-J07 on the S1 snapshot, no code change unless a run fails | step-S2-hadoop-engineer-report.md | run ID, counters, max team size, largest pair expansion, largest blocking group | done, see note S2 |
+| S3 | entity-resolution-engineer | er-v1 LocalMatchRunner, adjudicator off, on the S2 run | step-S3-entity-resolution-engineer-report.md | run ID and outcome counts | done, see note S3 |
+| 00 | spark-engineer | JSON-lines export beside Parquet, institutionId in summaries, paper-abstract rows, every coauthor window in neptune.json; local pipeline on S2 and S3 runs | step-00-spark-engineer-report.md | sbt sparkAnalytics/test green; new Spark run ID | BLOCKED-ON at 100k; step-down to 25,000, see note 00 |
+| S1b | dataset-engineer | 25,000-work subset of the S1 snapshot by the same rule (1,000 per year 2000-2024, smallest sha256 of the dblp key), OpenAlex and Crossref filtered to its DOIs, no new fetch | step-S1b-dataset-engineer-report.md | verify and manifest validation pass; counts | done, see note S1b |
+| S2b | hadoop-engineer | LocalRunner J01-J07 on the 25k subset | step-S2b-hadoop-engineer-report.md | run ID, counters | done, see note S2b |
+| S3b | entity-resolution-engineer | er-v1 LocalMatchRunner, adjudicator off, on S2b | step-S3b-entity-resolution-engineer-report.md | run ID, outcome counts | done, see note S3b |
+| 00b | spark-engineer | local Spark pipeline on S2b and S3b (the step-down rerun of step 00; last allowed step-down is 10,000) | step-00b-spark-engineer-report.md | usable Spark run ID; table counts | done, INVARIANT_FAILURES, see note 00b |
+| 00c | domain-engineer | raise graph componentMaxIterations in core config (components did not converge at 40 in 1950-2026) | step-00c-domain-engineer-report.md | core tests green | done, see note 00c |
+| 00d | spark-engineer | path evidence pairs chosen from reachable targets so collaboration-path-v1 has documents; one 25k rerun | step-00d-spark-engineer-report.md | sparkAnalytics/test green; run SUCCEEDED; path documents > 0 | done, see note 00d |
+| 01 | rag-engineer (R1) | rendering templates (researcher, community, path, paper, topic-institution) with versions, chunking policy, embedding model versioning, behind a storage port | step-01-rag-engineer-report.md | sbt rag/test green | done through 01b |
+| 02a | storage-engineer | DocumentRenderer port (signature in the step 01 report), bounded embedding work queue, vector write batches, S3 text with pointer and compact metadata, hash+model skip, one key one text, RunLedger failures and retries, loader taking text only from the renderer | step-02a-storage-engineer-report.md | sbt storage/test green | done, see note 02a |
+| 01b | rag-engineer | SemanticRenderer extends the storage port; composition runner for the local ingestion in rag test scope | step-01b-rag-engineer-report.md | sbt rag/test green | done, see note 01b |
+| 02b | storage-engineer | local ingestion of run-ccf619c509611f06 into all five indexes through the 01b runner | agent-report.md, output-local-ingestion.md | counts, throughput, rejects, duplicates | done, see note 02b |
+| 03 | rag-engineer (R2) | compact semantic-context format via S3 pointer, retrieval smoke tests on a hand-built fixture, graph values never from vectors; full sbt check | step-02-rag-engineer-report.md, output-sbt-check-step03.txt | full sbt check exit 0 | done, see note 03 |
+| 04 | documentation-engineer | embedding and vector-index docs section, lineage line, module notes | step-03-documentation-engineer-report.md | facts only from this phase's reports | done, see note 04 |
+| Review 1 | code-reviewer (fresh) | whole phase | review-report.md | verdict | done, APPROVE WITH CARRIED-FORWARD ITEMS, see note R1 |
+| Repair 1 | owners named by review | one round | repair-01*.md | sbt check if source changed | done, see notes R1-1 to R1-4 |
+| Review 2 | code-reviewer (fresh) | only if Review 1 has CRITICAL or MAJOR | review-report-02.md | verdict | not needed (no CRITICAL or MAJOR) |
+| Gate | human | phase 08 gate | human-gate.md, commit.txt | - | pending |
+
+Note S1 (report `docs/agent-runs/phase-08/step-S1-dataset-engineer-report.md`).
+dataset-engineer is COMPLETE for DBLP, Crossref and ORCID; OpenAlex is PARTIAL.
+The snapshot 2026-11-24 is in the git-ignored `datasets/samples/local/2026-11-24/`.
+DBLP has 100,000 works, 4,000 per year for 2000 to 2024.
+Each year's works are selected by the smallest sha256 of the DBLP key.
+OpenAlex has 50,000 of 90,285 DOIs requested.
+The keyless free daily budget ran out (HTTP 429).
+OpenAlex gives 49,749 works, and 25,078 of them have an abstract.
+Crossref has 5,000 DOIs requested and 4,516 found.
+ORCID is unchanged.
+The manifest validated, `verify` passed, and the dataset unittest ran 18 OK.
+Orchestrator decision (2026-11-24): the phase continues with the partial OpenAlex set.
+The human is asleep and the addendum says not to stop.
+Completing OpenAlex is an optional human action.
+It is listed in the S1 report under MANUAL ACTION REQUIRED and carried to the gate.
+
+Note S2 (report `docs/agent-runs/phase-08/step-S2-hadoop-engineer-report.md`).
+hadoop-engineer is COMPLETE, with no code change.
+The run ID is run-834f71c82961a194 on the snapshot 2026-11-24.
+Its output is in the git-ignored `datasets/samples/local/2026-11-24/hadoop-out`.
+Attempt 1 failed because of relative paths; the forked JVM's cwd is modules/hadoop.
+Attempt 2 used absolute paths and succeeded in 570 s with a 2 GB heap, so no step-down
+was needed.
+Key counters:
+J01 accepted 100,000;
+J02 OpenAlex accepted 49,730, rejected 19, with 25,078 abstracts;
+J02 Crossref 4,516;
+exported works 154,246, mentions 545,366, pairs 980,859.
+Maximum team size is 133, and the largest pair expansion is 8,778.
+The largest blocking group is r:wang_y with 1,578 members, above maxBlock 200,
+so the fallback path handled it.
+Open item: attempt 1 left the untracked folder `modules/hadoop/datasets/` (a run
+manifest of run-8e1abb4c22da9c06) inside hadoop-engineer's territory.
+The S2 report does not name it.
+It is not removed yet and is routed to hadoop-engineer at the review.
+
+Notes on the table:
+
+- Report names for S1, S2, S3, 00 and 01 to 04 are set by `prompt.md`.
+- So step numbers and report numbers differ for steps 03 and 04.
+- A STATUS update by documentation-engineer follows every owner step and is saved as
+  `step-<NN>s-documentation-engineer-report.md`.
+- No cloud in this phase.
+- The bounded AWS ingestion of 10,000 vectors is NOT RUN until the cloud phases.
+- Step-down rule: a pipeline stage that fails for memory or exceeds 90 minutes is rerun
+  once at 25,000 works, then once at 10,000, with every attempt recorded.
+
+Note S3 (report `docs/agent-runs/phase-08/step-S3-entity-resolution-engineer-report.md`).
+entity-resolution-engineer is COMPLETE, with no code change.
+The decision run is run-85fd79957d197ffc over Hadoop run run-834f71c82961a194.
+Its output is in the git-ignored `datasets/samples/local/2026-11-24/er-out`.
+The policy is er-v1 and is unchanged; the adjudicator is off.
+The gold set is not re-evaluated.
+There was one attempt, with 1:21:47 wall time and a 2 GB heap.
+That is about 8 minutes under the 90-minute limit, so no step-down was needed.
+Outcomes over 4,561,097 decisions:
+ACCEPTED 543,851;
+REJECTED 3,928,560;
+UNRESOLVED 65,759;
+CONFLICT 22,927.
+LLM_ADJUDICATED is 0, and the unresolved rate is 0.0144.
+
+Note 00 (report `docs/agent-runs/phase-08/step-00-spark-engineer-report.md`).
+spark-engineer is BLOCKED-ON hadoop-engineer after the 100,000-work local run failed.
+The Phase 07 gate code changes are in place and tested in modules/spark.
+They are JSON-lines copies of six tables under `jsonl/`, `institutionId` in the
+summaries, a paper-abstracts table, every coauthor window in `neptune.json`, and logic
+spark-v3.
+`sparkAnalytics/test` passed 41 of 41.
+The 100,000-work run did not finish.
+Attempt 1 ran out of memory after 23:04 with a 2 GB heap.
+Attempt 2, with 32 shuffle partitions, was killed at the 90-minute limit.
+Run `run-c4b35c788d05a93c` is not usable, and no later step reads it.
+spark-engineer's retry at full scale before stepping down is recorded as a possible
+deviation from the step-down rule, for the human to decide.
+About 2.3 GB of leftover git-ignored output stays in
+`datasets/samples/local/2026-11-24/spark-out`.
+Orchestrator routing: the step-down to 25,000 works runs through S1b, S2b, S3b and 00b.
+
+Note S1b (report `docs/agent-runs/phase-08/step-S1b-dataset-engineer-report.md`).
+dataset-engineer is COMPLETE, with no network fetch.
+The 25,000-work subset is in `datasets/samples/local/2026-11-24-25k/`.
+That folder is git-ignored.
+It is derived from the 2026-11-24 snapshot by the new `subset` command in
+`datasets/scripts/fetch_samples.py`.
+DBLP has 25,000 works, 1,000 per year for each year from 2000 to 2024.
+A rerun of the S1 rule at 25,000 is byte-identical to the derived DBLP file (`cmp`).
+The DBLP works have 22,602 distinct DOIs.
+OpenAlex has 12,433 works, 6,292 of them with an abstract.
+Crossref has 1,137 works.
+`verify` reports 4 files matching `retrieval.json`, and manifest validation passed.
+The dataset unittest run reports 19 tests OK.
+The manifest records the subset in the field `derived_subset_25k`.
+OpenAlex coverage is thin: 12,433 works for 22,602 DOIs, with a DOI-prefix bias
+inherited from the parent fetch (report RISKS).
+
+Note S2b (report `docs/agent-runs/phase-08/step-S2b-hadoop-engineer-report.md`).
+hadoop-engineer is COMPLETE, with no code change.
+Run ID `run-03a81f6f54f3fc3c` ran on the 25,000-work subset, snapshot label 2026-11-24.
+Its output is `datasets/samples/local/2026-11-24-25k/hadoop-out`, which is git-ignored.
+The first attempt succeeded in 187 s with a 2 GB heap.
+J01 accepted 25,000 DBLP works with no rejects.
+J02 accepted 12,427 OpenAlex works and rejected 6, with 6,292 abstracts.
+J02 accepted 1,137 Crossref works.
+The export holds 38,564 works, 136,266 mentions and 241,686 pairs.
+The maximum team size is 75, and the largest pair expansion is 2,775.
+The largest blocking group is `r:wang_y` with 361 members, which took the fallback path.
+
+Note S3b (report `docs/agent-runs/phase-08/step-S3b-entity-resolution-engineer-report.md`).
+entity-resolution-engineer is COMPLETE, with no code change.
+The decision run is run-cb5a0421c406737d over Hadoop run run-03a81f6f54f3fc3c.
+Its output is in the git-ignored `datasets/samples/local/2026-11-24-25k/er-out`.
+The policy is er-v1 and is unchanged; the adjudicator is off.
+The gold set is not re-evaluated.
+There was one attempt, with 1:19:48 wall time and a 2 GB heap.
+That is about 10 minutes under the 90-minute limit, so no step-down was needed.
+Peak RSS was about 1.4 GB and CPU use was 36%.
+The report suspects I/O wait or host contention; it did not verify this.
+Outcomes over 903,286 decisions:
+ACCEPTED 122,405;
+REJECTED 771,520;
+UNRESOLVED 7,370;
+CONFLICT 1,991.
+LLM_ADJUDICATED is 0.
+
+Note 00b (report `docs/agent-runs/phase-08/step-00b-spark-engineer-report.md`).
+spark-engineer ran the local Spark pipeline on the 25k subset (the step-down rerun).
+The Spark run ID is run-c73766e8001fce5a, with -Xmx2g and 8 shuffle partitions.
+It finished on the first attempt in 24:56 wall time, with peak RSS about 2.9 GB.
+JSON-lines and Parquet counts agree for all six tables:
+graph-nodes 118,960; graph-edges 543,699; coauthor-edges 337,677;
+researcher-metrics 167,600; semantic-summaries 217,383; paper-abstracts 6,292.
+Summary documents: researcher-profile 167,600; collaboration-community 43,826;
+topic-institution-summary 5,957; collaboration-path 0.
+neptune.json lists all 4 windows, and 106,614 summary rows carry an institutionId.
+The status is INVARIANT_FAILURES, for two reasons.
+(1) Components did not converge within 40 iterations in 1950-2026: one component
+of 8,615 split as 8,540 and 75.
+(2) 0 of 120 sampled path pairs per window were found within 6 hops, so there are
+no path documents.
+Orchestrator routing: repair before step 01, because the gate needs all five indexes.
+Run 00c, then 00d; later steps read the 00d run.
+
+Note 00c (report `docs/agent-runs/phase-08/step-00c-domain-engineer-report.md`).
+graph.componentMaxIterations is raised from 40 to 100 in scholarchain-v1.yaml.
+It also bounds the BFS and coreness loops.
+A new ConfigSuite test pins the value; sbt core/test passed 120, failed 0.
+No consumer hardcodes 40; they read the config value.
+The value is in the run manifest, so the 25k Spark rerun in 00d gets a new run ID.
+
+Note 00d (report `docs/agent-runs/phase-08/step-00d-spark-engineer-report.md`).
+Path-evidence targets now come from each sampled source's reach within 6 hops.
+The logic version is spark-v4.
+sparkAnalytics/test passed 45 and failed 0.
+Spark run run-ccf619c509611f06 used the 25k inputs and took 25:14 wall time.
+Its status is SUCCEEDED, with 114 invariants checked and 0 nonzero.
+Components in 1950-2026 converged at 15,830, with a largest of 8,615.
+An offline union-find check confirmed both numbers.
+Index researcher-profile-v1 has 167,600 rows.
+Index collaboration-community-v1 has 43,826 rows.
+Index collaboration-path-v1 has 278 rows.
+Index topic-institution-summary-v1 has 5,957 rows.
+Index paper-abstract-v1 has 6,292 rows.
+Every later step reads run-ccf619c509611f06 through its run manifest.
+
+Note 01 (report `docs/agent-runs/phase-08/step-01-rag-engineer-report.md`).
+rag-engineer is BLOCKED-ON storage-engineer, because storage has no renderer port.
+Five rendering templates are versioned.
+- tpl-researcher-profile-v1
+- tpl-collaboration-community-v1
+- tpl-collaboration-path-v1
+- tpl-topic-institution-summary-v1
+- tpl-paper-abstract-v1
+The four summary templates adopt Spark's text byte for byte after a conformance check.
+That keeps one identity with one text.
+Chunk policy chunk-v1 allows at most 2,000 UTF-16 units, 200 overlap and 32 chunks.
+Embedding version rule embedding-version-v1 is `<modelId>@<dimension>`.
+The local fake is hash-embed-v1@256.
+sbt rag/test passed 33 of 33.
+The real run run-ccf619c509611f06 rendered 223,953 documents into 226,807 chunks.
+It had 0 rejects and 0 conflicts.
+Orchestrator routing: 02a (storage port), then 01b (rag wires the port), then 02b.
+rag depends on storage, so the composition runner lives in rag test scope.
+
+Note 02a (report `docs/agent-runs/phase-08/step-02a-storage-engineer-report.md`).
+storage-engineer COMPLETE; `sbt storage/test` passed 179, failed 0, ignored 1.
+The real-export ingestion is not run yet (step 02b).
+- DocumentRenderer port defined with rag's requested signature.
+- The loader takes text only from the renderer, one vector per chunk.
+- Work queue: a manifest-driven batch with a bounded in-process queue (capacity 1000),
+  not SQS, because no cloud is used this phase and every step is idempotent.
+- Batches of 100; retry policy of 4 attempts.
+- Skip by text hash and model version `<modelId>@<dimension>` (local fake
+  hash-embed-v1@256).
+- One key for two texts is refused.
+- Rejections and retries are recorded in RunLedger; failure records are capped at 500
+  per load.
+- The vector holds only the S3 pointer and compact metadata.
+- `LocalIngestion.run` is the entry point, with a bounded deterministic subset option.
+
+Note 01b (report `docs/agent-runs/phase-08/step-01b-rag-engineer-report.md`).
+rag-engineer COMPLETE; `sbt rag/test` passed 41, failed 0 (33 before this step).
+- SemanticRenderer now extends storage's DocumentRenderer and uses storage's types.
+- The embedding version formula is one function, storage's EmbeddingVersion.id.
+- The abstract template moved to tpl-paper-abstract-v2, because v1 wrote the work ID
+  into the text.
+- Storage refuses text that repeats a metadata value of 40 or more characters.
+  71 of 6,292 abstracts have a work ID that long, so v1 would have been rejected.
+- Smoke run with 200 rows per type: 1,071 chunks ingested, 0 rejections in both passes.
+- The runner is scholarchain.rag.LocalIngestionRun, in rag test scope.
+- One sbt process took 47 minutes to exit after success; the cause was not found.
+  Step 02b keeps a timeout on its command.
+
+Note 02b (reports `docs/agent-runs/phase-08/output-local-ingestion.md` and the step 02b
+section of `docs/agent-runs/phase-08/agent-report.md`).
+storage-engineer COMPLETE for step 02b; no repository file was changed.
+The local ingestion of run-ccf619c509611f06 ran into all five indexes through
+`scholarchain.rag.LocalIngestionRun`, once, at N=8000.
+The subset is bounded and deterministic: the smallest SHA-256 of the row key, 8,000
+source rows per type.
+28,527 of 223,953 meaningful source rows were ingested, giving 31,341 chunks.
+Chunks per index: researcher-profile-v1 8,000; collaboration-community-v1 8,002;
+collaboration-path-v1 278; topic-institution-summary-v1 8,674; paper-abstract-v1 6,387.
+Rejected 0 and duplicates 0 in both passes.
+The first pass wrote 584 vectors per second in 315 batches of 100.
+The second identical pass wrote 0 and skipped all 31,341 chunks.
+Retries 0 and ledger failure records 0; retry and rejection paths are covered by unit
+tests only.
+Heap after the first pass was 351 MB of 2,048 MB.
+Embedding version: `hash-embed-v1@256` (local deterministic fake, no AWS call).
+Query latency comes from the in-memory exact scan only, not from S3 Vectors.
+NOT RUN until the cloud phases: bounded AWS ingestion of 10,000 vectors, AWS query
+latency and real cost.
+The full export of 223,953 rows is likely too large for a 2 GB heap.
+That is an unmeasured estimate: 351 MB for 31,341 chunks is about 11.5 KB per chunk,
+so about 2.5 GB for the full export.
+
+Note 03 (report `docs/agent-runs/phase-08/step-02-rag-engineer-report.md` and
+`output-sbt-check-step03.txt`).
+rag-engineer COMPLETE for R2; `sbt rag/test` passed 63, failed 0 (41 before, 22 new).
+- Format `semantic-context-v1`, schema `prompts/schemas/semantic-context-v1.json`.
+- A hit is kept only through its S3 pointer, after a hash check and size bounds.
+- `score` is the only number in the format; `GraphValuePolicy` keeps graph values out.
+- Budget 10 items, 2,000 characters per item, 8,000 in total.
+- `SemanticContextSuite` has 12 tests and `RetrievalSmokeSuite` 10.
+- All five gate items are covered by tests.
+- The one full `sbt check` exited 0 in 362 s (380 s wall time).
+- It printed `14 project test runs passed`.
+- Per-project test lines in printed order: 120; 179 with 1 ignored (storage); 63 (rag);
+  68; 98; 45; 119.
+  The names of the other lines are not printed by sbt and are not certain from the log.
+- The Phase 9 workflow, prompts and verifier are not done.
+
+Note 04 (report `docs/agent-runs/phase-08/step-03-documentation-engineer-report.md`).
+documentation-engineer COMPLETE.
+- New `docs/embeddings.md`: the five indexes, metadata schema, template and model
+  versions, chunk policy, batch and retry settings, local object counts and the cost
+  method.
+  The two prices are UNVERIFIED, because the documentation tools cannot read
+  `aws.amazon.com` pricing pages.
+- New `docs/data-lineage.md`: the semantic-context lineage line and the scale-up and
+  step-down facts.
+- Updated `docs/storage.md`, `docs/service-limits.md`, `docs/spark-jobs.md`,
+  `docs/hadoop-jobs.md`, `docs/entity-resolution.md`, `PROJECT_MEMORY.md` and the
+  `MODULE.md` of core, storage, rag, spark, hadoop and entity-resolution.
+- The step 04 run was interrupted once by a usage limit (HTTP 429) before it changed any
+  file, and was rerun from the start.
+
+Note R1 (report `docs/agent-runs/phase-08/review-report.md`, routing in `repair-01.md`).
+Review 1 found 0 CRITICAL, 0 MAJOR, 5 MINOR and 6 NIT.
+The repair round routes R1-1 to rag-engineer (MINOR-1 chunk limit off by one, NIT-4).
+R1-2 goes to storage-engineer (MINOR-2 manifest row check, NIT-5).
+R1-3 goes to spark-engineer (NIT-1, then the one full `sbt check`).
+R1-4 goes to documentation-engineer (MINOR-3 wording, NIT-2, NIT-3, NIT-6).
+Carried to the gate: the Neptune and DynamoDB JSON-lines loader test (MINOR-3 code part).
+Also carried: the untracked `modules/hadoop/datasets/` folder for the human to remove
+(MINOR-4, not to be committed), and the step 00 step-down deviation (MINOR-5).
+
+Note R1-1 (rag-engineer, report `docs/agent-runs/phase-08/repair-01-rag-engineer.md`):
+The chunk limit now accepts exactly `maxChunks` chunks and refuses one more.
+`chunk-v1` is kept, and the golden spans are unchanged.
+`decide` in `EmbeddingVersion.scala` now follows the loader's order: other text is
+refused before a version mismatch.
+A test that runs the real loader pins that order.
+`sbt rag/test` passed 66 of 66.
+
+Note R1-2 (storage-engineer, report
+`docs/agent-runs/phase-08/repair-01-storage-engineer.md`):
+R1-2 is done.
+`LocalIngestion` scans the export and fails before any load when the rows read differ
+from the load manifest, in both full and subset modes.
+Row counts in the report now come from the rows read.
+The `queueCapacity` comment now says the queue bounds only the waiting documents.
+`sbt storage/test` passed 184, with 1 ignored; `sbt rag/test` passed 66.
+
+Note R1-3 (spark-engineer, report `docs/agent-runs/phase-08/repair-01-spark-engineer.md`,
+output `output-sbt-check-r1.txt`):
+R1-3 is done.
+NIT-1 is fixed: the `abstracts` `keyRule` text says rag's renderer makes the chunk IDs.
+No computed value changed, and `LogicVersion` stays `spark-v4`.
+The one full `sbt check` for the round exited 0 in 356 s.
+The test lines were 120, 66, 184 (1 ignored), 68, 45, 119 and 98.
+It printed `14 project test runs passed`.
+
+Note R1-4 (documentation-engineer, this task):
+R1-4 is done; docs edits only, no sbt run.
+- MINOR-3 wording: `docs/storage.md` and `modules/storage/MODULE.md` now say the gap is
+  closed for the vector loader only.
+  The Neptune and DynamoDB loaders have not yet been run on the JSON-lines export.
+- NIT-2: `docs/data-lineage.md` says 00b had one nonzero invariant.
+- NIT-3: `docs/embeddings.md` and this file state the full-export heap as an unmeasured
+  estimate of about 2.5 GB.
+- NIT-6: `PROJECT_MEMORY.md` says 100 is about 2.1 times the 47 iterations observed.
+- Doc lines from the repair reports: the chunk limit (32 accepted, a 33rd refused) and
+  the decide order in `docs/embeddings.md`; the queue capacity wording; the manifest row
+  check; the rag, storage and spark `MODULE.md` repair entries.
+- Review 2 is not needed.
+  Next is the human gate.
+
+## Carried forward from Phase 08 (for the human gate)
+
+Sources: the Phase 08 reports in `docs/agent-runs/phase-08/` and `run-log.md`.
+
+- OpenAlex is partial: 50,000 of 90,285 DOIs, because the keyless daily budget ended in
+  HTTP 429.
+  Completing it needs a free API key or a wait past midnight UTC, and `--force` restarts
+  all DOIs (S1 report).
+  61 DBLP DOIs with XML entities cannot match.
+- The 100,000-work Spark local run does not fit 2 GB and 90 minutes.
+  The chain ran at 25,000 works instead.
+- S3 (1:21:47) and S3b (1:19:48) wall times are close to the 90-minute limit; S3b used 36
+  percent CPU, and the cause (I/O wait or host contention) is unverified.
+- Several GB of git-ignored leftover outputs remain under `datasets/samples/local/`:
+  the 100,000 Spark output (about 2.3 GB), the 00b run and checkpoints (about 2.6 GB),
+  the 00d run (about 2.6 GB), er-out 1.3 GB and 250 MB, and the raw dump.
+  Agents do not delete data; the human decides.
+- MINOR-4 (open): the untracked folder `modules/hadoop/datasets/` (from S2 attempt 1)
+  is not git-ignored.
+  The human removes it and must not commit it.
+- MINOR-3 code part (open): a contract test that loads the `neptune.json` and
+  `dynamodb.json` JSON-lines with `extraFields` through the Neptune and DynamoDB loaders
+  (storage-engineer).
+  Until then no doc claims those loaders are proven on the real export.
+- spark-engineer retried the 100,000 run at full scale (32 shuffle partitions) before
+  stepping down; this is a possible deviation from the step-down rule, for the human
+  (MINOR-5, open, human decision).
+- The full-export local ingestion (223,953 rows, about 2.5 GB estimated, unmeasured) is
+  likely too large for 2 GB; only 12.7 percent of the rows were ingested.
+- Review 1 (APPROVE WITH CARRIED-FORWARD ITEMS) and repair round 1 are done.
+  The review and repair reports are in `docs/agent-runs/phase-08/`.
+- Duplicate-key semantics across queue windows: a key written in an earlier window is
+  not retracted if a later conflicting copy arrives.
+- NOT RUN until the cloud phases: the bounded AWS ingestion of 10,000 vectors, query
+  latency on S3 Vectors and real cost.
+  Both price values are UNVERIFIED (`docs/service-limits.md`).
+- The Stop hook asked for `sbt check` many times while agents were running; the
+  orchestrator declined, because only one sbt may run at a time and the full check was
+  scheduled for the end of step 03.
+- Step 04 was interrupted once by a usage limit and rerun from the start (`run-log.md`).
+- Step 02b left a background shell that kept waiting after the report; the human stopped
+  it (`run-log.md`).
+- One sbt process took 47 minutes to exit after success (step 01b); the cause was not
+  found.
+- The Phase 9 workflow, synthesis prompt and verifier are not done.
 
 ## Phase 07 task list
 

@@ -95,6 +95,32 @@ class RunManifestSuite extends munit.FunSuite:
     )
   }
 
+  test("upstream: OpenAlex abstracts located through the Hadoop summary, or none") {
+    val er = erText(hId)
+    // No J02-OPENALEX stage: the run has no abstracts, and the run manifest says so.
+    val none = locate(files(er), er).fold(e => fail(e), identity)
+    assertEquals(none.abstractsDir, None)
+    assertEquals(SparkRunManifest.build(none, cfg)("inputs")("hadoop")("abstracts"), ujson.Null)
+    val withOpenAlex = files(er) + (s"/h/run-manifests/$hId-summary.json" -> ujson
+      .Obj(
+        "runId" -> hId,
+        "stages" -> ujson.Obj(
+          "J07" -> ujson.Obj("output" -> "/h/export"),
+          "J02-OPENALEX" -> ujson.Obj("output" -> "/h/normalized/source=openalex/")
+        )
+      )
+      .render())
+    val up = locate(withOpenAlex, er).fold(e => fail(e), identity)
+    assertEquals(up.abstractsDir, Some("/h/normalized/source=openalex/abstracts"))
+    val m = SparkRunManifest.build(up, cfg)
+    assertEquals(m("inputs")("hadoop")("abstracts").str, "/h/normalized/source=openalex/abstracts")
+    // The abstracts folder is an input, so it is part of the run ID.
+    assertNotEquals(
+      SparkRunManifest.runId(m),
+      SparkRunManifest.runId(SparkRunManifest.build(none, cfg))
+    )
+  }
+
   test("upstream: refused when the runs do not belong together or a manifest was edited") {
     // An er run made from another Hadoop run.
     val other = erText("run-0000000000000000")

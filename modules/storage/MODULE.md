@@ -85,6 +85,38 @@ Loaders (`VectorLoader.scala`, `Loaders.scala`):
 Test side: `AwsIntegration`, `AwsGateSuite`, `AwsIntegrationHarnessSuite` and the gated
 `AwsIntegrationSuite` (opt-in `SCHOLARCHAIN_AWS_IT=true`).
 
+### Phase 08 additions
+
+Sources, in `docs/agent-runs/phase-08/`: `step-02a-storage-engineer-report.md`,
+`agent-report.md` and `output-local-ingestion.md`.
+Full description: [docs/embeddings.md](../../docs/embeddings.md).
+The module now has 16 source files; `DocumentRenderer`, `WorkQueue` and
+`LocalIngestion` are new.
+
+- `DocumentRenderer` (port, implemented in rag): `templateVersions`, `renderSummary`,
+  `renderAbstract` and a final `render(SourceRecord)` that turns a throwing renderer
+  into a `Left`.
+  Types `RenderedChunk`, `RenderedDocument` and `SourceRecord`.
+- `VectorLoader.loadRendered(runId, RowSource[SourceRecord], renderer, expectedRows)`.
+  `load` stays for ready documents.
+  Text comes only from the renderer, one vector per chunk.
+- `SemanticDocument.fromEvidence(e, rendered)` and `fromAbstract(a, rendered)` return
+  one document per chunk.
+  The schema is `semantic-doc-v2` and the loader logic `vector-load-v2`.
+- `VectorLoadResult` gains `chunks`, `putBatches`, `retries`, `failureRecords` and
+  `queueHighWater`.
+  `VectorLoaderSettings` gains `queueCapacity` and `maxFailureRecords`.
+- `WorkQueue` trait with `InMemoryWorkQueue(capacity)`.
+- `RowSource.jsonLines` and `jsonLinesDir` take `dropFields`; `RowSource.concat` and
+  `RowSource.filter` are new.
+- `EmbeddingVersion.id` (`<modelId>@<dimension>`) and `Embedder.versionId`.
+- `RunLedger.recordFailure(..., times: Int = 1)`.
+- `LocalIngestion.run(cfg, runManifestPath, renderer, settings, embedder, stores)`
+  returns an `IngestionReport` with `toMarkdown`, and `LocalIngestion.localConfig()`.
+  `IngestionSettings` defaults: batch 100, queue capacity 1,000, 4 attempts, 25 query
+  samples per index, topK 10, and an optional deterministic `maxUnitsPerIndex`.
+- Filterable metadata gained `template`, `chunkOrdinal` and `chunkCount`.
+
 ## Done
 
 - Step 01 (T1): ports, fakes, S3 layout and artifact writer, S3 and DynamoDB adapters,
@@ -113,6 +145,28 @@ Test side: `AwsIntegration`, `AwsGateSuite`, `AwsIntegrationHarnessSuite` and th
 - All adapters were proven against in-memory fakes and a local `com.sun.net.httpserver`
   stub only.
 
+### Phase 08 done
+
+- `sbt storage/test`: 179 passed, 0 failed, 1 ignored (158 and 1 ignored before; 20 new
+  tests in `RenderedLoadSuite` 15 and `LocalIngestionSuite` 5).
+- Bounded embedding queue (manifest-driven batch with an in-process queue, not SQS),
+  batches of 100, S3 source, chunk and document objects with a pointer, skip by hash and
+  model version, refusal of one key for two texts, failures and retries in RunLedger.
+- Local ingestion of `run-ccf619c509611f06` once, at 8,000 rows per type: 28,527 of
+  223,953 rows, 31,341 chunks, 0 rejected, 0 duplicates; the second identical pass wrote
+  0 and skipped all 31,341
+  (`docs/agent-runs/phase-08/output-local-ingestion.md`).
+- Full `sbt check` exited 0 (362 s); the storage line printed 179 passed, 1 ignored.
+- Phase 08 repair R1-2: `LocalIngestion` now scans the export and fails before any load
+  when the rows read differ from the load manifest ("export does not match its load
+  manifest"), in both full and subset modes.
+  Report counts (`totalRows`, `selectedRows`) come from the rows read, not the manifest.
+  The `queueCapacity` doc now says it bounds only the documents waiting, and that the
+  `seen` fingerprints and the `objects` memo grow with the keys of the load.
+  `LocalIngestion.run` keeps its signature.
+  `sbt storage/test` passed 184, 0 failed, 1 ignored (`LocalIngestionSuite` 10 tests);
+  the full `sbt check` exited 0 (356 s).
+
 ## Not done
 
 - The real Phase 06 Parquet run was NOT loaded through the storage code (no Parquet
@@ -125,6 +179,16 @@ Test side: `AwsIntegration`, `AwsGateSuite`, `AwsIntegrationHarnessSuite` and th
 - `RESOLVES_TO`, `DERIVED_FROM` and `SUPPORTED_BY` relationships and their nodes are not
   exported by Phase 06, so they are not loaded.
 - Vector search quality was not measured.
+
+### Phase 08 not done
+
+- The full-export run of 223,953 rows: about 2.5 GB estimated for 226,807 chunks (351 MB
+  for 31,341 chunks, about 11.5 KB per chunk), not measured, likely over a 2 GB heap.
+- Bounded AWS ingestion of 10,000 vectors, query latency on S3 Vectors and real cost:
+  NOT RUN until the cloud phases.
+- The SQS adapter: not implemented; `WorkQueue` is the seam.
+- The retry and rejection paths were not exercised by real data (0 retries, 0 rejects);
+  unit tests only.
 
 ## Known issues
 
@@ -204,6 +268,23 @@ Test side: `AwsIntegration`, `AwsGateSuite`, `AwsIntegrationHarnessSuite` and th
   Bedrock quotas is untested.
 - Process: the harness moves `sbt` to the background at 180 s, and guard-dangerous gives
   false positives on the test-marker task name (Phase 11 items).
+
+### Phase 08 known issues
+
+- Duplicate-key semantics across queue windows: a key already written in an earlier
+  window is not retracted if a later conflicting copy arrives; only the new copy is
+  rejected.
+- The loader skips the chunk-ID formula check for multi-chunk documents; rag owns it.
+- Storage refuses any chunk whose text repeats a metadata value of 40 or more
+  characters (the reason `tpl-paper-abstract-v2` exists).
+- Pass 2 of the local run takes longer than pass 1 (65 s against 54 s) because it re-reads
+  and re-renders the 1.1 GB JSON-lines to compare hashes.
+- The `System.gc()` heap figure is rough.
+- The Phase 07 Parquet reader gap is closed by the Phase 08 JSON-lines export for the
+  vector loader only.
+  The Neptune and DynamoDB loaders have not yet been run on the JSON-lines export.
+  A contract test for them is carried forward to storage-engineer.
+- S3 Vectors limits were not re-read in Phase 08.
 
 ## Dependencies
 

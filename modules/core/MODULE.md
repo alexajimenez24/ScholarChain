@@ -287,6 +287,17 @@ from `${COGNITO_*}` placeholders).
   - `sbt core/test` passed 119; the full `sbt check` exited 0 in 305 s
     (`docs/agent-runs/phase-07/output-sbt-check-r1.txt`).
 
+### Phase 08 additions
+
+Source: `docs/agent-runs/phase-08/step-00c-domain-engineer-report.md`.
+
+- `graph.componentMaxIterations` is 100 (was 40) in `scholarchain-v1.yaml`.
+  It also bounds the BFS and coreness loops.
+  No consumer hardcodes 40; `WindowAnalytics` and `Canonical` read the config value.
+- A new `ConfigSuite` test pins the value; `sbt core/test` passed 120, failed 0.
+- The value is part of the Spark run manifest, so changing it changes the run ID.
+- No schema version changed.
+
 ## Not done
 
 - No record for ORCID researcher profiles and none for the Hadoop-to-entity-resolution
@@ -339,6 +350,13 @@ from `${COGNITO_*}` placeholders).
     `containerBase`).
 - Provisional file values (thresholds, windows, k-core limit, betweenness seed) come from
   the reference; the experiments phase should confirm them.
+
+### Phase 08
+
+- A larger diameter at full DBLP scale would still be reported as non-convergence,
+  because the invariant is kept.
+  The observed maximum distance at 25,000 works was 39 and the loop needs about the
+  diameter plus 1, plus a round with no change.
 
 ## Dependencies
 

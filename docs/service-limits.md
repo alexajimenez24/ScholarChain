@@ -214,6 +214,24 @@ URL: https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-limitation
   placeholder in the config) names a model enabled for this account in `us-east-2`.
   No model ID is committed and no live call was made.
 
+## Prices (estimate inputs, Phase 08)
+
+Checked: 2026-11-24, with the aws-docs documentation tools.
+The tools read only `docs.aws.amazon.com`, so no price page could be read.
+A request for `https://aws.amazon.com/s3/pricing/` returned
+"URL must be from list of supported domains".
+
+- S3 Vectors PUT, storage and query prices: UNVERIFIED.
+  Published on https://aws.amazon.com/s3/pricing/ (not read).
+- Titan Text Embeddings V2 price per 1,000 input tokens: UNVERIFIED.
+  The model card section Pricing sends readers to https://aws.amazon.com/bedrock/pricing/
+  (not read).
+  URL read: https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-amazon-titan-text-embeddings-v2.html
+- No price value is written anywhere in this repository.
+  The cost method and the unit quantities are in [embeddings.md](embeddings.md).
+- The S3 Vectors and Bedrock limits in the sections above were not re-read in Phase 08;
+  the Phase 07 check date stands.
+
 ## Consolidated unverified list
 
 1. DynamoDB: live behavior of the conditional-write expressions and error mapping.
@@ -226,6 +244,7 @@ URL: https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-limitation
 5. Bedrock embeddings: maximum characters; `%3A` double encoding in the SigV4 path.
 6. Bedrock InvokeModel: model access in the account and region.
 7. Everything above that says "proven only against the local stub".
+8. S3 Vectors and Titan prices (Phase 08, see Prices above).
 
 Resolved on 2026-11-23 against the Phase 07 step reports:
 
