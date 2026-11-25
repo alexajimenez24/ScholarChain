@@ -1,0 +1,978 @@
+{
+  "erRunId": "run-cb5a0421c406737d",
+  "gate": {
+    "ambiguousName": "Wei Wang",
+    "exactDisplayNameNodes": [
+      "orcid:0000-0001-8927-614X",
+      "orcid:0000-0001-9596-2752",
+      "orcid:0000-0002-0503-2816",
+      "orcid:0000-0002-1717-5785",
+      "orcid:0000-0002-6104-7908",
+      "orcid:0000-0002-8180-2886",
+      "orcid:0000-0002-8598-0831",
+      "orcid:0000-0003-3281-6971",
+      "orcid:0000-0003-3457-9324",
+      "orcid:0000-0003-4232-6968",
+      "sc:r:v1:1d695bc10bfa186e8df2",
+      "sc:r:v1:29d372a9c16cb17e61b4",
+      "sc:r:v1:356a622f1a0360b4f5d6",
+      "sc:r:v1:a1aac7a7579abe776bdd",
+      "sc:r:v1:ac07773bc8960e1edaa4",
+      "sc:r:v1:bd24d4d8ffc885349080",
+      "sc:r:v1:cfe422d5f7897d7aaf40",
+      "sc:r:v1:e3d1b1528d566fc1bc4e",
+      "sc:r:v1:ec05eb3762fc0926eec2",
+      "sc:r:v1:f4b511cc909ef0da8f0e",
+      "sc:r:v1:f659f9e3980710773cf5",
+      "sc:r:v1:fe74b38179068e3483f8"
+    ],
+    "sortedTokenKeyNodes": 22
+  },
+  "generator": "tests/benchmark/questions_v1.py",
+  "graphRunId": "run-ccf619c509611f06",
+  "questions": [
+    {
+      "category": "coauthor-breadth",
+      "constraints": {
+        "limit": 1,
+        "metric": "distinctCoauthorCount"
+      },
+      "expected": {
+        "candidates": 17347,
+        "metric": "distinctCoauthorCount",
+        "runnerUp": "orcid:0000-0001-5025-3733",
+        "runnerUpValue": 55,
+        "top": "orcid:0000-0002-3897-7955",
+        "topName": "Paul Flicek",
+        "topValue": 65
+      },
+      "extraWindows": [],
+      "id": "bq-v1-01",
+      "method": "Rank every researcher-metrics row of the window by the named field, descending, ties broken by researcher ID; the top value must be strictly above the runner-up.",
+      "operation": "RESEARCHER_RANKING",
+      "question": "Which researcher has the most distinct coauthors in 2010-2014?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "coauthor-breadth",
+      "constraints": {
+        "limit": 1,
+        "metric": "distinctCoauthorCount"
+      },
+      "expected": {
+        "candidates": 38767,
+        "metric": "distinctCoauthorCount",
+        "runnerUp": "orcid:0000-0001-7218-7810",
+        "runnerUpValue": 74,
+        "top": "orcid:0000-0003-4949-856X",
+        "topName": "Francesco Benedetti",
+        "topValue": 76
+      },
+      "extraWindows": [],
+      "id": "bq-v1-02",
+      "method": "Rank every researcher-metrics row of the window by the named field, descending, ties broken by researcher ID; the top value must be strictly above the runner-up.",
+      "operation": "RESEARCHER_RANKING",
+      "question": "Which researcher has the most distinct coauthors in 2015-2026?",
+      "window": "2015-2026"
+    },
+    {
+      "category": "coauthor-breadth",
+      "constraints": {
+        "researcherNames": [
+          "Haizhou Li"
+        ]
+      },
+      "expected": {
+        "distinctCoauthorCount": 10,
+        "publicationCount": 2,
+        "researcherId": "orcid:0000-0001-9158-9401",
+        "weightedDegree": 10.0
+      },
+      "extraWindows": [],
+      "id": "bq-v1-03",
+      "method": "Read the researcher-metrics row (researcherId, windowLabel) and copy the named fields.",
+      "operation": "RESEARCHER_RANKING",
+      "question": "How many distinct coauthors does \"Haizhou Li\" have in 2010-2014?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "maximum-team-size",
+      "constraints": {
+        "researcherNames": [
+          "Eli De Poorter"
+        ]
+      },
+      "expected": {
+        "averageCoauthorsPerPaper": 6.0,
+        "maximumCoauthorsOnOnePaper": 7,
+        "maximumTeamWorkIds": [
+          "dblp:conf/scvt/HoebekeCIKRPMD12"
+        ],
+        "researcherId": "orcid:0000-0002-0214-5751"
+      },
+      "extraWindows": [],
+      "id": "bq-v1-04",
+      "method": "Read the researcher-metrics row (researcherId, windowLabel) and copy the named fields.",
+      "operation": "MAX_TEAM_SIZE",
+      "question": "What is the maximum team size of \"Eli De Poorter\" in 2010-2014, and which publication produced it?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "maximum-team-size",
+      "constraints": {
+        "researcherNames": [
+          "Liang Ge"
+        ]
+      },
+      "expected": {
+        "averageCoauthorsPerPaper": 3.0,
+        "maximumCoauthorsOnOnePaper": 3,
+        "maximumTeamWorkIds": [
+          "dblp:conf/uic/GeLLZ19",
+          "dblp:journals/jscic/ShenGYL15"
+        ],
+        "researcherId": "orcid:0000-0001-5136-8081"
+      },
+      "extraWindows": [],
+      "id": "bq-v1-05",
+      "method": "Read the researcher-metrics row (researcherId, windowLabel) and copy the named fields.",
+      "operation": "MAX_TEAM_SIZE",
+      "question": "What is the maximum team size of \"Liang Ge\" in 2015-2026, and which publication produced it?",
+      "window": "2015-2026"
+    },
+    {
+      "category": "maximum-team-size",
+      "constraints": {
+        "researcherNames": [
+          "Zongpeng Li"
+        ]
+      },
+      "expected": {
+        "averageCoauthorsPerPaper": 4.0,
+        "maximumCoauthorsOnOnePaper": 5,
+        "maximumTeamWorkIds": [
+          "dblp:conf/icccn/SongCLBZZ16"
+        ],
+        "researcherId": "orcid:0000-0001-5351-2075"
+      },
+      "extraWindows": [],
+      "id": "bq-v1-06",
+      "method": "Read the researcher-metrics row (researcherId, windowLabel) and copy the named fields.",
+      "operation": "MAX_TEAM_SIZE",
+      "question": "What is the maximum team size of \"Zongpeng Li\" in 2015-2026, and which publication produced it?",
+      "window": "2015-2026"
+    },
+    {
+      "category": "direct-collaboration",
+      "constraints": {
+        "researcherNames": [
+          "Shaojun Wei",
+          "Leibo Liu"
+        ]
+      },
+      "expected": {
+        "edgeId": "e:co:923aac4e0a54467f3dff3932",
+        "firstCollaborationYear": 2014,
+        "found": true,
+        "jointPublicationCount": 2,
+        "lastCollaborationYear": 2014,
+        "researcherA": "orcid:0000-0001-5117-7920",
+        "researcherB": "orcid:0000-0001-7548-4116",
+        "supportingWorkIds": [
+          "dblp:conf/icpr/OuyangYLW14",
+          "dblp:journals/chinaf/LiuCWYWWLCW14"
+        ],
+        "titles": {
+          "dblp:conf/icpr/OuyangYLW14": "A FAST Extreme Illumination Robust Feature in Affine Space",
+          "dblp:journals/chinaf/LiuCWYWWLCW14": "Implementation of multi-standard video decoder on a heterogeneous coarse-grained reconfigurable processor"
+        }
+      },
+      "extraWindows": [],
+      "id": "bq-v1-07",
+      "method": "Look up the coauthor-edges row of the window whose unordered pair is the two IDs; titles from the Work graph nodes.",
+      "operation": "DIRECT_COAUTHORS",
+      "question": "Has \"Shaojun Wei\" collaborated with \"Leibo Liu\" in 2010-2014, and how many joint publications do they have?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "direct-collaboration",
+      "constraints": {
+        "researcherNames": [
+          "Hans Hagen",
+          "Jan Mohring"
+        ]
+      },
+      "expected": {
+        "edgeId": "e:co:f221cde896355068d6055196",
+        "firstCollaborationYear": 2010,
+        "found": true,
+        "jointPublicationCount": 2,
+        "lastCollaborationYear": 2012,
+        "researcherA": "orcid:0000-0001-5626-963X",
+        "researcherB": "orcid:0000-0002-2473-5947",
+        "supportingWorkIds": [
+          "dblp:conf/dagstuhl/DeinesHMJH10",
+          "dblp:journals/tvcg/ObermaierMDHH12"
+        ],
+        "titles": {
+          "dblp:conf/dagstuhl/DeinesHMJH10": "Audio-visual Virtual Reality System for Room Acoustics",
+          "dblp:journals/tvcg/ObermaierMDHH12": "On Mesh-Free Valley Surface Extraction with Application to Low Frequency Sound Simulation"
+        }
+      },
+      "extraWindows": [],
+      "id": "bq-v1-08",
+      "method": "Look up the coauthor-edges row of the window whose unordered pair is the two IDs; titles from the Work graph nodes.",
+      "operation": "DIRECT_COAUTHORS",
+      "question": "Has \"Hans Hagen\" collaborated with \"Jan Mohring\" in 2010-2014, and how many joint publications do they have?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "direct-collaboration",
+      "constraints": {
+        "researcherNames": [
+          "Fan Bai",
+          "Manish Jain"
+        ]
+      },
+      "expected": {
+        "found": false,
+        "researcherA": "orcid:0000-0001-5125-5394",
+        "researcherB": "orcid:0000-0002-3535-0030"
+      },
+      "extraWindows": [],
+      "id": "bq-v1-09",
+      "method": "Look up the coauthor-edges row of the window whose unordered pair is the two IDs; titles from the Work graph nodes.",
+      "operation": "DIRECT_COAUTHORS",
+      "question": "Has \"Fan Bai\" collaborated with \"Manish Jain\" in 2010-2014, and how many joint publications do they have?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "shortest-path",
+      "constraints": {
+        "researcherNames": [
+          "Fan Bai",
+          "Matthew Brown"
+        ]
+      },
+      "expected": {
+        "found": true,
+        "hopEvidence": [
+          {
+            "edgeId": "e:co:1df670c6d1eedba601fb9ed5",
+            "from": "orcid:0000-0001-5125-5394",
+            "jointPublicationCount": 1,
+            "supportingWorkIds": [
+              "dblp:conf/sensys/JiangQMHBGG14"
+            ],
+            "to": "sc:r:v1:58434a0c7e2637572c62"
+          },
+          {
+            "edgeId": "e:co:00b255ea127473c1e4655353",
+            "from": "sc:r:v1:58434a0c7e2637572c62",
+            "jointPublicationCount": 1,
+            "supportingWorkIds": [
+              "dblp:journals/adhoc/VieiraTTJGST13"
+            ],
+            "to": "orcid:0000-0003-3296-3672"
+          },
+          {
+            "edgeId": "e:co:97bb6fff211f8fc29b6c1c66",
+            "from": "orcid:0000-0003-3296-3672",
+            "jointPublicationCount": 1,
+            "supportingWorkIds": [
+              "dblp:conf/atal/AnBVT13"
+            ],
+            "to": "sc:r:v1:2e36605ae84d22e42a2f"
+          }
+        ],
+        "hops": 3,
+        "path": [
+          "orcid:0000-0001-5125-5394",
+          "sc:r:v1:58434a0c7e2637572c62",
+          "orcid:0000-0003-3296-3672",
+          "sc:r:v1:2e36605ae84d22e42a2f"
+        ],
+        "pathNames": [
+          "Fan Bai",
+          "Ramesh Govindan",
+          "Milind Tambe",
+          "Matthew Brown"
+        ]
+      },
+      "extraWindows": [],
+      "id": "bq-v1-10",
+      "method": "Breadth-first search over the window's coauthor-edges rows (undirected); the path is accepted only when exactly one shortest path exists; each hop's edge row is copied.",
+      "operation": "SHORTEST_PATH",
+      "question": "What is the shortest coauthorship path from \"Fan Bai\" to \"Matthew Brown\" in 2010-2014?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "shortest-path",
+      "constraints": {
+        "researcherNames": [
+          "Liang Ge",
+          "Yunpu Ma"
+        ]
+      },
+      "expected": {
+        "found": true,
+        "hopEvidence": [
+          {
+            "edgeId": "e:co:9eec987fd2940aaf950e6c1c",
+            "from": "orcid:0000-0001-5136-8081",
+            "jointPublicationCount": 1,
+            "supportingWorkIds": [
+              "dblp:conf/uic/GeLLZ19"
+            ],
+            "to": "orcid:0009-0001-2667-8843"
+          },
+          {
+            "edgeId": "e:co:a2c774dbc1dfbbf7d9dc721f",
+            "from": "orcid:0009-0001-2667-8843",
+            "jointPublicationCount": 1,
+            "supportingWorkIds": [
+              "dblp:journals/cbm/XuBXLXL24"
+            ],
+            "to": "orcid:0000-0002-7731-2809"
+          },
+          {
+            "edgeId": "e:co:a6ed70c3e6a1f653b6cb40bf",
+            "from": "orcid:0000-0002-7731-2809",
+            "jointPublicationCount": 1,
+            "supportingWorkIds": [
+              "dblp:journals/corr/ZhangL15b"
+            ],
+            "to": "orcid:0000-0002-8903-2708"
+          },
+          {
+            "edgeId": "e:co:f4cb74c3e370b63c23411884",
+            "from": "orcid:0000-0002-8903-2708",
+            "jointPublicationCount": 1,
+            "supportingWorkIds": [
+              "dblp:conf/dasfaa/XuZMWZL22"
+            ],
+            "to": "orcid:0000-0001-6112-8794"
+          }
+        ],
+        "hops": 4,
+        "path": [
+          "orcid:0000-0001-5136-8081",
+          "orcid:0009-0001-2667-8843",
+          "orcid:0000-0002-7731-2809",
+          "orcid:0000-0002-8903-2708",
+          "orcid:0000-0001-6112-8794"
+        ],
+        "pathNames": [
+          "Liang Ge",
+          "Hang Li",
+          "Jing Li",
+          "Wenkai Zhang",
+          "Yunpu Ma"
+        ]
+      },
+      "extraWindows": [],
+      "id": "bq-v1-11",
+      "method": "Breadth-first search over the window's coauthor-edges rows (undirected); the path is accepted only when exactly one shortest path exists; each hop's edge row is copied.",
+      "operation": "SHORTEST_PATH",
+      "question": "What is the shortest coauthorship path from \"Liang Ge\" to \"Yunpu Ma\" in 2015-2026?",
+      "window": "2015-2026"
+    },
+    {
+      "category": "shortest-path",
+      "constraints": {
+        "researcherNames": [
+          "Fan Bai",
+          "Haizhou Li"
+        ]
+      },
+      "expected": {
+        "found": false,
+        "reachableFromSource": 40
+      },
+      "extraWindows": [],
+      "id": "bq-v1-12",
+      "method": "Breadth-first search over the window's coauthor-edges rows (undirected); the path is accepted only when exactly one shortest path exists; each hop's edge row is copied.",
+      "operation": "SHORTEST_PATH",
+      "question": "What is the shortest coauthorship path from \"Fan Bai\" to \"Haizhou Li\" in 2010-2014?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "components",
+      "constraints": {
+        "researcherNames": [
+          "Haizhou Li"
+        ]
+      },
+      "expected": {
+        "componentId": "cc:5dc2a554307a102e",
+        "componentSize": 53,
+        "researcherId": "orcid:0000-0001-9158-9401"
+      },
+      "extraWindows": [],
+      "id": "bq-v1-13",
+      "method": "Read the researcher-metrics row (researcherId, windowLabel) and copy the named fields. componentSize is cross-checked by a breadth-first search of the window's edges.",
+      "operation": "COMPONENT_LOOKUP",
+      "question": "Which connected component does \"Haizhou Li\" belong to in 2010-2014, and how many researchers does it have?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "components",
+      "constraints": {
+        "researcherNames": [
+          "Zongpeng Li"
+        ]
+      },
+      "expected": {
+        "componentId": "cc:bd1ebe609b716e3d",
+        "componentSize": 28,
+        "researcherId": "orcid:0000-0001-5351-2075"
+      },
+      "extraWindows": [],
+      "id": "bq-v1-14",
+      "method": "Read the researcher-metrics row (researcherId, windowLabel) and copy the named fields. componentSize is cross-checked by a breadth-first search of the window's edges.",
+      "operation": "COMPONENT_LOOKUP",
+      "question": "Which connected component does \"Zongpeng Li\" belong to in 2015-2026, and how many researchers does it have?",
+      "window": "2015-2026"
+    },
+    {
+      "category": "components",
+      "constraints": {
+        "researcherNames": [
+          "Ruigang Yang"
+        ]
+      },
+      "expected": {
+        "componentId": "cc:8f9cdb04b9b55802",
+        "componentSize": 909,
+        "researcherId": "orcid:0000-0001-5296-6307"
+      },
+      "extraWindows": [],
+      "id": "bq-v1-15",
+      "method": "Read the researcher-metrics row (researcherId, windowLabel) and copy the named fields. componentSize is cross-checked by a breadth-first search of the window's edges.",
+      "operation": "COMPONENT_LOOKUP",
+      "question": "Which connected component does \"Ruigang Yang\" belong to in 2015-2026, and how many researchers does it have?",
+      "window": "2015-2026"
+    },
+    {
+      "category": "communities",
+      "constraints": {
+        "researcherNames": [
+          "Fan Bai"
+        ]
+      },
+      "expected": {
+        "communitiesConnected": 2,
+        "communityId": "cm:25b771e0a4ac4435",
+        "communitySize": "MISSING_EVIDENCE",
+        "crossCommunityDegree": 1,
+        "oracleMemberCountNotExpectedFromWorkflow": 10,
+        "researcherId": "orcid:0000-0001-5125-5394"
+      },
+      "extraWindows": [],
+      "id": "bq-v1-16",
+      "method": "Read the researcher-metrics row (researcherId, windowLabel) and copy the named fields. Community size must be stated as missing evidence (no runtime store holds it); the oracle member count is the number of metrics rows of the window with that communityId, recorded for the human only.",
+      "operation": "COMMUNITY_COMPARISON",
+      "question": "Which collaboration community does \"Fan Bai\" belong to in 2010-2014, and how many members does it have?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "communities",
+      "constraints": {
+        "researcherNames": [
+          "Haizhou Li"
+        ]
+      },
+      "expected": {
+        "communitiesConnected": 2,
+        "communityId": "cm:e763cfc6ab495224",
+        "communitySize": "MISSING_EVIDENCE",
+        "crossCommunityDegree": 4,
+        "oracleMemberCountNotExpectedFromWorkflow": 7,
+        "researcherId": "orcid:0000-0001-9158-9401"
+      },
+      "extraWindows": [],
+      "id": "bq-v1-17",
+      "method": "Read the researcher-metrics row (researcherId, windowLabel) and copy the named fields. Community size must be stated as missing evidence (no runtime store holds it); the oracle member count is the number of metrics rows of the window with that communityId, recorded for the human only.",
+      "operation": "COMMUNITY_COMPARISON",
+      "question": "Which collaboration community does \"Haizhou Li\" belong to in 2010-2014, and how many members does it have?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "communities",
+      "constraints": {
+        "researcherNames": [
+          "Liang Ge"
+        ]
+      },
+      "expected": {
+        "communitiesConnected": 2,
+        "communityId": "cm:c93c9d3997b76840",
+        "communitySize": "MISSING_EVIDENCE",
+        "crossCommunityDegree": 1,
+        "oracleMemberCountNotExpectedFromWorkflow": 6,
+        "researcherId": "orcid:0000-0001-5136-8081"
+      },
+      "extraWindows": [],
+      "id": "bq-v1-18",
+      "method": "Read the researcher-metrics row (researcherId, windowLabel) and copy the named fields. Community size must be stated as missing evidence (no runtime store holds it); the oracle member count is the number of metrics rows of the window with that communityId, recorded for the human only.",
+      "operation": "COMMUNITY_COMPARISON",
+      "question": "Which collaboration community does \"Liang Ge\" belong to in 2015-2026, and how many members does it have?",
+      "window": "2015-2026"
+    },
+    {
+      "category": "bridge-researchers",
+      "constraints": {
+        "limit": 1,
+        "metric": "bridgeScore"
+      },
+      "expected": {
+        "candidates": 17347,
+        "metric": "bridgeScore",
+        "runnerUp": "orcid:0000-0002-9020-4124",
+        "runnerUpValue": 2.522340732199481e-05,
+        "top": "orcid:0000-0002-9757-630X",
+        "topName": "Yong Liang Guan",
+        "topValue": 4.324012683770539e-05
+      },
+      "extraWindows": [],
+      "id": "bq-v1-19",
+      "method": "Rank every researcher-metrics row of the window by the named field, descending, ties broken by researcher ID; the top value must be strictly above the runner-up.",
+      "operation": "BRIDGE_RANKING",
+      "question": "Which researcher is the most important bridge between collaboration communities in 2010-2014?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "bridge-researchers",
+      "constraints": {
+        "limit": 1,
+        "metric": "bridgeScore"
+      },
+      "expected": {
+        "candidates": 38767,
+        "metric": "bridgeScore",
+        "runnerUp": "orcid:0000-0002-4109-8353",
+        "runnerUpValue": 0.0014188422228562979,
+        "top": "orcid:0000-0001-5296-6307",
+        "topName": "Ruigang Yang",
+        "topValue": 0.0014285161471030454
+      },
+      "extraWindows": [],
+      "id": "bq-v1-20",
+      "method": "Rank every researcher-metrics row of the window by the named field, descending, ties broken by researcher ID; the top value must be strictly above the runner-up.",
+      "operation": "BRIDGE_RANKING",
+      "question": "Which researcher is the most important bridge between collaboration communities in 2015-2026?",
+      "window": "2015-2026"
+    },
+    {
+      "category": "bridge-researchers",
+      "constraints": {
+        "researcherNames": [
+          "Chin Keong Ho"
+        ]
+      },
+      "expected": {
+        "bridgeScore": 2.522340732199481e-05,
+        "communitiesConnected": 3,
+        "crossCommunityDegree": 2,
+        "distinctCoauthorCount": 6,
+        "researcherId": "orcid:0000-0002-9020-4124"
+      },
+      "extraWindows": [],
+      "id": "bq-v1-21",
+      "method": "Read the researcher-metrics row (researcherId, windowLabel) and copy the named fields.",
+      "operation": "BRIDGE_RANKING",
+      "question": "What is the bridge score of \"Chin Keong Ho\" in 2010-2014, and how many communities does this researcher connect?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "temporal-change",
+      "constraints": {
+        "researcherNames": [
+          "Shaojun Wei"
+        ],
+        "windows": [
+          "2010-2014",
+          "2015-2026"
+        ]
+      },
+      "expected": {
+        "byWindow": {
+          "2010-2014": {
+            "distinctCoauthorCount": 11,
+            "maximumCoauthorsOnOnePaper": 10,
+            "publicationCount": 2
+          },
+          "2015-2026": {
+            "distinctCoauthorCount": 17,
+            "maximumCoauthorsOnOnePaper": 8,
+            "publicationCount": 4
+          }
+        },
+        "distinctCoauthorChange": 6,
+        "researcherId": "orcid:0000-0001-5117-7920"
+      },
+      "extraWindows": [
+        "2015-2026"
+      ],
+      "id": "bq-v1-22",
+      "method": "Read the researcher-metrics row (researcherId, windowLabel) and copy the named fields. Done for both windows; the change is the later value minus the earlier.",
+      "operation": "TEMPORAL_COMPARISON",
+      "question": "How did the number of distinct coauthors of \"Shaojun Wei\" change from 2010-2014 to 2015-2026?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "temporal-change",
+      "constraints": {
+        "researcherNames": [
+          "Dacheng Tao"
+        ],
+        "windows": [
+          "2010-2014",
+          "2015-2026"
+        ]
+      },
+      "expected": {
+        "byWindow": {
+          "2010-2014": {
+            "distinctCoauthorCount": 7,
+            "maximumCoauthorsOnOnePaper": 5,
+            "publicationCount": 2
+          },
+          "2015-2026": {
+            "distinctCoauthorCount": 20,
+            "maximumCoauthorsOnOnePaper": 6,
+            "publicationCount": 5
+          }
+        },
+        "distinctCoauthorChange": 13,
+        "researcherId": "orcid:0000-0001-7225-5449"
+      },
+      "extraWindows": [
+        "2015-2026"
+      ],
+      "id": "bq-v1-23",
+      "method": "Read the researcher-metrics row (researcherId, windowLabel) and copy the named fields. Done for both windows; the change is the later value minus the earlier.",
+      "operation": "TEMPORAL_COMPARISON",
+      "question": "How did the number of distinct coauthors of \"Dacheng Tao\" change from 2010-2014 to 2015-2026?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "temporal-change",
+      "constraints": {
+        "researcherNames": [
+          "Leibo Liu"
+        ],
+        "windows": [
+          "2010-2014",
+          "2015-2026"
+        ]
+      },
+      "expected": {
+        "byWindow": {
+          "2010-2014": {
+            "distinctCoauthorCount": 11,
+            "maximumCoauthorsOnOnePaper": 10,
+            "publicationCount": 2
+          },
+          "2015-2026": {
+            "distinctCoauthorCount": 8,
+            "maximumCoauthorsOnOnePaper": 6,
+            "publicationCount": 2
+          }
+        },
+        "distinctCoauthorChange": -3,
+        "researcherId": "orcid:0000-0001-7548-4116"
+      },
+      "extraWindows": [
+        "2015-2026"
+      ],
+      "id": "bq-v1-24",
+      "method": "Read the researcher-metrics row (researcherId, windowLabel) and copy the named fields. Done for both windows; the change is the later value minus the earlier.",
+      "operation": "TEMPORAL_COMPARISON",
+      "question": "How did the number of distinct coauthors of \"Leibo Liu\" change from 2010-2014 to 2015-2026?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "topics",
+      "constraints": {
+        "limit": 1,
+        "metric": "distinctCoauthorCount",
+        "topic": "Network Time Synchronization Technologies"
+      },
+      "expected": {
+        "candidates": 38,
+        "metric": "distinctCoauthorCount",
+        "runnerUp": "orcid:0000-0003-2914-0050",
+        "runnerUpValue": 5,
+        "top": "orcid:0000-0003-4315-4256",
+        "topName": "Carlos Eduardo Pereira",
+        "topValue": 9,
+        "topicId": "openalex:T12216",
+        "topicWorksInWindow": 8,
+        "topicWorksTotal": 17
+      },
+      "extraWindows": [],
+      "id": "bq-v1-25",
+      "method": "Topic node by exact name (its tokens are contained in no other topic name); its works through HAS_TOPIC (at most 30 in total), kept when the Work year is in the window; their authors through AUTHORED that have a metrics row in the window; ranked as above.",
+      "operation": "TOPIC_FILTER",
+      "question": "Which researcher has the most distinct coauthors in Network Time Synchronization Technologies in 2010-2014?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "topics",
+      "constraints": {
+        "limit": 1,
+        "metric": "distinctCoauthorCount",
+        "topic": "Educational Games and Gamification"
+      },
+      "expected": {
+        "candidates": 31,
+        "metric": "distinctCoauthorCount",
+        "runnerUp": "orcid:0000-0001-8892-3333",
+        "runnerUpValue": 4,
+        "top": "orcid:0000-0003-0065-8665",
+        "topName": "Ee-Peng Lim",
+        "topValue": 6,
+        "topicId": "openalex:T10731",
+        "topicWorksInWindow": 9,
+        "topicWorksTotal": 28
+      },
+      "extraWindows": [],
+      "id": "bq-v1-26",
+      "method": "Topic node by exact name (its tokens are contained in no other topic name); its works through HAS_TOPIC (at most 30 in total), kept when the Work year is in the window; their authors through AUTHORED that have a metrics row in the window; ranked as above.",
+      "operation": "TOPIC_FILTER",
+      "question": "Which researcher has the most distinct coauthors in Educational Games and Gamification in 2010-2014?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "topics",
+      "constraints": {
+        "limit": 1,
+        "metric": "distinctCoauthorCount",
+        "topic": "Multimodal Machine Learning Applications"
+      },
+      "expected": {
+        "candidates": 130,
+        "metric": "distinctCoauthorCount",
+        "runnerUp": "sc:r:v1:d1a45275d81f7fe3ebc3",
+        "runnerUpValue": 21,
+        "top": "orcid:0000-0003-1204-0512",
+        "topName": "Chenggang Yan",
+        "topValue": 47,
+        "topicId": "openalex:T11714",
+        "topicWorksInWindow": 27,
+        "topicWorksTotal": 27
+      },
+      "extraWindows": [],
+      "id": "bq-v1-27",
+      "method": "Topic node by exact name (its tokens are contained in no other topic name); its works through HAS_TOPIC (at most 30 in total), kept when the Work year is in the window; their authors through AUTHORED that have a metrics row in the window; ranked as above.",
+      "operation": "TOPIC_FILTER",
+      "question": "Which researcher has the most distinct coauthors in Multimodal Machine Learning Applications in 2015-2026?",
+      "window": "2015-2026"
+    },
+    {
+      "category": "institutions",
+      "constraints": {
+        "institution": "Nankai University",
+        "limit": 1,
+        "metric": "distinctCoauthorCount"
+      },
+      "expected": {
+        "affiliatedTotal": 50,
+        "candidates": 18,
+        "institutionId": "openalex:I205237279",
+        "metric": "distinctCoauthorCount",
+        "runnerUp": "orcid:0000-0001-7456-8377",
+        "runnerUpValue": 6,
+        "top": "orcid:0000-0002-9433-7725",
+        "topName": "Di Wu",
+        "topValue": 9
+      },
+      "extraWindows": [],
+      "id": "bq-v1-28",
+      "method": "Institution node by exact name (tokens contained in no other institution name); researchers through AFFILIATED_WITH (at most 100) that have a metrics row in the window; ranked as above.",
+      "operation": "INSTITUTION_FILTER",
+      "question": "Which researcher at Nankai University has the most distinct coauthors in 2010-2014?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "institutions",
+      "constraints": {
+        "institution": "Arizona State University",
+        "limit": 1,
+        "metric": "distinctCoauthorCount"
+      },
+      "expected": {
+        "affiliatedTotal": 83,
+        "candidates": 32,
+        "institutionId": "openalex:I55732556",
+        "metric": "distinctCoauthorCount",
+        "runnerUp": "orcid:0000-0001-7859-410X",
+        "runnerUpValue": 7,
+        "top": "orcid:0000-0001-5886-9698",
+        "topName": "Vijay Vittal",
+        "topValue": 17
+      },
+      "extraWindows": [],
+      "id": "bq-v1-29",
+      "method": "Institution node by exact name (tokens contained in no other institution name); researchers through AFFILIATED_WITH (at most 100) that have a metrics row in the window; ranked as above.",
+      "operation": "INSTITUTION_FILTER",
+      "question": "Which researcher at Arizona State University has the most distinct coauthors in 2015-2026?",
+      "window": "2015-2026"
+    },
+    {
+      "category": "institutions",
+      "constraints": {
+        "institution": "Huanggang Normal University",
+        "limit": 1,
+        "metric": "distinctCoauthorCount"
+      },
+      "expected": {
+        "affiliatedTotal": 5,
+        "candidates": 5,
+        "institutionId": "openalex:I10011244",
+        "metric": "distinctCoauthorCount",
+        "runnerUp": "orcid:0000-0001-9119-7758",
+        "runnerUpValue": 4,
+        "top": "orcid:0000-0002-3636-2746",
+        "topName": "Yurong Guan",
+        "topValue": 10
+      },
+      "extraWindows": [],
+      "id": "bq-v1-30",
+      "method": "Institution node by exact name (tokens contained in no other institution name); researchers through AFFILIATED_WITH (at most 100) that have a metrics row in the window; ranked as above.",
+      "operation": "INSTITUTION_FILTER",
+      "question": "Which researcher at Huanggang Normal University has the most distinct coauthors in 2015-2026?",
+      "window": "2015-2026"
+    },
+    {
+      "category": "evidence",
+      "constraints": {
+        "researcherNames": [
+          "Shaojun Wei",
+          "Shouyi Yin"
+        ]
+      },
+      "expected": {
+        "edgeId": "e:co:a68b0c476c1258bdfdf6951c",
+        "firstCollaborationYear": 2014,
+        "found": true,
+        "jointPublicationCount": 2,
+        "lastCollaborationYear": 2014,
+        "researcherA": "orcid:0000-0001-5117-7920",
+        "researcherB": "orcid:0000-0003-2309-572X",
+        "supportingWorkIds": [
+          "dblp:conf/icpr/OuyangYLW14",
+          "dblp:journals/chinaf/LiuCWYWWLCW14"
+        ],
+        "titles": {
+          "dblp:conf/icpr/OuyangYLW14": "A FAST Extreme Illumination Robust Feature in Affine Space",
+          "dblp:journals/chinaf/LiuCWYWWLCW14": "Implementation of multi-standard video decoder on a heterogeneous coarse-grained reconfigurable processor"
+        }
+      },
+      "extraWindows": [],
+      "id": "bq-v1-31",
+      "method": "Look up the coauthor-edges row of the window whose unordered pair is the two IDs; titles from the Work graph nodes.",
+      "operation": "DIRECT_COAUTHORS",
+      "question": "Which publications support the collaboration between \"Shaojun Wei\" and \"Shouyi Yin\" in 2010-2014?",
+      "window": "2010-2014"
+    },
+    {
+      "category": "evidence",
+      "constraints": {
+        "researcherNames": [
+          "Vignesh Ravichandran",
+          "Balamurali Murugesan"
+        ]
+      },
+      "expected": {
+        "edgeId": "e:co:71de29b0551b1ef0913434e5",
+        "firstCollaborationYear": 2018,
+        "found": true,
+        "jointPublicationCount": 2,
+        "lastCollaborationYear": 2020,
+        "researcherA": "orcid:0000-0001-5083-1900",
+        "researcherB": "orcid:0000-0002-3002-5845",
+        "supportingWorkIds": [
+          "dblp:conf/memea/MurugesanRRPJSS18",
+          "dblp:journals/corr/abs-2004-05399"
+        ],
+        "titles": {
+          "dblp:conf/memea/MurugesanRRPJSS18": "ECGNet: Deep Network for Arrhythmia Classification",
+          "dblp:journals/corr/abs-2004-05399": "Interpreting Deep Neural Networks for Single-Lead ECG Arrhythmia Classification"
+        }
+      },
+      "extraWindows": [],
+      "id": "bq-v1-32",
+      "method": "Look up the coauthor-edges row of the window whose unordered pair is the two IDs; titles from the Work graph nodes.",
+      "operation": "DIRECT_COAUTHORS",
+      "question": "Which publications support the collaboration between \"Vignesh Ravichandran\" and \"Balamurali Murugesan\" in 2015-2026?",
+      "window": "2015-2026"
+    },
+    {
+      "category": "evidence",
+      "constraints": {
+        "researcherNames": [
+          "Fan Bai",
+          "Manish Jain"
+        ]
+      },
+      "expected": {
+        "found": true,
+        "hopEvidence": [
+          {
+            "edgeId": "e:co:1df670c6d1eedba601fb9ed5",
+            "from": "orcid:0000-0001-5125-5394",
+            "jointPublicationCount": 1,
+            "supportingWorkIds": [
+              "dblp:conf/sensys/JiangQMHBGG14"
+            ],
+            "to": "sc:r:v1:58434a0c7e2637572c62"
+          },
+          {
+            "edgeId": "e:co:f6c50187b6e26f281094166d",
+            "from": "sc:r:v1:58434a0c7e2637572c62",
+            "jointPublicationCount": 1,
+            "supportingWorkIds": [
+              "dblp:journals/adhoc/VieiraTTJGST13"
+            ],
+            "to": "orcid:0000-0002-3535-0030"
+          }
+        ],
+        "hops": 2,
+        "path": [
+          "orcid:0000-0001-5125-5394",
+          "sc:r:v1:58434a0c7e2637572c62",
+          "orcid:0000-0002-3535-0030"
+        ],
+        "pathNames": [
+          "Fan Bai",
+          "Ramesh Govindan",
+          "Manish Jain"
+        ]
+      },
+      "extraWindows": [],
+      "id": "bq-v1-33",
+      "method": "Breadth-first search over the window's coauthor-edges rows (undirected); the path is accepted only when exactly one shortest path exists; each hop's edge row is copied.",
+      "operation": "SHORTEST_PATH",
+      "question": "Which publications support each hop of the shortest coauthorship path from \"Fan Bai\" to \"Manish Jain\" in 2010-2014?",
+      "window": "2010-2014"
+    }
+  ],
+  "rowsRead": {
+    "Institution": 5318,
+    "Researcher": 81351,
+    "Topic": 1945,
+    "Work": 25020,
+    "coauthor-edges 2010-2014": 31668,
+    "coauthor-edges 2015-2026": 90146,
+    "metrics 2010-2014": 17347,
+    "metrics 2015-2026": 38767
+  },
+  "verifier": "tests/adversarial/scholarchain/adversarial/rag/BenchmarkQuestionSetSuite.scala",
+  "version": "benchmark-questions-v1",
+  "windows": [
+    "2010-2014",
+    "2015-2026"
+  ]
+}

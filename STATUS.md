@@ -43,9 +43,12 @@ resume. -->
   Phase 08 and routes four items to Phase 08 step 00: the JSON-lines export,
   `institutionId`, paper-abstract rows, and every coauthor window in `neptune.json`.
   See the Phase 07 task list and "Carried forward from Phase 07".
-- Phase 08: embeddings and S3 Vectors ingestion; steps S1 to 04, Review 1 and repair
-  round 1 (R1-0 to R1-4) are done, and the next step is the human gate
-  (see Phase 08 task list).
+- Phase 08: embeddings and S3 Vectors ingestion, committed.
+  `git log --oneline -2` shows a093a92 "phase-08: record accepted commit hash" and
+  12829d7 "phase-08 storage-engineer, rag-engineer: embeddings, S3 Vectors ingestion,
+  dataset scale-up".
+  Steps S1 to 04, Review 1 and repair round 1 (R1-0 to R1-4) were done before the
+  commit (see Phase 08 task list).
   No cloud was used.
   The dataset was stepped down from 100,000 to 25,000 works (Spark failed at 100,000).
   Spark run `run-ccf619c509611f06` is the input of every later step.
@@ -59,6 +62,220 @@ resume. -->
   RUN until the cloud phases.
   The embedding docs are `docs/embeddings.md`; lineage is `docs/data-lineage.md`.
   See "Carried forward from Phase 08".
+- Phase 09: runtime collaboration workflow (Graph-RAG stages 1 to 10) in module `rag`;
+  steps 1 to 4, reviews 1 to 4 and repair rounds 1 to 3 are done, and nothing is
+  committed.
+  Review 1 was REQUEST_CHANGES (M1 to M7, m1 to m3); round 1 fixed F1 to F4 and M1 to M7
+  (M5 partly, defect D5).
+  Review 2 was REQUEST_CHANGES on D5, and the human authorized a round 2 exception.
+  Review 3 was REQUEST_CHANGES (R3-1 to R3-4), and the human authorized a round 3.
+  Round 3 replaced the clause rule with a sentence rule: a per-researcher number is
+  VERIFIED only with one exact-display-name researcher in its sentence and no pronoun.
+  Review 4 (`review-report-04.md`) was REQUEST_CHANGES: the defect class is STILL OPEN
+  (R4-1 variant or partial names, R4-2 noun phrases and unlisted abbreviations, R4-3 a
+  cited ranking item backs any researcher's number), all MAJOR, model path only
+  (`LLM_ENABLED` defaults to false).
+  The Phase 09 gate is not met on "Code review returns APPROVE" and on "unsupported
+  claims weakened" for the model path.
+  The full `sbt check` exited 0 in 789 s.
+  No cloud or Bedrock call was made.
+  See "Phase 09 task list", "Carried forward from Phase 09" and
+  [docs/runtime-workflow.md](docs/runtime-workflow.md).
+
+## Phase 09 task list
+
+Phase 09 is the runtime collaboration workflow, work order in
+`docs/agent-runs/phase-09/prompt.md`; reports are saved in `docs/agent-runs/phase-09/`.
+Inputs: Spark run `run-ccf619c509611f06` and ER run `run-cb5a0421c406737d`.
+The run log names the deadline 2026-11-25.
+
+| Task | Owner | Done means | Status |
+|---|---|---|---|
+| 1 R1: stages 1 to 7, query-plan-v1 | rag-engineer | rag/test 96 of 96 | done (BLOCKED-ON community size, carried forward) |
+| 2 R2: stages 8 to 10, prompt and schema v1 | rag-engineer | rag/test 123 of 123 | done |
+| 3 r1: question set v1 | test-engineer | 40 of 40, check exit 0 | done (workflow tests blocked on API docs) |
+| 3a: Public API in MODULE.md | documentation-engineer | signatures from source | done |
+| 3 r2: workflow benchmark, gate tests | test-engineer | exact counts, one check | done (13 red on purpose) |
+| 4: workflow doc, MODULE.md, STATUS.md | documentation-engineer | links, line length | done |
+| 5: review 1 | code-reviewer (fresh) | verdict per defect | done, REQUEST_CHANGES (`review-report.md`) |
+| 6a: repair M1 to M6 (F1 to F4, M5, M6) | rag-engineer | rag/test green | done, 131 of 131 (`repair-01-rag-engineer.md`) |
+| 6b: repair M7, adversarialTests heap | build-engineer | default `SBT_OPTS` works | done (`repair-01-build-engineer.md`) |
+| 6c: rerun, new M5 and M6 gate suite, one check | test-engineer | exact counts | done, one red test D5 (`repair-01-test-engineer.md`) |
+| 6d: docs for the repair | documentation-engineer | links, line length | done |
+| 7: re-check | code-reviewer (fresh) | `review-report-02.md` | done, REQUEST_CHANGES on D5 |
+| 7a: repair round 2, D5 only (human-authorized exception) | rag-engineer | rag/test green | done, 133 of 133 (`repair-02-rag-engineer.md`) |
+| 7b: rerun, one check | test-engineer | exact counts | done, check exit 0, 734 s (`repair-02-test-engineer.md`) |
+| 7c: docs for repair round 2 | documentation-engineer | links, line length | done |
+| 7d: re-check, D5 and regression only | code-reviewer (fresh) | `review-report-03.md` | done, REQUEST_CHANGES (R3-1 to R3-4) |
+| 7e: repair round 3, sentence rule (second human-authorized exception) | rag-engineer | rag/test green | done, 135 of 135 (`repair-03-rag-engineer.md`) |
+| 7f: R3 gate suite, one check | test-engineer | exact counts | done, R3Gate 6 of 6, check exit 0, 789 s (`repair-03-test-engineer.md`) |
+| 7g: review 4, R3-1 to R3-3 and regressions | code-reviewer (fresh) | `review-report-04.md` | done, REQUEST_CHANGES (R4-1 to R4-3, class still open) |
+| 7h: docs for round 3, R3-4 | documentation-engineer | links, line length | done |
+| 8: human gate | human | decide R4-1 to R4-3, ratify, commit | NEXT |
+
+Evidence by task:
+- Task 1: `step-01-rag-engineer-report.md`; task 2: `agent-report.md`.
+- Task 3: `test-report.md`, `test-report-02.md` and `output-benchmark.md`.
+- Task 3a: `step-03a-documentation-engineer-report.md`.
+- Tasks 7 to 7b: `review-report-02.md`, `repair-02-rag-engineer.md`,
+  `repair-02-test-engineer.md`, `run-log.md` and the last section of
+  `output-benchmark.md`.
+- Tasks 5 to 6c: `review-report.md`, `repair-01-rag-engineer.md`,
+  `repair-01-build-engineer.md`, `repair-01-test-engineer.md`, `run-log.md` and the last
+  section of `output-benchmark.md`.
+
+State at the end of repair round 1 (review 1 was REQUEST_CHANGES; superseded by the
+round 2 state below):
+- Benchmark: D 33/33, A 33/33, pass 33/33 and P 33/33; semantic hit rate 6/33 and
+  precision 7/80 are unchanged (details in `docs/runtime-workflow.md`).
+- F1 to F4 and M1 to M7 are fixed (M5 partly, see D5); the 13 tests that were red now
+  pass.
+- M7 is done: `adversarialTests` is forked at `-Xmx2560m -Xss4m`, so the default
+  `SBT_OPTS` (`-Xmx1536m -Xss4m`) works.
+  The heap carry-forward is removed.
+- Tests: `sbt rag/test` 131 of 131; BenchmarkQuestionSetSuite 40 of 40;
+  BenchmarkWorkflowSuite 68 of 68; WorkflowGateSuite 29 of 29;
+  WorkflowRepairGateSuite (new, M5 and M6) 5 of 6.
+- Full `sbt check` at the default `SBT_OPTS`: exit 1 in 771 s, once.
+  adversarialTests: Failed 1 of 211, only the D5 test.
+  The test-marker task was not reached, so `.claude/.last-test-run` is not touched and
+  `sbt check` is NOT green.
+- Defect D5 (rag-engineer, open): M5 is only partly fixed.
+  The verifier attributes a number by position, to the nearest researcher named before
+  it.
+  A false number is VERIFIED when another cited researcher is named between the subject
+  and the number: "Hans Hagen, compared with Jan Mohring, has 5 distinct coauthors in
+  window 2010-2014." citing both metric records is VERIFIED, and 5 is Jan Mohring's value.
+- The repair is not yet re-checked: no second repair round is planned, so the fresh
+  re-check (`review-report-02.md`) comes next, then the human gate.
+- Uncommitted: `build.sbt` and `modules/rag/MODULE.md` modified; new rag sources,
+  `prompts/runtime/`, `prompts/schemas/answer-synthesis-v1.json`,
+  `prompts/schemas/query-plan-v1.json`, `tests/module-unit/rag/` suites,
+  `tests/adversarial/` rag suites (including `WorkflowRepairGateSuite.scala`) and
+  resources, `tests/benchmark/`, `docs/agent-runs/phase-09/`,
+  `docs/runtime-workflow.md` and this file.
+- Half done: nothing is half written; the one red test is the reported state.
+- Harness: Claude Code only.
+
+State at the end of repair round 2 (D5 only; the human authorized the exception to the
+one-round rule):
+- D5 is fixed in `Verification.scala` by a clause rule that replaces the positional rule
+  (see [docs/runtime-workflow.md](docs/runtime-workflow.md)).
+  A number gets a subject only when its clause makes it clear; otherwise no
+  per-researcher record supports it, and the claim is PARTIALLY_SUPPORTED with
+  `[unverified]`.
+  The repair-01 statement that positional attribution "never verifies a false one" is
+  superseded.
+- Disclosed: correct comparative prose such as "Alice, like Bob, has 41" is weakened
+  and labeled on purpose.
+- Residuals, not fixed: the contrived "A: unlike B, 30", pronoun subjects, windows not
+  attributed to a researcher, swapped values inside a ranking and unkeyed ranking numbers.
+- Tests: `sbt rag/test` 133 of 133; BenchmarkQuestionSetSuite 40 of 40;
+  BenchmarkWorkflowSuite 68 of 68; WorkflowGateSuite 29 of 29; WorkflowRepairGateSuite
+  6 of 6; WorkflowRepairD5GateSuite (new) 2 of 2; adversarialTests 213 of 213.
+  Benchmark unchanged: D, A, pass and P 33/33, semantic 6/33 and 7/80.
+- Full `sbt check` at the default `SBT_OPTS`, once: exit 0 in 734 s, 14 project test runs
+  passed, test marker touched.
+- Uncommitted: as in round 1, plus `WorkflowRepairD5GateSuite.scala`; changed in this
+  round: `Verification.scala`, `VerificationSuite.scala`, `WorkflowSuite.scala`.
+- Half done: nothing.
+  The re-check (`review-report-03.md`) later ran; see round 3 below.
+
+State at the end of repair round 3 (second human-authorized exception):
+- Round 3 replaced the clause rule with a sentence rule in `Verification.scala`.
+  A per-researcher number is VERIFIED only when its sentence names exactly one
+  researcher, recognised by exact display name, and has no pronoun.
+  Otherwise it is weakened and labeled, never CONFLICTING for per-researcher records;
+  pair values held by an edge, path or ranking may still be CONFLICTING.
+  This supersedes the round 2 clause rule and the "pronoun subjects are weakened, not
+  resolved" statement of review 3 R3-4, which was wrong when the clause names another
+  researcher.
+- Tests (rag-engineer): `sbt rag/test` 135 of 135; five assertions weakened on purpose.
+- Tests (test-engineer): WorkflowRepairR3GateSuite (new) 6 of 6.
+  One full `sbt check` at the default `SBT_OPTS`: exit 0 in 789 s, 14 project test runs
+  passed, test marker touched; rag 135, adversarialTests 219.
+- Review 4 (`review-report-04.md`): REQUEST_CHANGES.
+  R3-1 to R3-3 are fixed as written and no regression was found.
+  D5 and its class are NOT claimed fixed: the class is STILL OPEN with three MAJOR
+  findings, rag-engineer, model path only (`LLM_ENABLED` defaults to false):
+  - R4-1: a variant or partial name is not a mention (`Verification.scala:321-336`,
+    `:460-471`);
+  - R4-2: a noun phrase ("the leader", "the former", "X's closest coauthor") is not a
+    pronoun, and an unlisted abbreviation such as "dir." splits a sentence;
+  - R4-3: a cited ranking item backs any researcher's number (`Verification.scala:476`,
+    `:509-514`).
+- The human carries R4-1 to R4-3 forward; they must be closed before Bedrock or the LLM
+  is enabled.
+- `claim-verifier-v1` was not bumped (the human's call).
+- Phase 09 gate: "Code review returns APPROVE" NOT met; "unsupported claims removed,
+  weakened or labeled" NOT met on the model path; `sbt check` green; other items as in
+  review 3.
+- Uncommitted: as in round 2, plus `WorkflowRepairR3GateSuite.scala`; changed in round 3:
+  `Verification.scala`, `VerificationSuite.scala`, `WorkflowSuite.scala`.
+- Half done: nothing.
+
+## Carried forward from Phase 09 (for the human gate)
+
+1. Community size is missing evidence: Spark exports communities only as Parquet, and
+   core `ResearcherMetrics` has no `communitySize`.
+   Fixing it needs spark-engineer (JSON-lines export) and storage-engineer (loader and
+   read access), and would change the pinned Phase 08 run.
+   The orchestrator carried it to the human (`run-log.md`, step 1).
+2. storage-engineer: a name-lookup access pattern (for `ResearcherDirectory`), a
+   per-window metric ranking access pattern (for `MetricRanking`) and a DynamoDB
+   `AuditRecord` repository (conditional put) behind `AuditLog`.
+3. build-engineer or service-engineer (Phase 10): ship `prompts/` with the query service
+   image, or add it as a rag resource directory, so `SynthesisPrompt.load` finds it.
+4. Human review: `semantic-relevance-rule-v1` (labels are not human-reviewed) and
+   benchmark question set v1 (`tests/adversarial/resources/benchmark/questions-v1.json`,
+   sha256 8584d275357c0b64445d60a7c7edcfb4e24a12d7b1b09d5b7407d25905b58e65).
+5. Human decision before Bedrock is enabled: the synthesis model ID
+   (`SYNTHESIS_MODEL_ID`) and the per-query cost.
+   A query can send up to about 36k input tokens (3 attempts) plus the template.
+6. D5 is fixed only for the named forms; review 4 found the class STILL OPEN:
+   R4-1 (variant or partial names), R4-2 (noun phrases, "X's closest coauthor", an
+   unlisted abbreviation such as "dir.") and R4-3 (a cited ranking item backs any
+   researcher's number), all MAJOR, rag-engineer, model path only.
+   The human decides; they must be closed before Bedrock or the LLM is enabled.
+7. MINOR findings of reviews 1 and 2, not fixed except m3:
+   - m1 (rag-engineer): an exact-name lookup that finds one node never consults the
+     token-order key, so swapped-order homonyms are not listed as candidates
+     (`Agents.scala:313-317`).
+   - m2 (rag-engineer): the name check accepts a name as a substring of any cited value,
+     so "Wei Li" passes on "Wei Lin" (`Verification.scala:285`).
+   - m3 (documentation-engineer): the stale Phase 08 text in this file is fixed (Phase 08
+     is committed at 12829d7 and a093a92).
+   - m4 (rag-engineer): a topic phrase such as "collaboration graphs" gives a filter that
+     matches no Topic node, so the answer abstains (`Plan.scala:507-512`).
+   - m5 (documentation-engineer): the "M1 to M6" wording is fixed; this file and
+     `modules/rag/MODULE.md` now say M1 to M7 fixed and D5 fixed only for the named forms.
+8. Not fixed, named by rag-engineer and test-engineer:
+   - a window is not attributed to a researcher: a claim pairing one researcher's value
+     with the window of another cited record still passes the window check;
+   - swapped values inside one cited ranking ("Carol (41), Alice (52)") are accepted,
+     because only the order is checked;
+   - the reviewer's ranking-plus-name M5 variant has no test;
+   - the round 2 residuals "A: unlike B, 30" and pronoun subjects are replaced by
+     R4-1 to R4-3 (item 6).
+9. Component version strings were not bumped although behavior changed (planner-v1,
+   claim-verifier-v1, deterministic-synthesis-v1, evidence-pipeline-v1,
+   local-runtime-v1); rag-engineer kept v1 because the phase is uncommitted.
+   The human decides whether to bump them.
+
+### Continue in a fresh session
+
+```text
+cd ~/scholarchain && claude "Read STATUS.md and continue with its next step."
+```
+
+The next step is the human's decision on R4-1 to R4-3 (carry forward, closing them
+before Bedrock or the LLM is enabled, or authorize another round), then Phase 09
+ratification and commit.
+The other carried-forward items stay open: m1, m2, m4, community size, the Bedrock model
+ID and per-query cost, the review of question set v1 and `semantic-relevance-rule-v1`,
+and the `claim-verifier-v1` version string.
+
+Verify first: `git status --short` and `ls docs/agent-runs/phase-09`.
 
 ## Carried forward from Phase 01
 

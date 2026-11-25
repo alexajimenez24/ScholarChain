@@ -352,7 +352,16 @@ def blackBoxTests(id: String, folder: String): Project =
     )
 
 lazy val contractTests = blackBoxTests("contractTests", "contracts")
+// The adversarial benchmark loads the 25k-sample graph into memory, which does not fit sbt's
+// default 1536m heap, so its tests run in a forked JVM with a fixed heap (same fork pattern
+// as the hadoop and spark projects). The fork's working directory is the project base
+// (tests/adversarial); BenchmarkStore.repoRoot walks up from user.dir to the directory with
+// build.sbt and modules/, so the repository is still found.
 lazy val adversarialTests = blackBoxTests("adversarialTests", "adversarial")
+  .settings(
+    Test / fork := true,
+    Test / javaOptions ++= Seq("-Xmx2560m", "-Xss4m")
+  )
 
 // Root: aggregates everything, so `test` and `Test/compile` cover all modules and the
 // contract and adversarial tests. Holds no sources.
