@@ -76,6 +76,62 @@ resume. -->
   Nothing is committed; the human commits.
 - Phase 08b follow-up (2026-11-25, 4 tasks): DONE, review 6 REQUEST_CHANGES.
   See "Phase 08b follow-up" below.
+- Phase 10: REST services, steps 1 to 5 done, re-check approved
+  (`review-report-02.md`: APPROVE, 0 CRITICAL, 0 MAJOR, 7 MINOR carried forward),
+  nothing committed.
+  Services tests are 77 (query 22, common 29, graph 16, worker 10); the 77 is the
+  reviewer's count from reading the suites, not a test run.
+  The full `sbt check` exited 0 after the repair (`repair-01-service-engineer.md`).
+  No server, image or cloud was used.
+  See "Phase 10 task list" and [docs/api.md](docs/api.md).
+
+## Phase 10 task list
+
+Work order and rules: `docs/agent-runs/phase-10/prompt.md`; log:
+`docs/agent-runs/phase-10/run-log.md`.
+State written once at step 3 (documentation-engineer) from the S1 and S2 reports.
+
+| Task | Owner | Result |
+|---|---|---|
+| S1 | service-engineer | COMPLETE: servicesCommon, graphService, embeddingWorker; 28, 16 and 10 tests (`step-01-service-engineer-report.md`) |
+| S2 | service-engineer | COMPLETE: queryService, 19 tests, one full `sbt check` exit 0 (`agent-report.md`) |
+| 3 | documentation-engineer | COMPLETE: `docs/api.md`, `modules/services/MODULE.md`, this file |
+| 4 | code-reviewer | COMPLETE: review (`review-report.md`), then re-check APPROVE (`review-report-02.md`) |
+| 5 | service-engineer | COMPLETE: repair round 1 (`repair-01*.md`) for MAJOR-1 and MAJOR-2 |
+
+- Repair round 1 (service-engineer, documentation-engineer): review MAJOR-1 and MAJOR-2
+  fixed and `sbt check` exit 0 (`repair-01-service-engineer.md`); docs/api.md MINOR-6 to 8
+  and MODULE.md updated; MINOR-1 to 5 carried forward.
+  The fresh re-check (`review-report-02.md`) approved it: 7 MINOR (A to G) carried to the
+  human; MINOR-F and MINOR-G fixed here; nothing committed.
+- Test counts: 73 in services before repair, 77 after (reviewer's count from reading the
+  suites; 4 tests added), 0 failed before repair.
+  Other modules in the same `sbt check`: 120, 184 (1 ignored), 138, 119, 98, 45, 230.
+- Decisions made by the agents (recorded in the step reports):
+  - no `/metrics` route; metrics are EMF lines on stdout;
+  - JWT verified in every service, RS256, one scope per route;
+  - evidence route lives once in `servicesCommon` and is mounted by query and graph;
+  - graph depth capped at 1; `LLM_ENABLED` defaults to false.
+- Open for the human or later phases:
+  - no Main or Ember wiring, no AWS adapters, no image (infra and deploy phases);
+  - jobs, idempotency records and the evidence index are in memory only
+    (storage-engineer item);
+  - evidence read is not caller scoped;
+  - infra must create the scopes `scholarchain/query.run`, `scholarchain/graph.read`
+    and `scholarchain/evidence.read`;
+  - `Jwks.httpFetch` is untested for lack of network;
+  - R6-1 stays open until Phase 11, and the model path stays off.
+- Uncommitted: all Phase 10 files are untracked: `docs/agent-runs/phase-10/`, the
+  main sources under `modules/services/{common,graph,query,worker}/src/main/scala/
+  scholarchain/`, and the suites and helpers under `tests/module-unit/services/`.
+  Step 3 also created `docs/api.md` and changed `modules/services/MODULE.md` and this
+  file.
+- Half done: nothing.
+- Next step: the human gate for Phase 10 (MINOR-A to E go to service-engineer if the
+  human chooses).
+  Verify with `sbt services/test` (expect 77 passed, not yet observed) or `sbt check`
+  (last result exit 0, after the repair).
+- Harness: Claude Code only.
 
 ## Phase 08b follow-up (repair 06, review 6)
 
