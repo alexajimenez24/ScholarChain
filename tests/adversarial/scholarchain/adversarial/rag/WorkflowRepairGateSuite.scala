@@ -40,23 +40,8 @@ class WorkflowRepairGateSuite extends munit.FunSuite:
   private def ok(r: Either[WorkflowError, WorkflowResult]): WorkflowResult =
     r.fold(e => fail(s"workflow error: ${e.describe}"), identity)
 
-  private def reply(summary: String, claims: (String, String, Vector[String])*): String =
-    ujson.write(
-      ujson.Obj(
-        "schemaVersion" -> "answer-synthesis-v1",
-        "summary" -> summary,
-        "abstain" -> false,
-        "abstentionReason" -> ujson.Null,
-        "claims" -> ujson.Arr.from(claims.map { (id, text, ev) =>
-          ujson.Obj(
-            "claimId" -> id,
-            "text" -> text,
-            "evidenceIds" -> ujson.Arr.from(ev.map(ujson.Str(_))),
-            "uncertainty" -> ujson.Null
-          )
-        })
-      )
-    )
+  // answer-synthesis-v2 replies, claim-verifier-v3 checks ([[ModelV2]]).
+  import ModelV2.{Draft, figureNotVerified, figureVerified, interpretation, noVerifiedFalse, reply}
 
   private def question(id: String): ujson.Value =
     BenchmarkQuestions.questions.find(_("id").str == id).getOrElse(fail(s"no question $id"))
@@ -151,70 +136,94 @@ class WorkflowRepairGateSuite extends munit.FunSuite:
 
   private def fmt(x: BigDecimal): String = x.bigDecimal.stripTrailingZeros.toPlainString
 
-  /** A claim was not stated as checked: removed as CONFLICTING or UNSUPPORTED, or kept only
-    * PARTIALLY_SUPPORTED with a label.
-    */
-  private def notVerified(res: WorkflowResult, claimId: String): Unit =
-    val kept = res.answer.claims.find(_.claimId == claimId)
-    val removed = res.audit.removedClaims.find(_.claimId == claimId)
-    val checks = res.audit.claimChecks.filter(_.claimId == claimId)
-    kept match
-      case None =>
-        assert(
-          removed.exists(r => Set("CONFLICTING", "UNSUPPORTED")(r.status.toString)),
-          s"$claimId neither kept nor removed as CONFLICTING/UNSUPPORTED; removed $removed"
-        )
-      case Some(c) =>
-        assert(
-          c.verificationStatus.toString == "PARTIALLY_SUPPORTED" &&
-            (c.text.contains("[unverified]") || c.uncertainty.exists(_.nonEmpty)),
-          s"$claimId kept as ${c.verificationStatus}: '${c.text}' (uncertainty ${c.uncertainty}); " +
-            s"checks ${checks.map(k => (k.status, k.reasons))}"
-        )
+  private def report(p: Pair, bad: Iterable[String]): Unit =
+    assert(
+      bad.isEmpty,
+      s"pair ${p.qid} (A=${p.idA} ${p.cA}, B=${p.idB} ${p.cB}):" + bad.mkString("\n", "\n", "\n")
+    )
+
+  private val Dcc = "distinctCoauthorCount"
+
+  /** The control: B's own value for B as a figure citing B's record, the claim citing both. */
+  private def control(p: Pair, both: Vector[String]) =
+    Draft(
+      "claim-1",
+      s"${p.nameB} has {figure-1} distinct coauthors in window $Win.",
+      both,
+      Vector((p.idB, Dcc, fmt(p.cB), Vector(both(1))))
+    )
+
+  private def controlOk(res: WorkflowResult, p: Pair): Iterable[String] =
+    figureVerified(res, "claim-1", 1, p.idB, p.cB) ++ interpretation(res, "claim-1", false)
+
+  private def modelRun(qid: String, p: Pair, replyText: String): WorkflowResult =
+    val llm = ScriptedLlm.replies(replyText)
+    val res = ok(run(qid, p.req, BenchmarkRuntime.withModel(llm))._1)
+    assertEquals(res.synthesis.fallback, None, "the model reply was not used")
+    assertEquals(res.answer.promptVersion, "answer-synthesis-v2")
+    res
 
   test("M5: a number of one cited researcher stated for the other is never VERIFIED") {
     val p = pair
     val both = metricIds("m5-misattributed", p)
+    val (mA, mB) = (both(0), both(1))
+    val (a, b, cA, cB) = (p.nameA, p.nameB, fmt(p.cA), fmt(p.cB))
     val pubs = (p.pA, p.pB) match
-      case (Some(a), Some(b)) if a.compare(b) != 0 =>
-        Vector(
-          ("claim-5", s"${p.nameA} has ${fmt(b)} publications in window $Win.", both)
-        )
-      case _ => Vector.empty
-    val claims = Vector(
-      // control: the correct value for the researcher it is stated for, citing both records
-      ("claim-1", s"${p.nameB} has ${fmt(p.cB)} distinct coauthors in window $Win.", both),
-      // B's value stated for A
-      ("claim-2", s"${p.nameA} has ${fmt(p.cB)} distinct coauthors in window $Win.", both),
-      // swapped values in one two-name claim
-      (
+      case (Some(x), Some(y)) if x.compare(y) != 0 => Some(fmt(y))
+      case _                                       => None
+    // structured forms: B's value as a figure for A, citing both records, B's or A's
+    val figs = Vector(
+      Draft(
+        "claim-2",
+        s"$a has {figure-1} distinct coauthors in window $Win.",
+        both,
+        Vector((p.idA, Dcc, cB, both))
+      ),
+      Draft(
         "claim-3",
-        s"${p.nameA} has ${fmt(p.cB)} distinct coauthors and ${p.nameB} has ${fmt(p.cA)} distinct coauthors in window $Win.",
+        s"$a has {figure-1} distinct coauthors and $b has {figure-2} distinct coauthors in window $Win.",
+        both,
+        Vector((p.idA, Dcc, cB, both), (p.idB, Dcc, cA, both))
+      ),
+      Draft(
+        "claim-4",
+        s"With {figure-1} distinct coauthors in window $Win, $a is listed.",
+        both,
+        Vector((p.idA, Dcc, cB, Vector(mB)))
+      ),
+      Draft(
+        "claim-6",
+        s"$a has {figure-1} distinct coauthors in window $Win.",
+        both,
+        Vector((p.idA, Dcc, cB, Vector(mA)))
+      )
+    ) ++ pubs.map(v =>
+      Draft(
+        "claim-5",
+        s"$a has {figure-1} publications in window $Win.",
+        both,
+        Vector((p.idA, "publicationCount", v, both))
+      )
+    )
+    // the same sentences with the numbers in free text, no figure
+    val free = Vector(
+      Draft("claim-12", s"$a has $cB distinct coauthors in window $Win.", both),
+      Draft(
+        "claim-13",
+        s"$a has $cB distinct coauthors and $b has $cA distinct coauthors in window $Win.",
         both
       ),
-      // the number before the only name
-      (
-        "claim-4",
-        s"With ${fmt(p.cB)} distinct coauthors in window $Win, ${p.nameA} is listed.",
-        both
-      )
-    ) ++ pubs
-    val llm = ScriptedLlm.replies(
-      reply(s"${p.nameA} has ${fmt(p.cB)} distinct coauthors in window $Win.", claims*)
-    )
-    val res = ok(run("m5-misattributed", p.req, BenchmarkRuntime.withModel(llm))._1)
-    assertEquals(res.synthesis.fallback, None, "the model reply was not used")
-    assertEquals(res.answer.promptVersion, "answer-synthesis-v1")
-    val c1 = res.answer.claims.find(_.claimId == "claim-1")
-    assertEquals(
-      c1.map(_.verificationStatus.toString),
-      Some("VERIFIED"),
-      s"control claim-1 (${p.qid}): ${res.audit.claimChecks.filter(_.claimId == "claim-1")}"
-    )
-    (Vector("claim-2", "claim-3", "claim-4") ++ pubs.map(_._1)).foreach(notVerified(res, _))
-    assert(
-      res.audit.summaryReplaced.isDefined,
-      s"misattributed summary kept: '${res.answer.summary}'"
+      Draft("claim-14", s"With $cB distinct coauthors in window $Win, $a is listed.", both)
+    ) ++ pubs.map(v => Draft("claim-15", s"$a has $v publications in window $Win.", both))
+    val summary = s"$a has $cB distinct coauthors in window $Win."
+    val res = modelRun("m5-misattributed", p, reply(summary, (control(p, both) +: figs) ++ free*))
+    val figureChecks =
+      figs.flatMap(d => d.figs.indices.flatMap(k => figureNotVerified(res, d.id, k + 1)))
+    report(
+      p,
+      controlOk(res, p) ++ figureChecks ++ (figs ++ free).flatMap(d => interpretation(res, d.id)) ++
+        noVerifiedFalse(res, p.idA, p.cB) ++ noVerifiedFalse(res, p.idB, p.cA) ++
+        ModelV2.summaryLabeledOrReplaced(res, summary) ++ ModelV2.notVerifiedOverall(res)
     )
   }
 
@@ -224,22 +233,24 @@ class WorkflowRepairGateSuite extends munit.FunSuite:
     val p = pair
     val both = metricIds("m5-subject", p)
     // A is the subject; B's value stated for A, with B named last before the number
-    val text =
-      s"${p.nameA}, compared with ${p.nameB}, has ${fmt(p.cB)} distinct coauthors in window $Win."
-    val llm = ScriptedLlm.replies(
+    val text = s"${p.nameA}, compared with ${p.nameB}, has %s distinct coauthors in window $Win."
+    val res = modelRun(
+      "m5-subject",
+      p,
       reply(
         s"${p.nameB} has ${fmt(p.cB)} distinct coauthors in window $Win.",
-        ("claim-1", s"${p.nameB} has ${fmt(p.cB)} distinct coauthors in window $Win.", both),
-        ("claim-2", text, both)
+        control(p, both),
+        // structured: the figure names A, B's value, B's record (the nearest name's)
+        Draft("claim-2", text.format("{figure-1}"), both, Vector((p.idA, Dcc, fmt(p.cB), both))),
+        // free text
+        Draft("claim-3", text.format(fmt(p.cB)), both)
       )
     )
-    val res = ok(run("m5-subject", p.req, BenchmarkRuntime.withModel(llm))._1)
-    assertEquals(res.synthesis.fallback, None, "the model reply was not used")
-    assertEquals(
-      res.answer.claims.find(_.claimId == "claim-1").map(_.verificationStatus.toString),
-      Some("VERIFIED")
+    report(
+      p,
+      controlOk(res, p) ++ figureNotVerified(res, "claim-2", 1) ++ interpretation(res, "claim-2") ++
+        interpretation(res, "claim-3") ++ noVerifiedFalse(res, p.idA, p.cB)
     )
-    notVerified(res, "claim-2")
   }
 
   // M6. A question without years on the loaded window subset -----------------------------------

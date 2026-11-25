@@ -16,7 +16,14 @@ clause rule with a sentence rule, and review 4 (`review-report-04.md`) found the
 class still open.
 The review verdict is REQUEST_CHANGES, and D5 is not claimed fixed: it is fixed for the
 named forms only.
-This page describes the state after repair round 3.
+Phase 08b then ran repair round 4 (`repair-04-rag-engineer.md`, figure tuples) and a
+V5-1 repair (`repair-05-rag-engineer.md`).
+Reviews 5 and 5b (`review-report-05.md`, `review-report-05b.md`) were REQUEST_CHANGES.
+A follow-up (repair 06, `repair-06-rag-engineer.md`) replaced the free-text number
+detection with a construction rule and bumped the verifier to claim-verifier-v3;
+review 6 (`review-report-06.md`) was REQUEST_CHANGES on R6-1 alone.
+This page describes the verifier and prompt after those rounds.
+Sections that still quote round 2 or 3 counts are marked and refreshed in Phase 17.
 The Public API is in [modules/rag/MODULE.md](../modules/rag/MODULE.md).
 No cloud, Bedrock or AWS call was made in this phase.
 
@@ -32,21 +39,29 @@ No cloud, Bedrock or AWS call was made in this phase.
 | 6 | SemanticContextAgent | semantic-agent-v1 |
 | 7 | EvidenceBuilderAgent | evidence-builder-v1 |
 | 8 | AnswerSynthesisAgent | deterministic-synthesis-v1, llm-synthesis-v1 |
-| 9 | ClaimVerificationAgent | claim-verifier-v1 |
+| 9 | ClaimVerificationAgent | claim-verifier-v3 |
 | 10 | Audit | audit-record-v1 |
 
 Other versions: plan-operations-v1, graph-runner-v1, template-graph-v1,
-evidence-pipeline-v1, local-runtime-v1, synthesis-rules-v1, context-packer-v1.
+evidence-pipeline-v1, local-runtime-v1, synthesis-rules-v2, context-packer-v1.
+The deterministic and model synthesis component versions stay v1 because the rendered
+deterministic text is unchanged (a test checks it).
 Stage 6 reuses the Phase 08 versions semantic-context-v1, untrusted-text-v1 and
 graph-value-policy-v1.
 The entry point is `CollaborationWorkflow.run(queryId, AnalysisRequest)`.
 
 ## Prompt and schema versions
 
-- `prompts/runtime/answer-synthesis-v1.md`, version answer-synthesis-v1, sha256
-  a72a7c8896458c624a681d84f6631b6f437ef9a15f6d61ccaa4b0fc9cb1109e6.
-- `prompts/schemas/answer-synthesis-v1.json`, version answer-synthesis-v1, sha256
-  67ef3cbd4cd91af4f2f79f2ca37700633c7114ff7fd028fe2f16a4d2587e04f4.
+- `prompts/runtime/answer-synthesis-v2.md`, version answer-synthesis-v2, sha256
+  11b8bd9e2ead6c390151cab7c04eb30a6b0c8dd994a2a5c4b9ee4699567a6f02 (computed on the
+  working tree with `sha256sum`; uncommitted).
+- `prompts/schemas/answer-synthesis-v2.json`, version answer-synthesis-v2, sha256
+  75a0d127e0ee832fa815b57dccaef7e46d824590b1f24f6d3794bfd7b982bbe4 (same).
+- The v1 prompt and schema stay in the repository as history, unchanged.
+  The v1 hashes were a72a7c8896458c624a681d84f6631b6f437ef9a15f6d61ccaa4b0fc9cb1109e6
+  (prompt) and 67ef3cbd4cd91af4f2f79f2ca37700633c7114ff7fd028fe2f16a4d2587e04f4
+  (schema).
+  The workflow loads v2 only, and refuses a reply written for v1.
 - `prompts/schemas/query-plan-v1.json`, version query-plan-v1 (hash not recorded in the
   reports).
 - The planner is deterministic, so no prompt exists for stage 1.
@@ -142,49 +157,100 @@ uses.
 - Semantic items are marked untrusted-data and never prove a number, window, hop,
   path, edge or ranking order.
 
-## Verification rules (claim-verifier-v1)
+## Verification rules (claim-verifier-v3)
 
 - Only cited evidence that exists in the bundle supports a claim.
 - Checks, in order: quoted titles, known researcher names, identifiers, path hops,
-  windows, path statements, 19 kinds of keyed numbers, any other number, unknown
-  capitalized multi-word names, and ranking order.
+  windows, path statements, figures, unknown capitalized multi-word names, and ranking
+  order (free-text numbers are no longer checked, see the construction rule).
 - Statuses: VERIFIED, PARTIALLY_SUPPORTED, UNSUPPORTED, CONFLICTING.
 - VERIFIED is kept.
   PARTIALLY_SUPPORTED is kept, each unsupported span replaced by `[unverified]` and the
   claim labeled.
   UNSUPPORTED and CONFLICTING are removed and kept in the audit's `removedClaims`.
-- Number attribution (repair M5, then the clause rule of round 2, replaced in round 3 by
-  a sentence rule): in the keyed-number and other-number checks, a per-researcher number
-  is VERIFIED only when its sentence names exactly one researcher and has no pronoun.
-  - A sentence ends at `.`, `!` or `?` only when the mark is unmasked and outside
-    brackets, whitespace then a capital, digit, quote or bracket follows, and the
-    preceding token is a lower-case word of 3 or more letters not on the abbreviation
-    list, or a numeric token of 4 or more characters.
-    A doubtful period only widens the sentence.
-  - A researcher is counted as named only by an exact display name.
-    A name shared by two IDs counts as ambiguous.
-  - A pronoun (he, she, they, his, her, hers, their, theirs, its, him, them, a word with
-    "-self") means no subject; "its own included" is exempt.
-  - The fixed identity lead "'<query>' is ambiguous: candidate | resolved to | matched"
-    is not counted as a mention when the query is an identity query in the bundle.
-  - Any other number is weakened and labeled: the claim becomes PARTIALLY_SUPPORTED with
-    `[unverified]` and a label, and a model summary like it is replaced.
-    It is never CONFLICTING for per-researcher records.
-    An unknown name ("John Smith has 41") is now UNSUPPORTED.
-  - Pair values held by a cited edge, path or ranking can still be CONFLICTING.
-  Per-researcher records (researcher-metrics METRIC_RECORD, community-membership
-  COMMUNITY_RECORD and IDENTITY_RESOLUTION) support the number only when they are that
-  researcher's.
-  Edge, path, ranking, cross-community-link and publication items still support their
-  values for anyone, and claims that name no researcher work as before.
+- Figures (repair round 4, `synthesis-rules-v2`; the verifier is v3 since repair 06):
+  the sentence, clause and pronoun heuristics of rounds 2 and 3 are removed.
+  Every number in a claim is a `ClaimFigure`: a tuple of researcherId, metric, value and
+  evidenceIds.
+  - The claim text holds a placeholder `{figure-N}` (N from 1) in place of the number,
+    and each placeholder appears exactly once.
+  - A figure may cite only evidence its claim cites.
+    Bounds: at most 16 figures per claim, 1 to 4 evidence IDs per figure, a value of up to
+    64 characters, and a metric matching `^[A-Za-z][A-Za-z0-9_.]{0,63}$`.
+  - Which cited item backs a figure is decided by position and holder, never by prose:
+    a researcher's metrics row, community membership or identity record backs only that
+    researcher; a ranking backs the researcher at that position, for its metric or for
+    `rank` (this closes R4-3); a found edge or cross-community link backs its two
+    researchers; a path backs its two endpoints; a publication backs its work ID (the
+    year, with the work ID in `researcherId`).
+  - Metric keys are compared ignoring case, `_` and a `degree.` or `bridge.` prefix.
+    A different value held for that researcher and metric is CONFLICTING.
+    No holder in the cited evidence is UNSUPPORTED, shown as `[unverified]` with a label.
+  - Rendering comes from the evidence, not from the draft: a model claim shows
+    `value (metric of Name, window W)`, and a deterministic claim shows the bare value.
+    A verified model claim therefore states the evidence value even if the model wrote
+    another.
+  - Under v3 no free text can be VERIFIED (construction rule below).
+  - Prose names no longer attribute a number, so R4-1 and R4-2 phrasings (partial,
+    lower-case or NBSP names, "the leader", "the former", "this researcher", a possessive,
+    "dir.", "is ranked with 30") come out PARTIALLY_SUPPORTED or UNSUPPORTED, never
+    VERIFIED with a false number.
+  - Name matching stays only for the older checks: a person in cited evidence, path hops
+    and ranking order.
+- Construction rule (claim-verifier-v3, repair 06, `repair-06-rag-engineer.md`; it
+  replaces the free-text number rule V5-1 and its word lists):
+  free text is no longer searched for numbers, number words or rank phrases.
+  Only a structured claim can be VERIFIED: a figure tuple (researcherId, metric, value)
+  or a rank tuple (researcherId, `rank`, position, evidenceIds).
+  - `ClaimVerifier.structured(claim, bundle)` returns one verdict per figure.
+    Its id is `<claimId>-figure-K` (K from 1), and its text is written from the evidence
+    alone, for example "distinctCoauthorCount of Alice Arden (<id>) in window
+    2015-2026: 41." or "rank of <name> (<id>) by <metricField> in window W: 1.".
+  - A figure is VERIFIED when the tuple matches, CONFLICTING when a cited item holds
+    another value, otherwise UNSUPPORTED.
+    A figure that cites an ID not in the bundle is UNSUPPORTED even if another cited
+    item agrees.
+  - Every free-text model claim is shown as `claim-N`, PARTIALLY_SUPPORTED, with text
+    "UNVERIFIED interpretation: ..." and the same label in its uncertainty.
+    Each VERIFIED figure follows as `claim-N-figure-K`.
+    A figure that is not VERIFIED becomes its own removed claim, "figure K of claim-N:
+    <metric> of <rid> = <value>", and is never shown as VERIFIED.
+  - The summary becomes "UNVERIFIED interpretation: <summary>" and the uncertainty note
+    "UNVERIFIED interpretation (uncertainty note): <note>".
+    A summary is replaced only when it is CONFLICTING or has unsupported spans, and a
+    note is removed on the same conditions.
+  - The overall verification of a model answer is never VERIFIED.
+  - "Leads the ranking" is VERIFIED only as a structured rank claim (researcherId, rank,
+    position, ranking ID); as prose it is an interpretation.
+  - Removed with no dead code: the digit, number-word, ordinal, multiplier and rank-word
+    detection, NFKC folding and the `labeled` parameter.
+  - Cost: up to 40 claims by 16 figures of structured claims per answer.
+    Non-numeric facts (no path, no edge) cannot be structured.
+- Deterministic path (`model = false`): unchanged.
+  It keeps the literal blanking and the ASCII number rule, so "thirty" is still VERIFIED
+  there, and the deterministic claims and summary stay VERIFIED on 9 question types in
+  both rendering modes.
+- Accepted by design (the human's rule): a false number inside labeled model prose, a
+  summary or a note stays visible under the label.
+- Known open risk R6-1 (MAJOR, rag-engineer, model path only, review 6): the text written
+  for a rank figure omits the ranking's filter and limit.
+  With a topic filter, a rank figure (Alice, rank, 1) checked against the filtered
+  ranking is VERIFIED as "rank of Alice Arden (<id>) by distinctCoauthorCount in window
+  2015-2026: 1.", which is false unfiltered (Carol is 1st with 52, Alice 2nd).
+  It reaches any topic or institution filter and the bridge ranking.
+  It is not repaired: the human chose no further repair round, and it is carried
+  forward to Phase 11.
+  Brief: add the filter text to the label, or refuse rank figures on a filtered ranking.
+  The model path is off by default (`LLM_ENABLED` is false), so it must be closed before
+  Bedrock is enabled.
+- Pair values held by a cited edge, path or ranking can still be CONFLICTING.
+  Per-researcher records support a figure only when they are that researcher's.
+  Claims that name no researcher work as before.
   The summary check uses the same code (`ClaimVerifier.verifyText` over the bundle).
-  Disclosed conservative weakening: correct prose that names two researchers in one
-  sentence, such as "Alice, like Bob, has 41", is weakened and labeled, not VERIFIED.
-  The two-subject form "A has 41 ... and B has 30 ..." is also weakened now.
-  The round 2 statements that a clause splits at "and", "while" or ";" and that
-  "A has 41 and B has 30" stays VERIFIED are superseded.
-  The earlier statement that positional attribution "never verifies a false one"
-  (`repair-01-rag-engineer.md`, assumption 1) is superseded: D5 refuted it.
+- Superseded: the round 2 clause rule, the round 3 sentence rule with its pronoun and
+  "its own included" handling, the abbreviation list, the query-lead subject logic, the
+  disclosed weakening of "Alice, like Bob, has 41", and the statement that positional
+  attribution "never verifies a false one" (`repair-01-rag-engineer.md`, assumption 1).
 - Communities: "touching, linking, connects or spans N communities" and "N communities,
   its own included" map to `communitiesConnected`.
   "N other communities" maps to `otherCommunityCount`, which no item holds, so such a
@@ -344,10 +410,98 @@ The counts in this section are those of round 2; round 3 counts are below.
 - Review 4 did not review Plan, Evidence beyond ranking values, Agents, Synthesis, Llm
   or TemplateGraph, and did not probe the 25k run, homonym bundles or windows.
 
+## Repair round 4, V5-1 repair and reviews 5 and 5b (Phase 08b)
+
+Sources: `repair-04-rag-engineer.md`, `repair-04-test-engineer.md`,
+`review-report-05.md`, `repair-05-rag-engineer.md`, `review-report-05b.md` and
+`docs/agent-runs/phase-08b/test-report.md`, `test-report-rerun.md`.
+
+- The human authorized round 4, which replaced text-based attribution with figure
+  tuples (the rule above) and bumped to answer-synthesis-v2, `synthesis-rules-v2` and
+  claim-verifier-v2 (v3 since repair 06, see the follow-up section).
+  The version bump that round 3 left open is therefore done for the verifier.
+- Tests: `sbt rag/test` 134 of 134 after round 4 and 137 of 137 after the V5-1 repair.
+  test-engineer added WorkflowRepairR4GateSuite, 8 of 8: the R4-1 to R4-3 phrasings as
+  figure tuples, eleven phrasings in both directions, a non-vacuous control, and the
+  ranking-position case on question bq-v1-01.
+  The benchmark stayed 33 of 33 on D, A, pass and P (every question VERIFIED, semantic
+  hit rate 6/33), on the 25,000-work run `run-ccf619c509611f06`.
+- Review 5 and review 5b were REQUEST_CHANGES.
+  The class "a false per-researcher number is VERIFIED" is NOT closed on the model path:
+  - V5b-1 (MAJOR): names, windows and identifiers are blanked before the number check,
+    and the number-word pattern joins two number words across a blanked span.
+    The joined match is not free and is dropped whole, so neither word is flagged
+    ("Alice Arden has thirty and Bob Brandt twenty distinct coauthors ..." is VERIFIED
+    with no span).
+  - V5b-2 (MAJOR): the word list is incomplete: a combining mark, a soft hyphen,
+    Cyrillic look-alike letters, ASCII Roman numerals, quantity words ("a single", "a
+    couple of") and superlatives ("has the most", "leads the ranking") pass.
+    WorkflowRepairR4GateSuite pins "leads the ranking" as VERIFIED, so fixing
+    superlatives conflicts with that test (human decision).
+  - The model path is off by default (`LLM_ENABLED` is false), so both are MAJOR and
+    not CRITICAL.
+    The human carries them forward; they must be closed before Bedrock is enabled.
+- Residuals: V5-3, the prose around a figure is not checked ("Unlike Bob, Arden has 30
+  (distinctCoauthorCount of Bob Brandt, ...)" is VERIFIED, and the number is shown as
+  Bob's); componentId and communityId are checked only for presence in any cited item,
+  not per researcher; V5b-3, "Bob Brandt has more distinct coauthors than Alice Arden"
+  is VERIFIED with only metric rows cited.
+- Full `sbt check` exited 1: 16 failures and no other.
+  They are gate tests that script an answer-synthesis-v1 reply, which v2 refuses, so the
+  run falls back to the deterministic answer: R3Gate 6, D5Gate 2, RepairGate M5 2 and
+  WorkflowGate 6.
+  The reviewer judged all 16 NOT FAIR, a consequence of the mandated schema bump and
+  not a code defect.
+  The first check exited 1 after 727 s and the re-run after 717 s with the same 16
+  (adversarialTests 227 total, 211 passed).
+  The suites are unedited, and the human decides: rewrite WorkflowGate, RepairGate M5 and
+  D5 for v2, and retire R3.
+- Spark: the BFS coalesce change was reverted (it can change output), so
+  `modules/spark` equals HEAD, and the verifier work did not touch it.
+- Prompt v2 said only "digit"; repair 06 replaced the word lists by the construction
+  rule instead (next section).
+
 Fixed in repair round 1 (all four red-test defects and the reviewer's M1 to M7):
 F1 and M1 (pair questions), F3 and M2 (topic before "in <years>"), F2 and M3
 (communities wording), F4 and M4 (researcher rows), M5 (number attribution, partial until
 D5 was fixed in round 2), M6 (unloaded windows) and M7 (heap).
+
+## Phase 08b follow-up, repair 06 and review 6
+
+Sources: `repair-06-rag-engineer.md`, `repair-06-test-engineer.md` and
+`review-report-06.md` in `docs/agent-runs/phase-09/`.
+The human authorized this follow-up (a further disclosed exception to the one-round
+rule): replace free-text number detection with the construction rule above, bump the
+verifier to claim-verifier-v3, rewrite the 16 red gate tests for answer-synthesis-v2,
+and have a fresh reviewer check the class.
+
+- Tests: `rag/test` 138 of 138.
+  The full `sbt check` exited 0 in 953 s with adversarialTests 230 of 230 and the test
+  marker touched.
+  The 16 formerly red gate tests (R3Gate, D5Gate, RepairGate M5, WorkflowGate) now pass as
+  v2 and v3 tests.
+  R3Gate has 9 tests, R4Gate 8, WorkflowGate 29, BenchmarkWorkflow 68 and
+  BenchmarkQuestionSet 40.
+- Prompt v2 rule 6 now says only figures are verified, free text is shown as UNVERIFIED
+  interpretation, and a ranking position is a figure (metric `rank`).
+  The prompt text has a new sha256 that was not recomputed here; the hashes in the
+  prompt section above are the round 4 values and are stale.
+  The schema description changed, its fields did not.
+- Disclosed test changes (test-engineer): the injection summary "Wei Wang has 999..." is
+  now kept labeled, and R3 "never CONFLICTING" holds only for true-number forms.
+  Review 6 judged both fair against the spec ("removed, weakened, or explicitly
+  labeled").
+- Review 6: REQUEST_CHANGES.
+  The class "a false per-researcher number is VERIFIED" is closed for every path the
+  reviewer probed except R6-1 (above).
+  MINOR R6-2 (test-engineer): WorkflowGate "unsupported claims: fabricated" no longer
+  requires claim-2 (the 999 claim) to be absent, and this was not disclosed; the
+  scaladoc of WorkflowRepairR4GateSuite also still says v2.
+  MINOR R6-3: stale version strings (this page, fixed in this update) and
+  `LlmSynthesizer.Version`.
+- Not reviewed line by line or not probed: SynthesisSuite, WorkflowSuite, BedrockLlmSuite,
+  the R3 and R4 rewrites past headers, deterministic packing, an end-to-end model-path
+  run with a filtered ranking, and other languages.
 
 ## Known failure modes
 
@@ -377,8 +531,10 @@ D5 was fixed in round 2), M6 (unloaded windows) and M7 (heap).
   benchmark before the repair, and 244070 ms and 934 MB in the rerun; it runs out of
   memory at -Xmx1536m.
   `adversarialTests` is forked at `-Xmx2560m`, so the default `SBT_OPTS` works.
-- Number attribution is sentence-scoped (round 3), and the class is still open:
-  R4-1 to R4-3 above, model path only.
+- Number attribution is by figure tuple (round 4) and the construction rule (v3).
+  The class is open only through R6-1 (filtered-ranking rank figure), model path only;
+  V5b-1 and V5b-2 are closed by the rule, because free text is never VERIFIED.
+  R4-1 to R4-3 are closed for the cases tested.
   A window is not attributed to a researcher: a claim that pairs one researcher's value
   with the window of another cited record still passes the window check.
 - Swapped values inside one cited ranking ("Carol (41), Alice (52)") are accepted;
@@ -388,8 +544,11 @@ D5 was fixed in round 2), M6 (unloaded windows) and M7 (heap).
 - Two-name questions with a direct-collaboration cue also fetch both researchers'
   coauthor lists (up to 50 edges each).
   This fits the 120-item bundle cap and the 250-query budget.
-- Component version strings (planner-v1, claim-verifier-v1, deterministic-synthesis-v1,
-  evidence-pipeline-v1, local-runtime-v1) were not bumped although behavior changed.
+- Component version strings (planner-v1, deterministic-synthesis-v1,
+  evidence-pipeline-v1, local-runtime-v1) were not bumped although behavior changed;
+  claim-verifier-v3 (repair 06) and synthesis-rules-v2 were bumped.
+  `LlmSynthesizer.Version` is still llm-synthesis-v1 though its output schema is v2
+  (R6-3, open).
 - The name check accepts a name as a substring of a cited value (MINOR m2, open).
 - MINOR m1 (an exact-name hit never consults the token-order key) and m4 (a topic phrase
   such as "collaboration graphs" gives a filter that matches no Topic node, so the answer

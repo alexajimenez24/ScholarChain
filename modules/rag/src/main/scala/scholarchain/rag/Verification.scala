@@ -2,6 +2,7 @@ package scholarchain.rag
 
 import scholarchain.core.*
 import upickle.default.ReadWriter
+import java.util.Locale
 import scala.util.Try
 import scala.util.matching.Regex
 
@@ -17,16 +18,18 @@ final case class ClaimCheck(
     missingEvidenceIds: Vector[String]
 ) derives ReadWriter
 
-/** A check plus what the answer stage needs to weaken the claim: the character spans of the
-  * unsupported statements and the cited evidence IDs that exist.
+/** A check plus what the answer stage needs: `text`, the claim text with every figure rendered from
+  * the evidence, the character spans of its unsupported statements, and the cited evidence IDs that
+  * exist.
   */
 final case class Verdict(
     check: ClaimCheck,
+    text: String,
     unsupportedSpans: Vector[(Int, Int)],
     existingEvidenceIds: Vector[String]
 ):
-  /** The text with every unsupported span replaced by `[unverified]`. */
-  def weakened(text: String): String =
+  /** `text` with every unsupported span replaced by `[unverified]`. */
+  def weakened: String =
     val merged = unsupportedSpans.sortBy(_._1).foldLeft(Vector.empty[(Int, Int)]) {
       case (acc :+ last, (s, e)) if s <= last._2 => acc :+ (last._1, math.max(last._2, e))
       case (acc, span)                           => acc :+ span
@@ -35,12 +38,43 @@ final case class Verdict(
       t.substring(0, span._1) + ClaimVerifier.Unverified + t.substring(span._2)
     )
 
-/** ClaimVerificationAgent (`claim-verifier-v1`): deterministic and independent of the synthesizer.
+/** ClaimVerificationAgent (`claim-verifier-v3`): deterministic and independent of the synthesizer.
   *
   * Only cited evidence that exists in the bundle supports a claim. Graph and metric evidence,
   * PUBLICATION and IDENTITY_RESOLUTION records support values; semantic context supports only
   * descriptive names and identifiers, never a number, window, hop, path or edge statement or
-  * ranking order (`graph-value-policy-v1`). The text is read in this order, each span once:
+  * ranking order (`graph-value-policy-v1`).
+  *
+  * Construction rule (v3): a model can make a VERIFIED statement only by construction, never by
+  * prose. Every number of a claim is a [[ClaimFigure]], an explicit (researcherId, metric, value,
+  * evidenceIds) tuple whose placeholder `{figure-N}` stands in the text; a ranking position is the
+  * tuple (researcherId, `rank`, position, evidenceIds) on a cited ranking. A figure is checked
+  * against the items it cites (among those its claim cites, every one of them in the bundle), and
+  * an item backs it only for the researcher and metric at that position:
+  *   - a researcher-metrics row, community membership or identity record: its own researcher;
+  *   - a ranking: the researcher at a position of `positions`, for the ranking's metric (or
+  *     `rank`);
+  *   - a found coauthor edge or a cross-community link: its two researchers;
+  *   - a path: its two endpoints; a publication: its work ID (the year).
+  * The metric names a numeric key of the item's values (case, `_` and a `degree.` or `bridge.`
+  * prefix ignored). An equal value verifies; a value that differs from the held one is CONFLICTING;
+  * no item holding that metric for that researcher, or a cited ID not in the bundle, is
+  * UNSUPPORTED.
+  *
+  * Model output ([[structured]], and [[verify]] / [[verifyText]] with `model`, the default):
+  *   - each figure is a structured claim ([[structured]]) whose whole text is written here from the
+  *     evidence ("metric of name (id) in window W: value."), so it holds no model prose; it is the
+  *     only model statement that can be VERIFIED;
+  *   - the claim text, the uncertainty note and the summary are free text: whatever they contain,
+  *     they are an "UNVERIFIED interpretation" and never VERIFIED. No number, number word or rank
+  *     phrase is looked for in them; each figure in the text is rendered as "value (metric of
+  *     researcher, window)" or `[unverified]`, and the checks below can still make the text
+  *     CONFLICTING or UNSUPPORTED (it is then removed) or weaken a span.
+  * The deterministic synthesizer's text (`model = false`) is code built from the evidence: its
+  * figures render as bare values, every other ASCII number in it is unsupported (step 7), and a
+  * claim whose every fact holds is VERIFIED as a whole.
+  *
+  * The rendered text is read in this order, each span once (figures already masked):
   *   1. quoted publication titles: equal (after title normalization) to a cited PUBLICATION title;
   *   2. researcher names known to the bundle: the cited evidence names that researcher;
   *   3. identifiers (`scheme:...`, run IDs): present in the cited evidence;
@@ -48,44 +82,50 @@ final case class Verdict(
   *   5. time windows `YYYY-YYYY`: a window of the cited evidence;
   *   6. path and edge statements ("no coauthorship path", "are direct coauthors"): agree with the
   *      cited `found` flag;
-  *   7. keyed numbers ("41 distinct coauthors", "bridge score 0.41", "3 hops", "10 members"): equal
-  *      to that field of the cited evidence; a field that no cited item holds is unsupported;
-  *   8. other numbers: present among the cited values. In steps 7 and 8 a number has a subject only
-  *      when its sentence names exactly one researcher (one researcher ID) and has no pronoun (he,
-  *      she, they, his, her, their, its, him, them and their forms; "its own included" is wording,
-  *      not a subject). Only `.`, `!` or `?` after a lower-case non-abbreviation word or a numeric
-  *      token of four or more characters, outside brackets and before a capital, digit, quote or
-  *      bracket, ends a sentence; a quoted query leading an identity statement is not a mention. A
-  *      per-researcher record (metrics row, community membership, identity) supports a number only
-  *      when it is its subject's; any other number belongs to nobody, so only edge, path, ranking,
-  *      link and publication items can support it and a per-researcher value never makes it
-  *      CONFLICTING (it is weakened and labeled). "N communities, its own included" is the stored
-  *      `communitiesConnected`, while "N other communities" is a value no item holds;
-  *   9. capitalized multi-word names not found in the bundle;
-  *   10. ranking order: with one cited ranking, the named researchers follow its order.
+  *   7. deterministic text only: every remaining ASCII number is unsupported (a cited identity
+  *      record's quoted query `'q'` and a cited ranking's filter text are data, not numbers);
+  *   8. capitalized multi-word names not found in the bundle;
+  *   9. ranking order: with one cited ranking, the named researchers follow its order.
   *
   * Status: no cited evidence exists, UNSUPPORTED; a fact contradicts the evidence, CONFLICTING;
   * semantic-only citations with a graph value, UNSUPPORTED; facts but none supported, UNSUPPORTED;
-  * some facts unsupported, a cited ID missing, only descriptive context or no checkable value,
-  * PARTIALLY_SUPPORTED; otherwise VERIFIED.
+  * model text, some facts unsupported, a cited ID missing, only descriptive context or no checkable
+  * value, PARTIALLY_SUPPORTED; otherwise VERIFIED.
   */
 object ClaimVerifier:
-  val Version = "claim-verifier-v1"
+  val Version = "claim-verifier-v3"
   val Unverified = "[unverified]"
 
+  /** The label of every free-text claim, note and summary a model wrote. */
+  val Interpretation = "UNVERIFIED interpretation"
+  private val InterpretationReason =
+    s"$Interpretation: free text from the model is never verified; only its figures, checked as structured claims, are"
+
+  /** The claim ID of the structured claim made of figure `index` (from 0) of claim `claimId`. */
+  def structuredId(claimId: String, index: Int): String = s"$claimId-figure-${index + 1}"
+
   private enum Kind:
-    case Title, Name, Id, Hop, Window, Statement, Keyed, Number, Order
+    case Title, Name, Id, Hop, Window, Statement, Figure, Number, Order
   private enum Outcome:
     case Supported, Unsupported, Conflicting
   private final case class Fact(kind: Kind, span: (Int, Int), outcome: Outcome, reason: String)
 
+  /** What one cited item holds for a figure: the stored value, the label naming its owner (for the
+    * value shown in model prose) and `about`, the same with researcher IDs (for the structured
+    * claim's text).
+    */
+  private final case class Held(value: String, label: String, about: String):
+    def statement: String = s"$about: $value."
+
   private val GraphMaterial =
-    Set(Kind.Hop, Kind.Window, Kind.Statement, Kind.Keyed, Kind.Number, Kind.Order)
+    Set(Kind.Hop, Kind.Window, Kind.Statement, Kind.Figure, Kind.Number, Kind.Order)
   private val Quoted = "\"([^\"]{2,300})\"|\u201c([^\u201d]{2,300})\u201d".r
   val IdPattern: Regex =
     "(?<![\\w\\-])(?:(?:[a-z][a-z0-9]{0,15}:)+[^\\s,;()\\[\\]\"'=<>]+|run-[0-9a-f]{16})".r
   private val Arrow = "->|\u2192".r
   private val WindowPattern = "(?<!\\d)(\\d{4})\\s*[-\u2013]\\s*(\\d{4})(?!\\d)".r
+
+  /** An ASCII number in the deterministic synthesizer's text (step 7). */
   private val NumberPattern = "(?<![\\w.])(\\d+(?:\\.\\d+)?)(?!\\w|\\.\\d)".r
   private val Capitalized = "\\p{Lu}[\\p{L}'\u2019\\-]*(?:\\s+\\p{Lu}[\\p{L}'\u2019\\-]*)+".r
   private val NoPath = "(?i)\\bno (?:coauthorship |collaboration )?path\\b|\\bnot connected\\b".r
@@ -95,76 +135,6 @@ object ClaimVerifier:
     "(?i)\\bno direct coauthor\\b|\\bnot (?:direct )?coauthors\\b|\\bnever coauthored\\b|\\bhave not (?:collaborated|coauthored)\\b|\\bno coauthor edge\\b".r
   private val HasEdge =
     "(?i)\\bare direct coauthors\\b|\\bhave coauthored\\b|\\bcoauthored \\d+ joint publications?\\b".r
-  // Sentence attribution (R3-1): a sentence ends only at `.`, `!` or `?` followed by whitespace and
-  // an upper-case letter, digit, quote or bracket, outside brackets, after a lower-case word of at
-  // least three letters that is not an abbreviation, or after a numeric token of at least four
-  // characters (a year, window or decimal). Anything else (an initial, a title, "vs.", "Dr.", "1.",
-  // a name, an identifier) never ends a sentence, so a doubtful period only makes the scope wider.
-  private val NextSentence = "\\s+[\\p{Lu}\\d\"'(\\[\u201c\u2018]".r
-  private val Word = "\\p{Ll}[\\p{Ll}\\-]+\\p{Ll}".r
-  private val Numeric = "\\d[\\d.\\-\u2013]{2,}\\d|\\d{4,}".r
-  private val Abbreviations =
-    ("abbr approx assoc avg cca cit compl cont corp dept eds eqs esp est etc excl fig figs gen govt " +
-      "hon ibid inc incl inst intl loc ltd max min misc mrs natl nos orig prev prof publ ref refs " +
-      "repr resp rev sec seq transl univ viz vol vols").split(' ').toSet
-  // A pronoun anywhere in the sentence makes its subject unknown; "its own included" is the fixed
-  // wording of the stored communitiesConnected value, not a subject.
-  private val Pronoun =
-    "(?i)\\b(he|she|they|his|her|hers|their|theirs|its|him|them|himself|herself|itself|themselves)\\b".r
-  private val OwnIncluded = "(?i)\\b(?:its|their|his|her) own included\\b".r
-  // The fixed lead of an identity statement quotes the user's query; that quotation is the query
-  // string, not a mention of a researcher (Synthesis candidate claims).
-  private val IdentityVerbs = Vector(" is ambiguous: candidate ", " resolved to ", " matched ")
-  private val Num = "(\\d+(?:\\.\\d+)?)"
-  private val Keyed: Vector[(Regex, Vector[String])] = Vector(
-    s"(?i)\\b(?:at most|within) (\\d+) hops?\\b" -> Vector("maxDepth"),
-    s"(?i)\\b(\\d+) hops?\\b" -> Vector("hops"),
-    s"(?i)\\b(\\d+) joint publications?\\b" -> Vector("jointPublicationCount"),
-    s"(?i)\\b(\\d+) distinct coauthors?\\b" -> Vector(
-      "distinctCoauthorCount",
-      "degree.distinctCoauthorCount"
-    ),
-    s"(?i)\\b(\\d+) publications?\\b" -> Vector("publicationCount"),
-    s"(?i)\\bweighted degree (?:of |is |= )?$Num" -> Vector(
-      "weightedDegree",
-      "degree.weightedDegree"
-    ),
-    s"(?i)\\b(\\d+) coauthor occurrences\\b" -> Vector("totalCoauthorOccurrences"),
-    s"(?i)\\b(\\d+) coauthors on one paper\\b" -> Vector("maximumCoauthorsOnOnePaper"),
-    s"(?i)\\baverage (?:is |of )?$Num coauthors\\b" -> Vector("averageCoauthorsPerPaper"),
-    s"(?i)\\b(?:bridge score|betweenness) (?:of |is |= )?$Num" -> Vector(
-      "bridgeScore",
-      "bridge.bridgeScore"
-    ),
-    s"(?i)\\bparticipation coefficient (?:of |is |= )?$Num" -> Vector(
-      "participationCoefficient",
-      "bridge.participationCoefficient"
-    ),
-    s"(?i)\\b(\\d+) cross-community\\b" -> Vector(
-      "crossCommunityDegree",
-      "bridge.crossCommunityDegree"
-    ),
-    s"(?i)\\bcross-community degree (?:of |is |= )?(\\d+)" -> Vector(
-      "crossCommunityDegree",
-      "bridge.crossCommunityDegree"
-    ),
-    // communitiesConnected counts the researcher's own community (Spark Bridges), so only a
-    // wording that includes it maps to the field; "N other communities" is a value no item holds.
-    s"(?i)\\b(?:touching|touches|linking|links|connecting|connects|spanning|spans) (\\d+) communities\\b" -> Vector(
-      "communitiesConnected",
-      "bridge.communitiesConnected"
-    ),
-    s"(?i)\\b(\\d+) communities,? (?:its|their|his|her) own included\\b" -> Vector(
-      "communitiesConnected",
-      "bridge.communitiesConnected"
-    ),
-    s"(?i)\\b(\\d+) other communit(?:y|ies)\\b" -> Vector("otherCommunityCount"),
-    s"(?i)\\bcoreness (?:of |is |= )?(\\d+)" -> Vector("coreness"),
-    s"(?i)\\bof (\\d+) researchers\\b" -> Vector("componentSize"),
-    s"(?i)\\b(\\d+) members\\b" -> Vector("communitySize"),
-    s"(?i)\\bidentity confidence (?:of |is |= )?$Num" -> Vector("identityConfidence"),
-    s"(?i)\\b(\\d+) (?:source )?mentions\\b" -> Vector("mentionCount")
-  ).map((p, f) => p.r -> f)
   private val Stop = Set(
     "The",
     "A",
@@ -217,16 +187,28 @@ object ClaimVerifier:
   )
 
   private def semantic(e: EvidenceItem) = GraphValuePolicy.Descriptive(e.evidenceType)
-
-  /** Records that hold one researcher's own values: a value they hold is that researcher's only. */
-  private def perResearcher(e: EvidenceItem) =
-    e.evidenceType == EvidenceType.IDENTITY_RESOLUTION ||
-      (e.evidenceType == EvidenceType.METRIC_RECORD &&
-        e.values.get("kind").contains("researcher-metrics")) ||
-      (e.evidenceType == EvidenceType.COMMUNITY_RECORD &&
-        e.values.get("kind").contains("community-membership"))
   private def found(e: EvidenceItem) = e.values.get("found")
-  private def dec(s: String) = Try(BigDecimal(s)).toOption
+  private def dec(s: String) = Try(BigDecimal(s.trim)).toOption
+  private def same(a: String, b: String) = (dec(a), dec(b)) match
+    case (Some(x), Some(y)) => x.compare(y) == 0
+    case _                  => a.trim == b.trim
+  private def kindOf(e: EvidenceItem) = e.values.getOrElse("kind", "")
+
+  /** A metric or value key without case, punctuation or a `degree.` / `bridge.` prefix. */
+  def metricKey(s: String): String =
+    val t = s.trim.toLowerCase(Locale.ROOT)
+    Vector("degree.", "bridge.").foldLeft(t)((a, p) => a.stripPrefix(p)).filter(_.isLetterOrDigit)
+
+  /** A ranking's positions `rank:researcherId=value`, in order. */
+  def rankingPositions(e: EvidenceItem): Vector[(String, String, String)] =
+    e.values.getOrElse("positions", "").split(';').toVector.filter(_.nonEmpty).flatMap { p =>
+      p.split(':').toList match
+        case rank :: rest =>
+          val idValue = rest.mkString(":")
+          val cut = idValue.lastIndexOf('=')
+          Option.when(cut > 0)((rank, idValue.take(cut), idValue.drop(cut + 1)))
+        case _ => None
+    }
 
   /** Researcher names the bundle knows, longest first, each with its researcher IDs. */
   def knownNames(b: EvidenceBundle): Vector[(String, Set[String])] =
@@ -257,14 +239,201 @@ object ClaimVerifier:
       .toVector
       .sortBy((n, _) => (-n.length, n))
 
-  def verify(c: DraftClaim, bundle: EvidenceBundle): Verdict =
-    verifyText(c.claimId, c.text, c.evidenceIds, bundle)
+  /** The value `e` holds for `metric` of `subject`, with labels naming the owner, or None when `e`
+    * holds no such value for that subject (the positional rule of the class comment).
+    */
+  private def held(
+      e: EvidenceItem,
+      subject: String,
+      metric: String,
+      name: String => String
+  ): Option[Held] =
+    val v = e.values
+    val want = metricKey(metric)
+    val w = v.get("window").filter(_.nonEmpty)
+    val win = w.fold("")(x => s", window $x")
+    val inWin = w.fold("")(x => s" in window $x")
+    def ident(id: String) = if name(id) == id then id else s"${name(id)} ($id)"
+    def get(k: String) = v.get(k).filter(_.nonEmpty)
+    def field: Option[(String, String)] =
+      v.toVector.sortBy(_._1).find((k, x) => metricKey(k) == want && dec(x).isDefined)
+    def pair(a: Option[String], b: Option[String]) =
+      Option
+        .when(a.contains(subject) || b.contains(subject))(())
+        .flatMap(_ => field)
+        .map((k, x) =>
+          Held(
+            x,
+            s"$k of ${a.fold("?")(name)} and ${b.fold("?")(name)}$win",
+            s"$k of ${a.fold("?")(ident)} and ${b.fold("?")(ident)}$inWin"
+          )
+        )
+    val identity = e.evidenceType == EvidenceType.IDENTITY_RESOLUTION
+    val metricsRow =
+      e.evidenceType == EvidenceType.METRIC_RECORD && kindOf(e) == "researcher-metrics"
+    val membership =
+      e.evidenceType == EvidenceType.COMMUNITY_RECORD && kindOf(e) == "community-membership"
+    val ownRecord =
+      ((identity || metricsRow) && e.researcherIds.headOption.contains(subject)) ||
+        (membership && get("researcherId").contains(subject))
+    e.evidenceType match
+      case _ if ownRecord =>
+        field.map((k, x) =>
+          if identity then
+            val who = s"candidate ${name(subject)} ($subject)"
+            Held(x, s"$k of $who$win", s"$k of $who$inWin")
+          else Held(x, s"$k of ${name(subject)}$win", s"$k of ${ident(subject)}$inWin")
+        )
+      case EvidenceType.METRIC_RECORD if kindOf(e) == "ranking" =>
+        val by = get("metricField").orElse(get("metric")).getOrElse("the metric")
+        rankingPositions(e).find(_._2 == subject).flatMap { (rank, _, value) =>
+          if want == "rank" then
+            Option.when(dec(rank).isDefined)(
+              Held(
+                rank,
+                s"rank of ${name(subject)} by $by$win",
+                s"rank of ${ident(subject)} by $by$inWin"
+              )
+            )
+          else
+            Option.when(
+              (get("metric").map(metricKey) ++ get("metricField").map(metricKey)).exists(
+                _ == want
+              ) && dec(value).isDefined
+            )(
+              Held(
+                value,
+                s"$by of ${name(subject)} in the ranking$win",
+                s"$by of ${ident(subject)} in the ranking$inWin"
+              )
+            )
+        }
+      case EvidenceType.COMMUNITY_RECORD if kindOf(e) == "cross-community-link" =>
+        pair(get("researcherId"), get("coauthorId"))
+      case EvidenceType.COAUTHOR_EDGE if found(e).contains("true") =>
+        pair(get("researcherA"), get("researcherB"))
+      case EvidenceType.GRAPH_PATH
+          if get("from").contains(subject) || get("to").contains(subject) =>
+        def ends(f: String => String) =
+          s"the path from ${get("from").fold("?")(f)} to ${get("to").fold("?")(f)}"
+        field.map((k, x) => Held(x, s"$k of ${ends(name)}$win", s"$k of ${ends(ident)}$inWin"))
+      case EvidenceType.PUBLICATION if e.workId.contains(subject) =>
+        field.map((k, x) => Held(x, s"$k of work $subject", s"$k of work $subject"))
+      case _ => None
 
+  /** A figure checked against the items it cites among `claimIds`: Supported with the items that
+    * hold the claimed value, Conflicting when a cited item holds another value, Unsupported when no
+    * cited item holds that metric for that researcher or a cited ID is not in the bundle.
+    */
+  private final case class FigureCheck(
+      outcome: Outcome,
+      matches: Vector[(EvidenceItem, Held)],
+      reason: String
+  )
+
+  private def checkFigure(
+      i: Int,
+      f: ClaimFigure,
+      claimIds: Vector[String],
+      bundle: EvidenceBundle,
+      name: String => String
+  ): FigureCheck =
+    val index = bundle.byId
+    val ids = f.evidenceIds.distinct.filter(claimIds.contains)
+    val missing = ids.filterNot(index.contains)
+    val items = ids.flatMap(index.get).filterNot(semantic)
+    val hs = items.flatMap(x => held(x, f.researcherId, f.metric, name).map(x -> _))
+    val claimed = f.value.trim
+    val what = s"figure ${i + 1} (${f.metric.take(64)} of ${f.researcherId.take(80)})"
+    val matches = hs.filter((_, h) => same(h.value, claimed))
+    if matches.nonEmpty && missing.isEmpty then FigureCheck(Outcome.Supported, matches, "")
+    else if matches.nonEmpty then
+      FigureCheck(
+        Outcome.Unsupported,
+        Vector.empty,
+        s"$what cites evidence not in the bundle: ${missing.mkString(", ")}"
+      )
+    else if hs.nonEmpty then
+      FigureCheck(
+        Outcome.Conflicting,
+        Vector.empty,
+        s"$what: claimed ${claimed.take(64)}, evidence ${hs.map(_._2.value).distinct.mkString("/")}"
+      )
+    else
+      val why =
+        if items.isEmpty then "it cites no graph or metric evidence of its claim"
+        else "no cited item holds that metric for that researcher"
+      FigureCheck(Outcome.Unsupported, Vector.empty, s"$what, claimed ${claimed.take(64)}: $why")
+
+  /** Bundle researcher IDs to a display name, for labels. */
+  private def nameMap(bundle: EvidenceBundle): Map[String, String] =
+    knownNames(bundle)
+      .flatMap((n, rids) => rids.toVector.map(_ -> n))
+      .groupMapReduce(_._1)(_._2)((a, _) => a)
+
+  /** The structured claims of a model claim, one per figure, in figure order, each with the ID
+    * [[structuredId]]. A structured claim is the tuple (researcherId, metric, value or rank,
+    * evidenceIds) and nothing else: its text is written here from the evidence item that holds the
+    * value ("metric of name (id) in window W: value."), never from model text, and it cites only
+    * the items that hold that value. VERIFIED when the tuple matches a cited item; CONFLICTING when
+    * a cited item holds another value; otherwise UNSUPPORTED.
+    */
+  def structured(c: DraftClaim, bundle: EvidenceBundle): Vector[Verdict] =
+    val names = nameMap(bundle)
+    def name(id: String) = names.getOrElse(id, id)
+    val existing = c.evidenceIds.distinct.filter(bundle.byId.contains)
+    c.figures.zipWithIndex.map { (f, i) =>
+      val fc = checkFigure(i, f, c.evidenceIds.distinct, bundle, name)
+      val sid = structuredId(c.claimId, i)
+      val missing = f.evidenceIds.distinct.filterNot(bundle.byId.contains)
+      import VerificationStatus.*
+      fc.outcome match
+        case Outcome.Supported =>
+          val ids = fc.matches.map(_._1.evidenceId).distinct
+          Verdict(
+            ClaimCheck(sid, VERIFIED, Vector.empty, 1, 1, Vector.empty),
+            fc.matches.head._2.statement,
+            Vector.empty,
+            ids
+          )
+        case o =>
+          val status = if o == Outcome.Conflicting then CONFLICTING else UNSUPPORTED
+          Verdict(
+            ClaimCheck(sid, status, Vector(fc.reason), 1, 0, missing),
+            s"${f.metric} of ${f.researcherId}: $Unverified.",
+            Vector.empty,
+            f.evidenceIds.distinct.filter(existing.contains)
+          )
+    }
+
+  /** Checks a drafted claim: its figures, then its rendered text. With `model` (the default) the
+    * claim is model output: its text is an UNVERIFIED interpretation (never VERIFIED) whose
+    * verified figures name the researcher and metric they belong to; its figures are verified as
+    * [[structured]] claims. `model = false` is only for the deterministic synthesizer's own text.
+    */
+  def verify(c: DraftClaim, bundle: EvidenceBundle, model: Boolean = true): Verdict =
+    run(c.claimId, c.text, c.evidenceIds, c.figures, bundle, model)
+
+  /** Checks text that has no figures (a summary, an uncertainty note). With `model` (the default)
+    * it is an UNVERIFIED interpretation, never VERIFIED; `model = false` is only for the
+    * deterministic synthesizer's own text, where every ASCII number is unsupported.
+    */
   def verifyText(
       claimId: String,
       text: String,
       evidenceIds: Vector[String],
-      bundle: EvidenceBundle
+      bundle: EvidenceBundle,
+      model: Boolean = true
+  ): Verdict =
+    run(claimId, text, evidenceIds, Vector.empty, bundle, model)
+
+  private def run(
+      claimId: String,
+      raw: String,
+      evidenceIds: Vector[String],
+      figures: Vector[ClaimFigure],
+      bundle: EvidenceBundle,
+      model: Boolean
   ): Verdict =
     val index = bundle.byId
     val ids = evidenceIds.distinct
@@ -280,16 +449,13 @@ object ClaimVerifier:
           0,
           missing
         ),
+        ClaimFigures.fill(raw, _ => Some(Unverified)),
         Vector.empty,
         Vector.empty
       )
     val graph = cited.filterNot(semantic)
     val sem = cited.filter(semantic)
     val facts = Vector.newBuilder[Fact]
-    val mask = text.toCharArray
-    def masked = new String(mask)
-    def blank(s: Int, e: Int): Unit = (s until e).foreach(i => mask(i) = ' ')
-    def free(s: Int, e: Int) = (s until e).forall(i => mask(i) != ' ' || text.charAt(i) == ' ')
     def fact(k: Kind, s: Int, e: Int, ok: Boolean, reason: => String, conflict: Boolean = false) =
       val o =
         if ok then Outcome.Supported
@@ -297,8 +463,46 @@ object ClaimVerifier:
         else Outcome.Unsupported
       facts += Fact(k, (s, e), o, if ok then "" else reason)
 
+    // 0. Figures: each tuple checked against its cited items, its number rendered from them (model
+    // text names the owner of the number).
+    val names = nameMap(bundle)
+    def name(id: String) = names.getOrElse(id, id)
+    def figure(i: Int, f: ClaimFigure): (String, Boolean, Boolean, String) =
+      val fc = checkFigure(i, f, ids, bundle, name)
+      fc.outcome match
+        case Outcome.Supported =>
+          val h = fc.matches.head._2
+          (if model then s"${h.value} (${h.label})" else h.value, true, false, "")
+        case Outcome.Conflicting => (Unverified, false, true, fc.reason)
+        case Outcome.Unsupported => (Unverified, false, false, fc.reason)
+    val out = new java.lang.StringBuilder
+    val figureSpans = Vector.newBuilder[(Int, Int)]
+    var last = 0
+    ClaimFigures.Placeholder.findAllMatchIn(raw).foreach { m =>
+      out.append(raw, last, m.start)
+      val i = m.group(1).toInt - 1
+      val (shown, ok, conflict, reason) = figures
+        .lift(i)
+        .fold((Unverified, false, false, s"placeholder ${m.matched} names no figure"))(
+          figure(i, _)
+        )
+      val s = out.length
+      out.append(shown)
+      fact(Kind.Figure, s, out.length, ok, reason, conflict)
+      figureSpans += ((s, out.length))
+      last = m.end
+    }
+    out.append(raw, last, raw.length)
+    val text = out.toString
+
+    val mask = text.toCharArray
+    def masked = new String(mask)
+    def blank(s: Int, e: Int): Unit = (s until e).foreach(i => mask(i) = ' ')
+    def free(s: Int, e: Int) = (s until e).forall(i => mask(i) != ' ' || text.charAt(i) == ' ')
+    figureSpans.result().foreach(blank)
+
     // 1. Quoted titles.
-    Quoted.findAllMatchIn(text).toVector.foreach { m =>
+    Quoted.findAllMatchIn(masked).toVector.foreach { m =>
       val inner = Option(m.group(1)).getOrElse(m.group(2))
       val key = Normalize.title(inner)
       def has(xs: Vector[EvidenceItem]) = xs.exists(e =>
@@ -316,7 +520,7 @@ object ClaimVerifier:
       )
       blank(m.start, m.end)
     }
-    // 2. Known researcher names.
+    // 2. Known researcher names (is the named researcher in the cited evidence; never a subject).
     val hits = Vector.newBuilder[(Int, Int, Set[String], String)]
     knownNames(bundle).foreach { (name, rids) =>
       var from = masked.indexOf(name)
@@ -416,119 +620,41 @@ object ClaimVerifier:
           conflict = xs.nonEmpty
         )
       }
-    val noPath = NoPath.findFirstIn(text).isDefined
-    if noPath then statement(NoPath, paths, "false", "path")
+    if NoPath.findFirstIn(text).isDefined then statement(NoPath, paths, "false", "path")
     else statement(HasPath, paths, "true", "path")
     if NoEdge.findFirstIn(text).isDefined then statement(NoEdge, edges, "false", "coauthor edge")
     else statement(HasEdge, edges, "true", "coauthor edge")
-    // Attribution (R3-1, sentence rule): a per-researcher record (metrics row, community
-    // membership, identity) supports a number only when the number's sentence names exactly one
-    // researcher and has no pronoun; every other number belongs to nobody, so only edge, path,
-    // ranking, link and publication items can support it, and a per-researcher value never makes
-    // it CONFLICTING. Clauses, positions and abbreviation periods do not change the decision.
-    val snapshot = masked
-    val queries = bundle.identity.flatMap(_.values.get("query")).filter(_.nonEmpty).distinct
-    // sentence ends, decided left to right so a bracket opened in the sentence keeps it open
-    val ends = (0 until text.length)
-      .filter(p => ".!?".indexOf(snapshot.charAt(p)) >= 0)
-      .foldLeft(Vector.empty[Int]) { (acc, p) =>
-        val start = acc.lastOption.getOrElse(0)
-        val span = snapshot.substring(start, p)
-        val open = span.count(c => c == '(' || c == '[') > span.count(c => c == ')' || c == ']')
-        val raw = text.substring(text.lastIndexWhere(_.isWhitespace, p - 1) + 1, p)
-        val token = raw
-          .dropWhile(c => "([\"'\u201c\u2018".indexOf(c) >= 0)
-          .reverse
-          .dropWhile(c => ")]\"'\u201d\u2019,".indexOf(c) >= 0)
-          .reverse
-        val wordEnd = Word.matches(token) && !Abbreviations(token.toLowerCase)
-        val follows = NextSentence.findPrefixOf(text.substring(p + 1)).isDefined
-        if !open && follows && (wordEnd || Numeric.matches(token)) then acc :+ (p + 1) else acc
+    // 7. Deterministic text only: every remaining ASCII number is backed by no figure. A cited
+    // identity record's quoted query and a cited ranking's filter text are copied data, not
+    // numbers. Model text is never searched for numbers: all of it is an interpretation.
+    if !model then
+      val literals = cited.flatMap { x =>
+        if x.evidenceType == EvidenceType.IDENTITY_RESOLUTION then
+          x.values.get("query").filter(_.nonEmpty).map(q => s"'$q'")
+        else if kindOf(x) == "ranking" then
+          x.values
+            .get("filter")
+            .filter(f => f.nonEmpty && !f.startsWith("none"))
+            .map(f => UntrustedText.bound(f, 120))
+        else None
+      }.distinct
+      literals.foreach { l =>
+        var from = text.indexOf(l)
+        while from >= 0 do
+          blank(from, from + l.length)
+          from = text.indexOf(l, from + 1)
       }
-    def sentenceOf(pos: Int): (Int, Int) =
-      (ends.filter(_ <= pos).lastOption.getOrElse(0), ends.find(_ > pos).getOrElse(text.length))
-    // Right: the subject's IDs and name; Left: why the subject is not one named researcher.
-    def subjectAt(pos: Int): Either[String, (Set[String], String)] =
-      val (ss, se) = sentenceOf(pos)
-      val from = (ss until se).find(i => !text.charAt(i).isWhitespace).getOrElse(se)
-      val quote = queries
-        .filter(q => IdentityVerbs.exists(v => text.startsWith(s"'$q'$v", from)))
-        .map(q => (from, from + q.length + 2))
-        .maxByOption(_._2)
-      def quoted(h: (Int, Int, Set[String], String)) =
-        quote.exists((a, b) => h._1 >= a && h._2 <= b)
-      val people = nameHits.filter(h => h._1 >= ss && h._1 < se && !quoted(h)).distinctBy(_._3)
-      val scan = snapshot.substring(ss, se).toCharArray
-      quote.foreach((a, b) => (a - ss until math.min(b, se) - ss).foreach(i => scan(i) = ' '))
-      val pronoun = Pronoun.findFirstIn(OwnIncluded.replaceAllIn(new String(scan), " "))
-      val who = people match
-        case Vector(h) if h._3.size == 1 => None
-        case Vector(h) => Some(s"the name ${h._4} belongs to ${h._3.size} researchers")
-        case Vector()  => Some("its sentence names no researcher")
-        case hs        =>
-          Some(s"its sentence names ${hs.size} researchers (${hs.map(_._4).mkString(" / ")})")
-      (who.toVector ++ pronoun.map(p => s"its sentence has the pronoun '$p'")) match
-        case Vector() => Right((people.head._3, people.head._4))
-        case issues   => Left(issues.mkString(" and "))
-    def backing(pos: Int): (Vector[EvidenceItem], Option[String], Option[String]) =
-      subjectAt(pos) match
-        case Right((who, label)) =>
-          (graph.filter(x => !perResearcher(x) || x.researcherIds.exists(who)), Some(label), None)
-        case Left(why) => (graph.filterNot(perResearcher), None, Some(why))
-    def ambiguity(why: String) =
-      s"the subject is ambiguous: $why, so no researcher's own record supports it"
-    // 7. Keyed numbers.
-    Keyed.foreach { (r, fields) =>
-      r.findAllMatchIn(masked).toVector.foreach { m =>
-        val (s, e) = (m.start(1), m.end(1))
-        if free(s, e) then
-          val n = BigDecimal(m.group(1))
-          val (items, subject, ambiguous) = backing(s)
-          val have = items.flatMap(x => fields.flatMap(x.values.get)).flatMap(dec)
-          val elsewhere = graph.flatMap(x => fields.flatMap(x.values.get)).flatMap(dec)
-          val ok = have.exists(_.compare(n) == 0)
-          val of = subject.fold("")(w => s" of $w")
-          fact(
-            Kind.Keyed,
-            s,
-            e,
-            ok,
-            if have.nonEmpty then
-              s"${fields.head}$of: claimed ${m.group(1)}, evidence ${have.distinct.mkString("/")}"
-            else if elsewhere.nonEmpty then
-              ambiguous.fold(
-                s"no cited evidence$of holds ${fields.head} (claimed ${m.group(1)}; it is another researcher's value)"
-              )(among => s"${fields.head} (claimed ${m.group(1)}): ${ambiguity(among)}")
-            else s"no cited evidence holds ${fields.head} (claimed ${m.group(1)})",
-            conflict = have.nonEmpty
-          )
-          blank(s, e)
+      NumberPattern.findAllMatchIn(masked).toVector.foreach { m =>
+        fact(
+          Kind.Number,
+          m.start,
+          m.end,
+          false,
+          s"number ${m.group(1)} is in free text: no (researcherId, metric, value, evidenceIds) figure backs it"
+        )
+        blank(m.start, m.end)
       }
-    }
-    // 8. Other numbers.
-    def numbersOf(x: EvidenceItem): Set[BigDecimal] =
-      x.values.values
-        .map(v => IdPattern.replaceAllIn(v, " "))
-        .flatMap(v => NumberPattern.findAllMatchIn(v).flatMap(m => dec(m.group(1))))
-        .toSet
-    val itemNumbers = graph.map(x => x.evidenceId -> numbersOf(x)).toMap
-    NumberPattern.findAllMatchIn(masked).toVector.foreach { m =>
-      val (items, subject, ambiguous) = backing(m.start)
-      val ok = dec(m.group(1)).exists(n =>
-        items.exists(x => itemNumbers.getOrElse(x.evidenceId, Set.empty).exists(_.compare(n) == 0))
-      )
-      fact(
-        Kind.Number,
-        m.start,
-        m.end,
-        ok,
-        ambiguous.fold(
-          s"number ${m.group(1)} is not in the cited evidence${subject.fold("")(w => s" of $w")}"
-        )(among => s"number ${m.group(1)}: ${ambiguity(among)}")
-      )
-      blank(m.start, m.end)
-    }
-    // 9. Capitalized names not in the bundle.
+    // 8. Capitalized names not in the bundle.
     val known =
       (bundle.deterministic ++ bundle.identity).flatMap(_.values.values) ++ sem.flatMap(_.text)
     Capitalized.findAllMatchIn(masked).toVector.foreach { m =>
@@ -539,8 +665,8 @@ object ClaimVerifier:
         val s = m.start + m.matched.indexOf(rest.head)
         fact(Kind.Name, s, m.end, false, s"name '$phrase' is not in the evidence")
     }
-    // 10. Ranking order.
-    graph.filter(_.values.get("kind").contains("ranking")) match
+    // 9. Ranking order.
+    graph.filter(x => kindOf(x) == "ranking") match
       case Vector(r) =>
         val order = r.researcherIds
         val positions = nameHits.flatMap(h => order.indices.find(i => h._3(order(i)))).distinct
@@ -572,6 +698,11 @@ object ClaimVerifier:
         reasons += "semantic context never supports a count, window, path, edge or ranking"
         UNSUPPORTED
       else if all.nonEmpty && supported == 0 then UNSUPPORTED
+      else if model then
+        // The construction rule: model free text is never VERIFIED, whatever it contains.
+        reasons += InterpretationReason
+        if graph.isEmpty then reasons += "descriptive context only (untrusted retrieved text)"
+        PARTIALLY_SUPPORTED
       else if graph.isEmpty then
         reasons += "descriptive context only (untrusted retrieved text)"
         PARTIALLY_SUPPORTED
@@ -582,6 +713,7 @@ object ClaimVerifier:
       else VERIFIED
     Verdict(
       ClaimCheck(claimId, status, reasons.result().distinct, all.size, supported, missing),
+      text,
       unsupported.map(_.span).filter((s, e) => e > s),
       ids.filter(index.contains)
     )

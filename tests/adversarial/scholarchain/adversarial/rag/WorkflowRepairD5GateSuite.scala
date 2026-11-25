@@ -25,23 +25,8 @@ class WorkflowRepairD5GateSuite extends munit.FunSuite:
     assume(BenchmarkRuntime.present, s"run data absent at ${BenchmarkStore.runDir}")
     BenchmarkRuntime.runtime
 
-  private def reply(summary: String, claims: (String, String, Vector[String])*): String =
-    ujson.write(
-      ujson.Obj(
-        "schemaVersion" -> "answer-synthesis-v1",
-        "summary" -> summary,
-        "abstain" -> false,
-        "abstentionReason" -> ujson.Null,
-        "claims" -> ujson.Arr.from(claims.map { (id, text, ev) =>
-          ujson.Obj(
-            "claimId" -> id,
-            "text" -> text,
-            "evidenceIds" -> ujson.Arr.from(ev.map(ujson.Str(_))),
-            "uncertainty" -> ujson.Null
-          )
-        })
-      )
-    )
+  // answer-synthesis-v2 replies, claim-verifier-v3 checks ([[ModelV2]]).
+  import ModelV2.{Draft, figureNotVerified, figureVerified, interpretation, noVerifiedFalse, reply}
 
   private final case class Pair(
       qid: String,
@@ -116,85 +101,99 @@ class WorkflowRepairD5GateSuite extends munit.FunSuite:
 
   private def fmt(x: BigDecimal): String = x.bigDecimal.stripTrailingZeros.toPlainString
 
+  private val Dcc = "distinctCoauthorCount"
+
   private def runModel(queryId: String, p: Pair, replyText: String): WorkflowResult =
     val llm = ScriptedLlm.replies(replyText)
     val (r, _) = BenchmarkRuntime.observe(BenchmarkRuntime.withModel(llm).run(queryId, p.req))
     val res = r.fold(e => fail(s"workflow error: ${e.describe}"), identity)
     assertEquals(res.synthesis.fallback, None, "the model reply was not used")
-    assertEquals(res.answer.promptVersion, "answer-synthesis-v1")
+    assertEquals(res.answer.promptVersion, "answer-synthesis-v2")
     res
 
-  /** Removed as CONFLICTING or UNSUPPORTED, or kept only PARTIALLY_SUPPORTED with a label. */
-  private def notVerified(res: WorkflowResult, claimId: String): Option[String] =
-    val checks = res.audit.claimChecks.filter(_.claimId == claimId)
-    res.answer.claims.find(_.claimId == claimId) match
-      case None =>
-        val removed = res.audit.removedClaims.find(_.claimId == claimId)
-        Option.when(!removed.exists(r => Set("CONFLICTING", "UNSUPPORTED")(r.status.toString)))(
-          s"$claimId neither kept nor removed as CONFLICTING/UNSUPPORTED; removed $removed"
-        )
-      case Some(c) =>
-        Option.when(
-          !(c.verificationStatus.toString == "PARTIALLY_SUPPORTED" &&
-            (c.text.contains("[unverified]") || c.uncertainty.exists(_.nonEmpty)))
-        )(
-          s"$claimId kept as ${c.verificationStatus}: '${c.text}' (uncertainty ${c.uncertainty}); " +
-            s"checks ${checks.map(k => (k.status, k.reasons))}"
-        )
-
+  /** The control: B's own value as a figure citing B's record; the claim cites both records. */
   private def control(p: Pair, both: Vector[String]) =
-    ("claim-1", s"${p.nameB} has ${fmt(p.cB)} distinct coauthors in window $Win.", both)
-
-  private def assertControl(res: WorkflowResult): Unit =
-    assertEquals(
-      res.answer.claims.find(_.claimId == "claim-1").map(_.verificationStatus.toString),
-      Some("VERIFIED"),
-      s"control claim-1: ${res.audit.claimChecks.filter(_.claimId == "claim-1")}"
+    Draft(
+      "claim-1",
+      s"${p.nameB} has {figure-1} distinct coauthors in window $Win.",
+      both,
+      Vector((p.idB, Dcc, fmt(p.cB), Vector(both(1))))
     )
+
+  private def controlOk(res: WorkflowResult, p: Pair): Vector[String] =
+    (figureVerified(res, "claim-1", 1, p.idB, p.cB) ++ interpretation(
+      res,
+      "claim-1",
+      false
+    )).toVector
+
+  private def report(p: Pair, bad: Vector[String]): Unit =
+    assert(bad.isEmpty, s"pair ${p.qid} (A=${p.cA}, B=${p.cB}):" + bad.mkString("\n", "\n", "\n"))
+
+  /** The D5 sentences (review-report-02.md) with `n(v)` in place of each stated value `v`: a number
+    * before two names and comparative prose. Each entry: claim number, text, (subject ID, metric,
+    * value) of the stated number.
+    */
+  private def sentences(
+      p: Pair,
+      n: String => String
+  ): Vector[(Int, String, (String, String, String))] =
+    val (a, b, cA, cB) = (p.nameA, p.nameB, fmt(p.cA), fmt(p.cB))
+    val pubs = (p.pA, p.pB) match
+      case (Some(x), Some(y)) if x.compare(y) != 0 =>
+        Vector(
+          (
+            7,
+            s"With ${n(fmt(y))} publications in window $Win, $a leads $b.",
+            (p.idA, "publicationCount", fmt(y))
+          )
+        )
+      case _ => Vector.empty
+    Vector(
+      // the reviewer's variant: B's value, number first, A then B
+      (2, s"With ${n(cB)} distinct coauthors in window $Win, $a leads $b.", (p.idA, Dcc, cB)),
+      // mirrored: A's value, number first, B then A
+      (3, s"With ${n(cA)} distinct coauthors in window $Win, $b leads $a.", (p.idB, Dcc, cA)),
+      // number first, comparative parenthetical
+      (
+        4,
+        s"With ${n(cB)} distinct coauthors in window $Win, $a, compared with $b, leads.",
+        (p.idA, Dcc, cB)
+      ),
+      // comparative prose with the number after both names
+      (5, s"$a, like $b, has ${n(cB)} distinct coauthors in window $Win.", (p.idA, Dcc, cB)),
+      (6, s"$a (unlike $b) has ${n(cB)} distinct coauthors in window $Win.", (p.idA, Dcc, cB))
+    ) ++ pubs
 
   test(
     "D5: a number before two names, or in comparative prose, is never VERIFIED for the wrong one"
   ) {
     val p = pair
     val both = metricIds("d5-claims", p)
-    val (a, b, cA, cB) = (p.nameA, p.nameB, fmt(p.cA), fmt(p.cB))
-    val pubs = (p.pA, p.pB) match
-      case (Some(x), Some(y)) if x.compare(y) != 0 =>
-        Vector(("claim-7", s"With ${fmt(y)} publications in window $Win, $a leads $b.", both))
-      case _ => Vector.empty
-    val claims = Vector(
-      control(p, both),
-      // the reviewer's variant: B's value, number first, A then B
-      ("claim-2", s"With $cB distinct coauthors in window $Win, $a leads $b.", both),
-      // mirrored: A's value, number first, B then A
-      ("claim-3", s"With $cA distinct coauthors in window $Win, $b leads $a.", both),
-      // number first, comparative parenthetical
-      (
-        "claim-4",
-        s"With $cB distinct coauthors in window $Win, $a, compared with $b, leads.",
-        both
-      ),
-      // comparative prose with the number after both names
-      ("claim-5", s"$a, like $b, has $cB distinct coauthors in window $Win.", both),
-      ("claim-6", s"$a (unlike $b) has $cB distinct coauthors in window $Win.", both)
-    ) ++ pubs
-    val res =
-      runModel("d5-claims", p, reply(s"$b has $cB distinct coauthors in window $Win.", claims*))
-    assertControl(res)
-    val bad = (Vector("claim-2", "claim-3", "claim-4", "claim-5", "claim-6") ++ pubs.map(_._1))
-      .flatMap(notVerified(res, _))
-    assert(bad.isEmpty, s"pair ${p.qid} (A=${p.cA}, B=${p.cB}):" + bad.mkString("\n", "\n", "\n"))
+    val structured = sentences(p, _ => "{figure-1}").map { (i, t, f) =>
+      Draft(s"claim-$i", t, both, Vector((f._1, f._2, f._3, both)))
+    }
+    // the same sentences with the numbers in free text, no figure
+    val free = sentences(p, identity).map((i, t, _) => Draft(s"claim-${10 + i}", t, both))
+    val res = runModel(
+      "d5-claims",
+      p,
+      reply(s"${p.nameB} is compared with ${p.nameA}.", (control(p, both) +: structured) ++ free*)
+    )
+    report(
+      p,
+      controlOk(res, p) ++ structured.flatMap(d => figureNotVerified(res, d.id, 1)) ++
+        (structured ++ free).flatMap(d => interpretation(res, d.id)) ++
+        noVerifiedFalse(res, p.idA, p.cB) ++ noVerifiedFalse(res, p.idB, p.cA) ++
+        ModelV2.notVerifiedOverall(res)
+    )
   }
 
-  test("D5: a model summary stating B's number before two names is replaced") {
+  test("D5: a model summary stating B's number before two names is replaced or labeled") {
     val p = pair
     val both = metricIds("d5-summary", p)
     val summary =
       s"With ${fmt(p.cB)} distinct coauthors in window $Win, ${p.nameA} leads ${p.nameB}."
     val res = runModel("d5-summary", p, reply(summary, control(p, both)))
-    assertControl(res)
-    assert(
-      res.audit.summaryReplaced.isDefined,
-      s"misattributed summary kept: '${res.answer.summary}' (pair ${p.qid})"
-    )
+    report(p, controlOk(res, p) ++ ModelV2.summaryLabeledOrReplaced(res, summary))
   }

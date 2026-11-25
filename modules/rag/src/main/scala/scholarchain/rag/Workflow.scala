@@ -105,13 +105,19 @@ final case class WorkflowResult(
   * semantic context, evidence bundle), then
   *   8. synthesis: the [[Synthesizer]] drafts the summary and claims; when stages 1 to 7 abstain
   *      the deterministic synthesizer lists the candidates and no model is called;
-  *   9. verification: [[ClaimVerifier]] checks every claim, its uncertainty note and the summary.
-  *      VERIFIED claims are kept; PARTIALLY_SUPPORTED claims are kept weakened (unsupported spans
-  *      replaced by `[unverified]`) and labeled; UNSUPPORTED and CONFLICTING claims are removed and
-  *      kept in the audit. A summary with an unsupported or conflicting value is replaced. Identity
-  *      caveats (confidence below 0.9, unresolved or conflicting identity) and the window note are
-  *      added to the claims they concern; the evidence stage's notes are stated as missing or
-  *      limited evidence;
+  *   9. verification ([[ClaimVerifier]], `claim-verifier-v3` construction rule): a deterministic
+  *      claim is checked as a whole (its text is code, every number a figure rendered from the
+  *      evidence). A model claim yields its free text as an answer claim with the same ID, labeled
+  *      "UNVERIFIED interpretation" in its text and uncertainty and never VERIFIED (at best
+  *      PARTIALLY_SUPPORTED), followed by one structured claim per VERIFIED figure, ID
+  *      `<claimId>-figure-N`, whose text the verifier writes from the evidence; a figure that is
+  *      not VERIFIED is removed. A model uncertainty note and summary are kept only labeled
+  *      "UNVERIFIED interpretation"; a note or summary that conflicts with or names something
+  *      outside the evidence is removed or replaced. PARTIALLY_SUPPORTED claims are kept weakened
+  *      (unsupported spans replaced by `[unverified]`) and labeled; UNSUPPORTED and CONFLICTING
+  *      claims are removed and kept in the audit. Identity caveats (confidence below 0.9,
+  *      unresolved or conflicting identity) and the window note are added to the claims they
+  *      concern; the evidence stage's notes are stated as missing or limited evidence;
   *   10. audit: the bundle is stored in EvidenceBundle (conditional write) and the [[AuditRecord]]
   *       in the [[AuditLog]] (conditional write).
   *
@@ -210,48 +216,85 @@ final class CollaborationWorkflow(
       )
 
   private def verify(e: EvidenceStageResult, s: SynthesisResult): Verified =
+    import VerificationStatus.*
     val b = e.bundle
     val caveats = identityCaveats(e)
-    val verdicts = s.output.claims.map(c => c -> ClaimVerifier.verify(c, b))
-    val kept = verdicts.collect {
-      case (c, v)
-          if v.check.status == VerificationStatus.VERIFIED || v.check.status == VerificationStatus.PARTIALLY_SUPPORTED =>
-        val cited = v.existingEvidenceIds.flatMap(b.byId.get)
+    val model = s.byModel
+    def keptStatus(v: Verdict) =
+      v.check.status == VERIFIED || v.check.status == PARTIALLY_SUPPORTED
+    def idNotes(v: Verdict) = v.existingEvidenceIds
+      .flatMap(b.byId.get)
+      .filterNot(x => GraphValuePolicy.Descriptive(x.evidenceType))
+      .flatMap(_.researcherIds)
+      .distinct
+      .flatMap(caveats.get)
+    def note(parts: Vector[String]) =
+      val ps = (parts ++ e.windowNote).distinct
+      Option.when(ps.nonEmpty)(UntrustedText.bound(ps.mkString("; "), MaxUncertainty))
+    // One drafted claim: the claim itself (for model output, its free text as an UNVERIFIED
+    // interpretation) and, for model output only, one structured claim per figure, the only model
+    // statements that can be VERIFIED (claim-verifier-v3 construction rule).
+    val drafted = s.output.claims.map { c =>
+      val v = ClaimVerifier.verify(c, b, model)
+      val structured =
+        if model then c.figures.zip(ClaimVerifier.structured(c, b)) else Vector.empty
+      (c, v, structured)
+    }
+    val checks = drafted.flatMap((_, v, st) => v.check +: st.map(_._2.check))
+    val kept = drafted.flatMap { (c, v, st) =>
+      val claim = Option.when(keptStatus(v)) {
         val modelNote = c.uncertainty.map { u =>
-          val n = ClaimVerifier.verifyText(c.claimId, u, v.existingEvidenceIds, b)
-          if n.check.status == VerificationStatus.CONFLICTING || n.unsupportedSpans.nonEmpty then
-            "the synthesizer's uncertainty note was removed: it stated values not in the cited evidence"
+          val n = ClaimVerifier.verifyText(c.claimId, u, v.existingEvidenceIds, b, model)
+          if n.check.status == CONFLICTING || n.unsupportedSpans.nonEmpty then
+            "the synthesizer's uncertainty note was removed: it named a researcher, title, identifier, window or value not in the cited evidence"
+          else if model then s"${ClaimVerifier.Interpretation} (uncertainty note): $u"
           else u
         }
-        val label = Option.when(v.check.status == VerificationStatus.PARTIALLY_SUPPORTED)(
+        val label = Option.when(v.check.status == PARTIALLY_SUPPORTED)(
           s"partially supported: ${v.check.reasons.mkString("; ")}"
         )
-        val idNotes = cited
-          .filterNot(x => GraphValuePolicy.Descriptive(x.evidenceType))
-          .flatMap(_.researcherIds)
-          .distinct
-          .flatMap(caveats.get)
-        val parts = (modelNote.toVector ++ label ++ idNotes ++ e.windowNote).distinct
         AnswerClaim(
           c.claimId,
-          v.weakened(c.text),
+          if model then s"${ClaimVerifier.Interpretation}: ${v.weakened}" else v.weakened,
           v.existingEvidenceIds,
           v.check.status,
-          Option.when(parts.nonEmpty)(UntrustedText.bound(parts.mkString("; "), MaxUncertainty))
+          note(modelNote.toVector ++ label ++ idNotes(v))
         )
+      }
+      val figures = st.collect {
+        case (_, sv) if sv.check.status == VERIFIED =>
+          AnswerClaim(
+            sv.check.claimId,
+            sv.text,
+            sv.existingEvidenceIds,
+            VERIFIED,
+            note(idNotes(sv))
+          )
+      }
+      claim.toVector ++ figures
     }
-    val removed = verdicts.collect {
-      case (c, v)
-          if v.check.status == VerificationStatus.UNSUPPORTED || v.check.status == VerificationStatus.CONFLICTING =>
-        RemovedClaim(c.claimId, c.text, v.check.status, v.check.reasons)
+    val removed = drafted.flatMap { (c, v, st) =>
+      Option
+        .when(!keptStatus(v))(RemovedClaim(c.claimId, c.draftText, v.check.status, v.check.reasons))
+        .toVector ++ st.zipWithIndex.collect {
+        case ((f, sv), i) if sv.check.status != VERIFIED =>
+          RemovedClaim(
+            sv.check.claimId,
+            s"figure ${i + 1} of ${c.claimId}: ${f.metric} of ${f.researcherId} = ${f.value}",
+            sv.check.status,
+            sv.check.reasons
+          )
+      }
     }
     val all = (b.deterministic ++ b.identity).map(_.evidenceId)
-    val sv = ClaimVerifier.verifyText("summary", s.output.summary, all, b)
-    val summaryOk =
-      sv.check.status != VerificationStatus.CONFLICTING && sv.unsupportedSpans.isEmpty
+    // A model summary is free text: kept only as a labeled interpretation, replaced when it
+    // contradicts or names something not in the evidence.
+    val sv = ClaimVerifier.verifyText("summary", s.output.summary, all, b, model)
+    val summaryOk = sv.check.status != CONFLICTING && sv.unsupportedSpans.isEmpty
     val base =
-      if summaryOk then s.output.summary
-      else DeterministicSynthesizer.draft(e).summary
+      if !summaryOk then DeterministicSynthesizer.draft(e).summary
+      else if model then s"${ClaimVerifier.Interpretation}: ${s.output.summary}"
+      else s.output.summary
     val missing = e.notes.distinct.take(MaxNotes).map(n => UntrustedText.bound(n, MaxNoteChars))
     val summary =
       if missing.isEmpty then base
@@ -259,7 +302,7 @@ final class CollaborationWorkflow(
     Verified(
       e,
       s,
-      verdicts.map(_._2.check),
+      checks,
       kept,
       removed,
       summary,

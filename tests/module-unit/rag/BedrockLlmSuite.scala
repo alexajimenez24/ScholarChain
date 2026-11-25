@@ -144,16 +144,28 @@ class BedrockLlmSuite extends munit.FunSuite:
       .fold(e => fail(e), identity)
     val q = """What are the collaboration metrics of "Alice Arden" since 2015?"""
     val e = w.pipeline().run("qry-probe", AnalysisRequest(q)).fold(x => fail(x.describe), identity)
-    val m = e.bundle.deterministic.find(_.researcherIds == Vector(Alice)).get.evidenceId
+    val m = e.bundle.deterministic
+      .find(x =>
+        x.values.get("kind").contains("researcher-metrics") && x.researcherIds == Vector(Alice)
+      )
+      .get
+      .evidenceId
     val text =
-      s"""{"schemaVersion":"answer-synthesis-v1","summary":"Stored metrics follow.","abstain":false,"abstentionReason":null,"claims":[{"claimId":"claim-1","text":"Alice Arden has 12 publications in window 2015-2026.","evidenceIds":["$m"],"uncertainty":null}]}"""
+      s"""{"schemaVersion":"answer-synthesis-v2","summary":"Stored metrics follow.","abstain":false,"abstentionReason":null,"claims":[{"claimId":"claim-1","text":"Alice Arden has {figure-1} publications in window 2015-2026.","evidenceIds":["$m"],"uncertainty":null,"figures":[{"researcherId":"$Alice","metric":"publicationCount","value":"12","evidenceIds":["$m"]}]}]}"""
     stub.clear()
     stub.reply = (200, messages(text), Map.empty)
     val synth = new LlmSynthesizer(llm().fold(x => fail(x), identity), prompt, on)
     val (wf, _) = w.workflow(synth)
     val r = wf.run("qry-bedrock", AnalysisRequest(q)).fold(x => fail(x.describe), identity)
     assertEquals(r.answer.modelVersion, Model)
-    assertEquals(r.answer.claims.map(_.verificationStatus), Vector(VerificationStatus.VERIFIED))
+    // v3: the prose is an interpretation; the figure is the VERIFIED structured claim
+    assertEquals(
+      r.answer.claims.map(c => (c.claimId, c.verificationStatus)),
+      Vector(
+        ("claim-1", VerificationStatus.PARTIALLY_SUPPORTED),
+        ("claim-1-figure-1", VerificationStatus.VERIFIED)
+      )
+    )
     assertEquals((r.audit.inputTokens, r.audit.outputTokens), (Some(1234L), Some(56L)))
     assertEquals(stub.seen.size, 1)
     assert(ujson.read(stub.seen.head._4)("max_tokens").num.toInt <= on.operations.maxTokensPerQuery)

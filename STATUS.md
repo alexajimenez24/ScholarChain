@@ -63,24 +63,155 @@ resume. -->
   The embedding docs are `docs/embeddings.md`; lineage is `docs/data-lineage.md`.
   See "Carried forward from Phase 08".
 - Phase 09: runtime collaboration workflow (Graph-RAG stages 1 to 10) in module `rag`;
-  steps 1 to 4, reviews 1 to 4 and repair rounds 1 to 3 are done, and nothing is
-  committed.
-  Review 1 was REQUEST_CHANGES (M1 to M7, m1 to m3); round 1 fixed F1 to F4 and M1 to M7
-  (M5 partly, defect D5).
-  Review 2 was REQUEST_CHANGES on D5, and the human authorized a round 2 exception.
-  Review 3 was REQUEST_CHANGES (R3-1 to R3-4), and the human authorized a round 3.
-  Round 3 replaced the clause rule with a sentence rule: a per-researcher number is
-  VERIFIED only with one exact-display-name researcher in its sentence and no pronoun.
-  Review 4 (`review-report-04.md`) was REQUEST_CHANGES: the defect class is STILL OPEN
-  (R4-1 variant or partial names, R4-2 noun phrases and unlisted abbreviations, R4-3 a
-  cited ranking item backs any researcher's number), all MAJOR, model path only
-  (`LLM_ENABLED` defaults to false).
-  The Phase 09 gate is not met on "Code review returns APPROVE" and on "unsupported
-  claims weakened" for the model path.
-  The full `sbt check` exited 0 in 789 s.
-  No cloud or Bedrock call was made.
-  See "Phase 09 task list", "Carried forward from Phase 09" and
+  steps 1 to 4, reviews 1 to 4 and repair rounds 1 to 3 were done, then Phase 08b ran
+  repair rounds 4 and 5 and reviews 5 and 5b; nothing is committed.
+  See "Phase 08b and Phase 09 repair rounds 4 and 5" below, "Phase 09 task list",
+  "Carried forward from Phase 09" and
   [docs/runtime-workflow.md](docs/runtime-workflow.md).
+  The Phase 09 gate is NOT met on "Code review returns APPROVE", on "unsupported claims
+  weakened" for the model path and on "full `sbt check` passes".
+  No cloud or Bedrock call was made.
+- Phase 08b (2026-11-25, unattended): Spark at 100,000 works FAILED locally, the
+  verifier was rebuilt on figure tuples, and review 5 and 5b stayed REQUEST_CHANGES.
+  Nothing is committed; the human commits.
+- Phase 08b follow-up (2026-11-25, 4 tasks): DONE, review 6 REQUEST_CHANGES.
+  See "Phase 08b follow-up" below.
+
+## Phase 08b follow-up (repair 06, review 6)
+
+Source: `docs/agent-runs/phase-08b/run-log.md` and the reports in
+`docs/agent-runs/phase-09/` (`repair-06-rag-engineer.md`, `repair-06-test-engineer.md`,
+`review-report-06.md`).
+The human authorized a disclosed exception to the one-round rule, and later decided that
+there is no further repair round.
+
+| Task | Owner | Result |
+|---|---|---|
+| 1 | rag-engineer | COMPLETE: construction rule, claim-verifier-v3, `rag/test` 138 of 138 |
+| 2 | test-engineer | COMPLETE: full `sbt check` exit 0 (953 s), adversarial 230 of 230 |
+| 3 | code-reviewer | REQUEST_CHANGES: R6-1 MAJOR, R6-2 and R6-3 MINOR |
+| 4 | documentation-engineer | COMPLETE: runtime-workflow.md, rag MODULE.md, this file |
+
+- The 16 formerly red gate tests (R3Gate 6, D5Gate 2, RepairGate M5 2, WorkflowGate 6)
+  now pass as v2 and v3 tests; R3Gate was rewritten to 9 tests.
+- Open and carried forward to Phase 11:
+  - R6-1 (MAJOR, rag-engineer, model path only): a rank figure on a filtered ranking is
+    VERIFIED with text that omits the filter.
+    Must be closed before Bedrock or the LLM is enabled.
+  - R6-2 (MINOR, test-engineer): WorkflowGate "unsupported claims: fabricated" no longer
+    requires claim-2 to be absent, which was not disclosed; the scaladoc of
+    WorkflowRepairR4GateSuite still says v2.
+  - R6-3 (MINOR): stale version strings (docs fixed in task 4) and
+    `LlmSynthesizer.Version` is still llm-synthesis-v1.
+- The earlier "Decisions waiting for the human" items 1 to 3 below are settled by this
+  follow-up (16 tests rewritten, R4 pin converted, V5b-1 and V5b-2 closed by the
+  construction rule); items 4 and 5 stand.
+- Uncommitted: nothing is committed.
+  `git status` at the start of task 4 lists modified rag sources (`Synthesis`,
+  `Verification`, `Workflow`), the four adversarial rag gate suites, the four rag unit
+  suites, `STATUS.md` and `docs/runtime-workflow.md`; new `ModelV2.scala`,
+  `WorkflowRepairR4GateSuite.scala`, `prompts/runtime/answer-synthesis-v2.md`,
+  `prompts/schemas/answer-synthesis-v2.json` and the phase-08b and phase-09 report
+  files.
+  Task 4 also modified `modules/rag/MODULE.md`, `STATUS.md` and `PROJECT_MEMORY.md`.
+- Half done: nothing.
+- Next step: the human reviews and commits (`docs/agent-runs/phase-08b/` needs a
+  human-gate decision), then Phase 10 or Phase 11 as the human chooses; R6-1 to R6-3 go
+  to Phase 11.
+  Verify with `sbt check` (last result exit 0, not re-run in task 4).
+- Harness: Claude Code only.
+
+## Phase 08b and Phase 09 repair rounds 4 and 5
+
+Work order and rules: `docs/agent-runs/phase-08b/prompt.md`.
+State written once at step 6 (documentation-engineer) from the reports in the table
+below.
+
+Spark at 100,000 works (step 1, FAILED):
+- Local Spark at 100,000 works (`run-74832c9d4a53a2b0`, started 2026-11-25 00:11) ran out
+  of memory and left the machine unresponsive for about 10 h.
+  The 4 h limit was not enforced by the agent.
+  The human killed WSL (`wslservice.exe`, because `wsl --shutdown` did not respond) at
+  about 10:28 on 2026-11-25.
+- The incomplete output was deleted by spark-engineer: `_checkpoints-08b-a1` (1.9G) and
+  the manifest `run-74832c9d4a53a2b0.json` with its `.crc`.
+  No graph, component, community or path counts exist for it.
+- Decision: 100,000-work Spark moves to EMR in the cloud phases.
+  `run-ccf619c509611f06` (25,000 works) stays the integrated run; step 2 was skipped.
+  The machine has 4 GB total, so a local 100,000-work run is not viable.
+- The uncommitted BFS coalesce in `GraphAlgorithms.scala` and its 12-hop test were
+  reverted after review 5 (V5-2: it can change output through `percentile_approx` merge
+  and the grouping of double sums).
+  `modules/spark` and `tests/module-unit/spark` equal HEAD (verified by the orchestrator
+  and review 5b); `run-ccf619c509611f06` is unaffected (made 2026-11-24 10:47, before
+  the edit).
+  The BFS memory issue at 100,000 works is a known issue for EMR.
+
+Phase 09 repair round 4 and the V5-1 repair:
+- Round 4 (rag-engineer): figure tuples (researcherId, metric, value, evidenceIds) with
+  `{figure-N}` placeholders replace the sentence rule; versions answer-synthesis-v2,
+  `synthesis-rules-v2`, claim-verifier-v2 (details in `docs/runtime-workflow.md`).
+  `rag/test` 134 of 134.
+- Step 4 (test-engineer): WorkflowRepairR4GateSuite 8 of 8; benchmark 33 of 33 unchanged
+  on the 25,000-work answers.
+- Review 5: REQUEST_CHANGES (V5-1 MAJOR free-text numbers; V5-2 MAJOR the BFS coalesce).
+- V5-1 repair (rag-engineer): `rag/test` 137 of 137, `model` flag on the verifier.
+- Re-run (test-engineer): full `sbt check` exit 1 in 717 s, only the 16 failures below;
+  R4Gate 8 of 8, benchmark 33 of 33, rag 137, spark 45 of 45 at HEAD.
+- Review 5b: REQUEST_CHANGES.
+  The class "a false per-researcher number is VERIFIED" is still open through V5b-1
+  (number words joined across blanked spans) and V5b-2 (incomplete word list and
+  superlatives such as "leads the ranking"), both MAJOR.
+  The model path is off by default (`LLM_ENABLED` is false).
+  The work order stops after one repair round, so the human carries them forward;
+  V5-3 (prose around a figure) and "ids checked for presence only" are residuals.
+- Full `sbt check` is red: exactly 16 failures, all gate tests that script an
+  answer-synthesis-v1 reply, which v2 refuses: R3Gate 6, D5Gate 2, RepairGate M5 2,
+  WorkflowGate 6.
+  The code-reviewer judged all 16 NOT FAIR (a consequence of the schema bump).
+  The check did not reach its last task, so the test marker was not touched.
+
+Decisions waiting for the human:
+1. The 16 tests: rewrite WorkflowGate, RepairGate M5 and D5Gate for v2 and retire R3
+   (the reviewer's recommendation), or another choice.
+2. Whether to keep the R4Gate pin that "leads the ranking" is VERIFIED.
+3. How to carry V5b-1 and V5b-2 (another repair round or a structural rule that forbids
+   quantity prose outside figures); they must be closed before Bedrock or the LLM is
+   enabled.
+4. The Phase 08 leftovers (2.1G, left untouched): `spark-out/_checkpoints` and
+   `run-manifests/run-c4b35c788d05a93c.json` with its `.crc`.
+5. The earlier open items of "Carried forward from Phase 09" (community size, Bedrock
+   model ID and cost, question set review, version strings).
+   Item 6 there (R4-1 to R4-3) is replaced by this section.
+
+Uncommitted file state (nothing was committed; the human commits), from `git status`
+at the start of step 6:
+- modified: the rag sources `Synthesis.scala`, `Verification.scala` and `Workflow.scala`,
+  and the rag unit suites `BedrockLlmSuite`, `SynthesisSuite`, `VerificationSuite` and
+  `WorkflowSuite` under `tests/module-unit/rag/`;
+- new: `prompts/runtime/answer-synthesis-v2.md`,
+  `prompts/schemas/answer-synthesis-v2.json`,
+  `tests/adversarial/scholarchain/adversarial/rag/WorkflowRepairR4GateSuite.scala`,
+  `docs/agent-runs/phase-08b/` and the phase-09 repair and review files 04 and 05.
+- Half done: nothing.
+  The notes pending for Phase 17 are listed under RISKS of the step 6 report.
+- Harness: Claude Code only.
+
+Where every report is (under `docs/agent-runs/`):
+
+| Item | Path |
+|---|---|
+| Work order and rules | `phase-08b/prompt.md` |
+| Run log | `phase-08b/run-log.md` |
+| Step 1, spark-engineer (FAILED) | `phase-08b/step-01-spark-engineer-report.md` |
+| Step 3, rag-engineer (round 4) | `phase-09/repair-04-rag-engineer.md` |
+| Step 4, test-engineer | `phase-08b/test-report.md`, `phase-09/repair-04-test-engineer.md` |
+| Benchmark and gate results | `phase-08b/output-benchmark.md` |
+| Review 5 | `phase-09/review-report-05.md` |
+| V5-1 repair, rag-engineer | `phase-09/repair-05-rag-engineer.md` |
+| Re-run, test-engineer | `phase-08b/test-report-rerun.md` |
+| Review 5b | `phase-09/review-report-05b.md` |
+| Verifier and prompt doc | `docs/runtime-workflow.md` |
 
 ## Phase 09 task list
 
@@ -268,14 +399,16 @@ State at the end of repair round 3 (second human-authorized exception):
 cd ~/scholarchain && claude "Read STATUS.md and continue with its next step."
 ```
 
-The next step is the human's decision on R4-1 to R4-3 (carry forward, closing them
-before Bedrock or the LLM is enabled, or authorize another round), then Phase 09
-ratification and commit.
+The next step is the human's decisions listed under "Phase 08b and Phase 09 repair
+rounds 4 and 5" (the 16 v1-scripted tests, the R4Gate "leads the ranking" pin,
+V5b-1 and V5b-2, the Phase 08 leftovers), then Phase 09 ratification and commit.
+After that, the cloud phases (Phase 10 onward) follow in the order of this file, and the
+100,000-work Spark run goes to EMR there.
 The other carried-forward items stay open: m1, m2, m4, community size, the Bedrock model
 ID and per-query cost, the review of question set v1 and `semantic-relevance-rule-v1`,
-and the `claim-verifier-v1` version string.
+and the version strings.
 
-Verify first: `git status --short` and `ls docs/agent-runs/phase-09`.
+Verify first: `git status --short` and `ls docs/agent-runs/phase-08b`.
 
 ## Carried forward from Phase 01
 

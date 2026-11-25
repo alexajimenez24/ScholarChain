@@ -281,6 +281,29 @@ The case classes derive uPickle `ReadWriter`, so `JsonLines.encode` and `decode`
 - `BedrockLlm.fromConfig(cfg, credentials, ...): Either[String, BedrockLlm]` is the
   AWS adapter; no test calls it against AWS.
 
+#### 4b. Claim verifier v3 (`Verification.scala`, `claim-verifier-v3`)
+
+Source: `docs/agent-runs/phase-09/repair-06-rag-engineer.md`.
+- `ClaimVerifier.verify(c, bundle, model = true)`: the `labeled` parameter is gone.
+  With `model` (the default) model text is never VERIFIED: at best PARTIALLY_SUPPORTED
+  with a reason starting "UNVERIFIED interpretation"; it can still be CONFLICTING or
+  UNSUPPORTED, and unknown names, IDs and titles are still weakened.
+- `ClaimVerifier.verifyText` keeps its signature; model text is no longer searched for
+  numbers, number words or rank phrases.
+  Literal blanking plus the ASCII number rule runs only when `model = false`.
+- `ClaimVerifier.structured(c, bundle): Vector[Verdict]`: one verdict per figure,
+  written from evidence only.
+  VERIFIED when the tuple matches, CONFLICTING when a cited item holds another value,
+  else UNSUPPORTED.
+- `ClaimVerifier.structuredId(id, i)`: `<claimId>-figure-N`.
+- `ClaimVerifier.Interpretation = "UNVERIFIED interpretation"`.
+- A figure that cites an ID not in the bundle is UNSUPPORTED even if another cited item
+  agrees (missing-ID figure rule).
+- Workflow model path: `claim-N` (PARTIALLY_SUPPORTED, labeled), then `claim-N-figure-K`
+  for each VERIFIED figure; a non-VERIFIED figure is a separate `RemovedClaim`; summary
+  and note are labeled; the overall verification of a model answer is never VERIFIED.
+  The deterministic path is unchanged.
+
 #### 5. Audit log
 
 - `trait AuditLog { def append(r: AuditRecord): Either[String, Stored];
@@ -454,7 +477,7 @@ returns `(CollaborationWorkflow, RuntimeStores)` over a hand-built run.
   evidence and a "N members" claim is never VERIFIED.
 - The Phase 09 human gate: review 4 returned REQUEST_CHANGES, so "Code review returns
   APPROVE" is not met.
-- R4-1 to R4-3, below under Known issues, are not fixed.
+- R4-1 to R4-3 are superseded by the v3 construction rule; R6-1 (Known issues) is open.
 - MINOR m1 (an exact-name hit never consults the token-order key, so swapped-order
   homonyms are not listed), m2 (the name check accepts a name as a substring of a cited
   value) and m4 (a topic phrase such as "collaboration graphs" gives a filter that
@@ -505,6 +528,22 @@ returns `(CollaborationWorkflow, RuntimeStores)` over a hand-built run.
   PARTIALLY_SUPPORTED, not caught as wrong.
 - The planner recognises names, topics and institutions only in explicit forms
   (see [docs/runtime-workflow.md](../../docs/runtime-workflow.md)).
+- R6-1 (MAJOR, rag-engineer, review 6, model path only, open, carried to Phase 11):
+  `Verification.scala` `held` (ranking rank case, about lines 290-297) and
+  `Held.statement` (about line 118) write the rank text from the metric and window only,
+  omitting the ranking's filter and limit.
+  With a topic filter, a figure (Alice, rank, 1) is VERIFIED as "rank of Alice Arden
+  (<id>) by distinctCoauthorCount in window 2015-2026: 1.", false unfiltered.
+  Brief: add the filter text (bounded) to `label` and `about`, or refuse rank figures on
+  a filtered ranking, and add a test where the filtered rank is 1 and the global rank is
+  not.
+  It must be closed before Bedrock or the LLM is enabled.
+- R6-3 (MINOR, rag-engineer): `LlmSynthesizer.Version` is still "llm-synthesis-v1"
+  though its output schema is v2.
+- R4-1 to R4-3 and V5b-1, V5b-2 below are superseded by the v3 construction rule: free
+  text is never VERIFIED.
+  False numbers in labeled prose, summaries and notes stay visible under the label by
+  design.
 - Open after review 4 (all MAJOR, rag-engineer, model path only; `LLM_ENABLED` defaults
   to false; the human carries them forward and they must be closed before Bedrock or
   the LLM is enabled):

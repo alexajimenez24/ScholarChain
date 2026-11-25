@@ -6,15 +6,53 @@ import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.{Files, Path}
 import scala.util.Try
 
-/** One claim as a synthesizer drafts it, before verification. */
+/** One number of a claim as an explicit tuple (`answer-synthesis-v2`): the value `value` of
+  * `metric` for the researcher `researcherId` (for a publication year, the work ID), held by the
+  * cited items `evidenceIds`. The claim text holds its placeholder `{figure-N}` (N counts the
+  * claim's figures from 1); the verifier checks the tuple and renders the number from the evidence.
+  * A ranking position is the figure (researcherId, `rank`, position, the ranking's evidence ID). A
+  * model's figure is a structured claim (`claim-verifier-v3`): the only model statement that can be
+  * VERIFIED.
+  */
+final case class ClaimFigure(
+    researcherId: String,
+    metric: String,
+    value: String,
+    evidenceIds: Vector[String]
+) derives ReadWriter
+
+/** One claim as a synthesizer drafts it, before verification. Every number is a [[ClaimFigure]]
+  * whose placeholder stands in `text`.
+  */
 final case class DraftClaim(
     claimId: String,
     text: String,
     evidenceIds: Vector[String],
-    uncertainty: Option[String]
-) derives ReadWriter
+    uncertainty: Option[String],
+    figures: Vector[ClaimFigure]
+) derives ReadWriter:
+  /** The text with each placeholder replaced by the drafted (unverified) value, for the audit. */
+  def draftText: String = ClaimFigures.fill(text, i => figures.lift(i).map(_.value))
 
-/** The `answer-synthesis-v1` reply (`prompts/schemas/answer-synthesis-v1.json`). There is no field
+/** Placeholders of [[ClaimFigure]]s in claim text: `{figure-N}`, N from 1. */
+object ClaimFigures:
+  val Placeholder: scala.util.matching.Regex = "\\{figure-([0-9]{1,2})\\}".r
+  def placeholder(index: Int): String = s"{figure-${index + 1}}"
+
+  /** The zero-based figure index of every placeholder in `text`, in order. */
+  def refs(text: String): Vector[Int] =
+    Placeholder.findAllMatchIn(text).map(_.group(1).toInt - 1).toVector
+
+  /** `text` with each placeholder replaced by `value(index)`, or left as is when it is None. */
+  def fill(text: String, value: Int => Option[String]): String =
+    Placeholder.replaceAllIn(
+      text,
+      m =>
+        scala.util.matching.Regex
+          .quoteReplacement(value(m.group(1).toInt - 1).getOrElse(m.matched))
+    )
+
+/** The `answer-synthesis-v2` reply (`prompts/schemas/answer-synthesis-v2.json`). There is no field
   * for reasoning: a reply with any other key is refused.
   */
 final case class SynthesisOutput(
@@ -69,25 +107,32 @@ trait Synthesizer:
 
 // ---------------------------------------------------------------- output rules
 
-/** Validation of a model reply against `answer-synthesis-v1` (`synthesis-rules-v1`).
+/** Validation of a model reply against `answer-synthesis-v2` (`synthesis-rules-v2`).
   *
   * The reply must be exactly one JSON object (one surrounding ```json fence is tolerated), decode
   * strictly (no unknown, missing or null key), name the schema version and keep every bound of the
-  * schema file. Reasoning markup is refused. Refusal reasons are fixed texts written here, never
-  * fragments of the reply, so a retry prompt and the audit never repeat model text. Accepted text
-  * is passed through the untrusted-text sanitizer.
+  * schema file. Every figure's placeholder appears exactly once in its claim's text, every
+  * placeholder names an existing figure, and a figure cites only evidence its claim cites.
+  * Reasoning markup is refused. Refusal reasons are fixed texts written here, never fragments of
+  * the reply, so a retry prompt and the audit never repeat model text. Accepted text is passed
+  * through the untrusted-text sanitizer.
   */
 object SynthesisRules:
-  val Version = "synthesis-rules-v1"
-  val SchemaVersion = "answer-synthesis-v1"
-  val SchemaFile = "prompts/schemas/answer-synthesis-v1.json"
+  val Version = "synthesis-rules-v2"
+  val SchemaVersion = "answer-synthesis-v2"
+  val SchemaFile = "prompts/schemas/answer-synthesis-v2.json"
   val MaxSummary = 1500
   val MaxReason = 600
   val MaxClaims = 40
   val MaxClaimText = 500
   val MaxEvidencePerClaim = 12
   val MaxUncertainty = 300
+  val MaxFiguresPerClaim = 16
+  val MaxEvidencePerFigure = 4
+  val MaxFigureSubject = 200
+  val MaxFigureValue = 64
   val ClaimIdPattern = "^claim-[0-9]{1,3}$".r
+  val MetricPattern = "^[A-Za-z][A-Za-z0-9_.]{0,63}$".r
   private val Reasoning =
     "(?i)<\\s*/?\\s*(thinking|think|reasoning|scratchpad|analysis|reflection)\\b".r
 
@@ -104,7 +149,7 @@ object SynthesisRules:
         .decode[SynthesisOutput](t)
         .left
         .map(_ =>
-          "the reply is not valid answer-synthesis-v1 JSON (unknown, missing or null key, or a wrong type)"
+          "the reply is not valid answer-synthesis-v2 JSON (unknown, missing or null key, or a wrong type)"
         )
         .flatMap(check)
         .map(sanitized)
@@ -132,6 +177,27 @@ object SynthesisRules:
     then Left(s"every claim needs 1 to $MaxEvidencePerClaim well-formed evidence IDs")
     else if o.claims.exists(_.uncertainty.exists(_.length > MaxUncertainty)) then
       Left(s"uncertainty exceeds $MaxUncertainty characters")
+    else if o.claims.exists(_.figures.size > MaxFiguresPerClaim) then
+      Left(s"a claim has more than $MaxFiguresPerClaim figures")
+    else if o.claims.exists(c =>
+        c.figures.exists(f =>
+          blank(f.researcherId) || f.researcherId.length > MaxFigureSubject ||
+            !MetricPattern.matches(f.metric) || blank(f.value) || f.value.length > MaxFigureValue
+        )
+      )
+    then
+      Left(
+        s"every figure needs a researcherId of 1 to $MaxFigureSubject characters, a metric key and a value of 1 to $MaxFigureValue characters"
+      )
+    else if o.claims.exists(c =>
+        c.figures.exists(f =>
+          f.evidenceIds.isEmpty || f.evidenceIds.size > MaxEvidencePerFigure ||
+            f.evidenceIds.exists(id => !c.evidenceIds.contains(id))
+        )
+      )
+    then Left(s"every figure needs 1 to $MaxEvidencePerFigure evidence IDs that its claim cites")
+    else if o.claims.exists(c => ClaimFigures.refs(c.text).sorted != c.figures.indices.toVector)
+    then Left("every {figure-N} placeholder must name one figure of its claim, each exactly once")
     else Right(o)
 
   private def sanitized(o: SynthesisOutput): SynthesisOutput =
@@ -143,7 +209,15 @@ object SynthesisRules:
         c.copy(
           text = s(c.text),
           evidenceIds = c.evidenceIds.distinct,
-          uncertainty = c.uncertainty.map(s).filter(_.nonEmpty)
+          uncertainty = c.uncertainty.map(s).filter(_.nonEmpty),
+          figures = c.figures.map(f =>
+            f.copy(
+              researcherId = s(f.researcherId).trim,
+              metric = f.metric.trim,
+              value = s(f.value).trim,
+              evidenceIds = f.evidenceIds.distinct
+            )
+          )
         )
       )
     )
@@ -151,9 +225,11 @@ object SynthesisRules:
 // ---------------------------------------------------------------- deterministic synthesizer
 
 /** Template synthesizer (`deterministic-synthesis-v1`): every claim is rendered from evidence
-  * values only and cites the items it copies them from, so the verifier can check each value. It
-  * answers when no model is configured, when the evidence stage abstains, and as the fallback when
-  * model output stays invalid. Retrieved text never enters a claim.
+  * values only and cites the items it copies them from, so the verifier can check each value; every
+  * number is a [[ClaimFigure]] of the item and researcher (or work) it belongs to, so the verified
+  * claim text is the same text as before figures existed (the version is unchanged). It answers
+  * when no model is configured, when the evidence stage abstains, and as the fallback when model
+  * output stays invalid. Retrieved text never enters a claim.
   */
 object DeterministicSynthesizer extends Synthesizer:
   val Version = "deterministic-synthesis-v1"
@@ -197,14 +273,38 @@ object DeterministicSynthesizer extends Synthesizer:
       )
     ).flatten.mkString(" ")
 
+  /** The figures of one claim under construction: each call records a [[ClaimFigure]] for one
+    * evidence item and returns its placeholder.
+    */
+  private final class Figures:
+    private val xs = Vector.newBuilder[ClaimFigure]
+    private var n = 0
+    def apply(x: EvidenceItem, subject: String, metric: String, value: String): String =
+      xs += ClaimFigure(subject, metric, value, Vector(x.evidenceId))
+      n += 1
+      ClaimFigures.placeholder(n - 1)
+    def of(x: EvidenceItem, subject: String, key: String): String =
+      apply(x, subject, key, x.values.getOrElse(key, ""))
+    def result: Vector[ClaimFigure] = xs.result()
+
+  private final case class Drafted(text: String, ids: Vector[String], figures: Vector[ClaimFigure])
+
   def draft(e: EvidenceStageResult): SynthesisOutput =
     val b = e.bundle
     val ops = e.plan.operations.toSet
     val det = b.deterministic
-    val claims = Vector.newBuilder[(String, Vector[String])]
-    def add(text: String, ids: Vector[String]): Unit =
+    val claims = Vector.newBuilder[Drafted]
+    def template(build: Figures => String): (String, Vector[ClaimFigure]) =
+      val f = new Figures
+      val t = build(f)
+      (t, f.result)
+    // The template (with placeholders) is what the output rules bound.
+    def size(build: Figures => String): Int = template(build)._1.length
+    def add(ids: Vector[String])(build: Figures => String): Unit =
+      val (text, figures) = template(build)
       if text.length <= SynthesisRules.MaxClaimText then
-        claims += text -> ids.distinct.take(SynthesisRules.MaxEvidencePerClaim)
+        val cited = (ids ++ figures.flatMap(_.evidenceIds)).distinct
+        claims += Drafted(text, cited.take(SynthesisRules.MaxEvidencePerClaim), figures)
     def v(x: EvidenceItem, k: String) = x.values.getOrElse(k, "")
     def kind(k: String) = det.filter(_.values.get("kind").contains(k))
     def of(t: EvidenceType) = det.filter(_.evidenceType == t)
@@ -217,6 +317,11 @@ object DeterministicSynthesizer extends Synthesizer:
       metricsById.get(id).flatten.map(v(_, "displayName")).filter(_.nonEmpty).getOrElse(id)
     def found(x: EvidenceItem) = x.values.get("found").contains("true")
     val pubs = of(EvidenceType.PUBLICATION).flatMap(p => p.workId.map(_ -> p)).toMap
+    // A publication's title and, when stored, its year (a figure of the work).
+    def publication(f: Figures, p: EvidenceItem): String =
+      val year = v(p, "year")
+      val title = "\"" + v(p, "title") + "\""
+      p.workId.filter(_ => year.trim.nonEmpty).fold(title)(w => s"$title (${f.of(p, w, "year")})")
 
     e.abstention match
       case Some(reason) =>
@@ -225,9 +330,10 @@ object DeterministicSynthesizer extends Synthesizer:
             case "AMBIGUOUS" => "is ambiguous: candidate"
             case "RESOLVED"  => "resolved to"
             case _           => "matched"
-          add(
-            s"'${v(i, "query")}' $what ${v(i, "displayName")} (${i.researcherIds.head}) with identity confidence ${v(i, "identityConfidence")} and ${v(i, "mentionCount")} source mentions.",
-            Vector(i.evidenceId)
+          val id = i.researcherIds.head
+          add(Vector(i.evidenceId))(f =>
+            s"'${v(i, "query")}' $what ${v(i, "displayName")} ($id) with identity confidence ${f
+                .of(i, id, "identityConfidence")} and ${f.of(i, id, "mentionCount")} source mentions."
           )
         }
         // The candidate claims say why the answer abstains; they cite only identity evidence.
@@ -256,23 +362,25 @@ object DeterministicSynthesizer extends Synthesizer:
           }
           val head =
             s"Ranked by ${metric.fold(v(r, "metric"))(label)} in window ${v(r, "window")}$filterText: "
+          def text(f: Figures, ps: Vector[(String, String, String)]) =
+            head + ps
+              .map((k, id, value) =>
+                s"${f(r, id, "rank", k)}. ${nameOf(id)} (${f(r, id, v(r, "metric"), value)})"
+              )
+              .mkString(", ")
           var chunk = Vector.empty[(String, String, String)]
           def flush(): Unit =
             if chunk.nonEmpty then
+              val ps = chunk
               add(
-                head + chunk
-                  .map((k, id, value) => s"$k. ${nameOf(id)} ($value)")
-                  .mkString(", ") + ".",
-                r.evidenceId +: chunk.flatMap((_, id, _) =>
+                r.evidenceId +: ps.flatMap((_, id, _) =>
                   metricsById.get(id).flatten.map(_.evidenceId)
                 )
-              )
+              )(f => text(f, ps) + ".")
               chunk = Vector.empty
           positions.foreach { p =>
             val next = chunk :+ p
-            val text =
-              head + next.map((k, id, value) => s"$k. ${nameOf(id)} ($value)").mkString(", ")
-            if text.length > SynthesisRules.MaxClaimText - 5 || next.size > 8 then
+            if size(text(_, next)) > SynthesisRules.MaxClaimText - 5 || next.size > 8 then
               flush()
               chunk = Vector(p)
             else chunk = next
@@ -281,17 +389,21 @@ object DeterministicSynthesizer extends Synthesizer:
         }
         // Paths and their hops.
         of(EvidenceType.GRAPH_PATH).foreach { p =>
+          val from = v(p, "from")
           if found(p) then
             val hops = v(p, "hopEvidenceIds").split(';').toVector.filter(_.nonEmpty)
-            add(
-              s"A shortest coauthorship path in window ${v(p, "window")} has ${v(p, "hops")} hops: ${v(p, "researcherNames")}.",
-              p.evidenceId +: hops
+            add(p.evidenceId +: hops)(f =>
+              s"A shortest coauthorship path in window ${v(p, "window")} has ${f.of(p, from, "hops")} hops: ${v(p, "researcherNames")}."
             )
-            hops.flatMap(b.byId.get).foreach(h => add(hopText(h, pubs), hopIds(h, pubs)))
+            hops.flatMap(b.byId.get).foreach { h =>
+              val pub = v(h, "supportingWorkIds").split(';').headOption.flatMap(pubs.get)
+              add(h.evidenceId +: pub.map(_.evidenceId).toVector)(f =>
+                s"${coauthored(f, h)}${pub.fold("")(x => s", including ${publication(f, x)}")}."
+              )
+            }
           else
-            add(
-              s"No coauthorship path of at most ${v(p, "maxDepth")} hops connects ${v(p, "fromName")} and ${v(p, "toName")} in window ${v(p, "window")}.",
-              Vector(p.evidenceId)
+            add(Vector(p.evidenceId))(f =>
+              s"No coauthorship path of at most ${f.of(p, from, "maxDepth")} hops connects ${v(p, "fromName")} and ${v(p, "toName")} in window ${v(p, "window")}."
             )
         }
         // Direct collaboration of the named researchers.
@@ -302,28 +414,25 @@ object DeterministicSynthesizer extends Synthesizer:
             .when(named.size >= 2)(Ids.orderedPair(named(0), named(1)))
             .flatMap((x, y) => edges.find(_.researcherIds == Vector(x, y)))
           pair.foreach { x =>
+            val a = v(x, "researcherA")
             if found(x) then
-              add(
-                s"${v(x, "nameA")} and ${v(x, "nameB")} are direct coauthors in window ${v(x, "window")}, with ${v(x, "jointPublicationCount")} joint publications, first in ${v(x, "firstCollaborationYear")} and last in ${v(x, "lastCollaborationYear")}.",
-                Vector(x.evidenceId)
+              add(Vector(x.evidenceId))(f =>
+                s"${v(x, "nameA")} and ${v(x, "nameB")} are direct coauthors in window ${v(x, "window")}, with ${f
+                    .of(x, a, "jointPublicationCount")} joint publications, first in ${f
+                    .of(x, a, "firstCollaborationYear")} and last in ${f.of(x, a, "lastCollaborationYear")}."
               )
               // The edge's supporting publications, packed into claims that cite edge and works.
               val support = v(x, "supportingWorkIds").split(';').toVector.flatMap(pubs.get)
               val head =
                 s"Publications supporting the coauthor edge of ${v(x, "nameA")} and ${v(x, "nameB")} in window ${v(x, "window")}: "
-              def item(p: EvidenceItem) = "\"" + v(p, "title") + "\" (" + v(p, "year") + ")"
+              def text(f: Figures, ps: Vector[EvidenceItem]) =
+                head + ps.map(publication(f, _)).mkString("; ") + "."
               def emit(ps: Vector[EvidenceItem]) =
-                if ps.nonEmpty then
-                  add(
-                    head + ps.map(item).mkString("; ") + ".",
-                    x.evidenceId +: ps.map(_.evidenceId)
-                  )
+                if ps.nonEmpty then add(x.evidenceId +: ps.map(_.evidenceId))(text(_, ps))
               var chunk = Vector.empty[EvidenceItem]
               support.foreach { p =>
                 val next = chunk :+ p
-                if (head + next
-                    .map(item)
-                    .mkString("; ") + ".").length > SynthesisRules.MaxClaimText ||
+                if size(text(_, next)) > SynthesisRules.MaxClaimText ||
                   next.size >= SynthesisRules.MaxEvidencePerClaim
                 then
                   emit(chunk)
@@ -332,9 +441,8 @@ object DeterministicSynthesizer extends Synthesizer:
               }
               emit(chunk)
             else
-              add(
-                s"${v(x, "nameA")} and ${v(x, "nameB")} have no direct coauthor edge in window ${v(x, "window")}.",
-                Vector(x.evidenceId)
+              add(Vector(x.evidenceId))(_ =>
+                s"${v(x, "nameA")} and ${v(x, "nameB")} have no direct coauthor edge in window ${v(x, "window")}."
               )
           }
           named.take(2).foreach { id =>
@@ -343,25 +451,32 @@ object DeterministicSynthesizer extends Synthesizer:
               .sortBy(x => (-BigDecimal(v(x, "jointPublicationCount")), other(x, id)))
             val head =
               s"Direct coauthors of ${nameOf(id)} in window ${e.window.label} by joint publications: "
-            def item(x: EvidenceItem) =
-              val o = other(x, id)
-              val n = if v(x, "researcherA") == o then v(x, "nameA") else v(x, "nameB")
-              s"$n (${v(x, "jointPublicationCount")})"
+            def text(f: Figures, xs: Vector[EvidenceItem]) =
+              head + xs
+                .map { x =>
+                  val o = other(x, id)
+                  val n = if v(x, "researcherA") == o then v(x, "nameA") else v(x, "nameB")
+                  s"$n (${f.of(x, id, "jointPublicationCount")})"
+                }
+                .mkString(", ")
             var taken = Vector.empty[EvidenceItem]
             list.foreach { x =>
-              if taken.size < 8 && (head + (taken :+ x).map(item).mkString(", ")).length < 490 then
-                taken :+= x
+              if taken.size < 8 && size(text(_, taken :+ x)) < 490 then taken :+= x
             }
             if taken.nonEmpty then
-              add(head + taken.map(item).mkString(", ") + ".", taken.map(_.evidenceId))
+              val xs = taken
+              add(xs.map(_.evidenceId))(f => text(f, xs) + ".")
           }
         // Per-researcher measures, in bundle order (named, ranked, temporal).
         kind("researcher-metrics").foreach { m =>
           val name = v(m, "displayName")
           val w = v(m, "window")
-          add(
-            s"$name has ${v(m, "distinctCoauthorCount")} distinct coauthors (collaboration breadth) across ${v(m, "publicationCount")} publications in window $w, with weighted degree ${v(m, "weightedDegree")} (repeated-collaboration intensity) and ${v(m, "totalCoauthorOccurrences")} coauthor occurrences.",
-            Vector(m.evidenceId)
+          val id = m.researcherIds.head
+          add(Vector(m.evidenceId))(f =>
+            s"$name has ${f.of(m, id, "distinctCoauthorCount")} distinct coauthors (collaboration breadth) across ${f
+                .of(m, id, "publicationCount")} publications in window $w, with weighted degree ${f
+                .of(m, id, "weightedDegree")} (repeated-collaboration intensity) and ${f
+                .of(m, id, "totalCoauthorOccurrences")} coauthor occurrences."
           )
           val teamMetric = Set(
             CollaborationMetric.MAXIMUM_COAUTHORS_ON_ONE_PAPER,
@@ -372,22 +487,27 @@ object DeterministicSynthesizer extends Synthesizer:
             val titles =
               if team.isEmpty then ""
               else " (" + team.take(2).map(p => "\"" + v(p, "title") + "\"").mkString(", ") + ")"
-            add(
-              s"$name's largest author team in window $w had ${v(m, "maximumCoauthorsOnOnePaper")} coauthors on one paper$titles; the average is ${v(m, "averageCoauthorsPerPaper")} coauthors per paper.",
-              m.evidenceId +: team.take(2).map(_.evidenceId)
+            add(m.evidenceId +: team.take(2).map(_.evidenceId))(f =>
+              s"$name's largest author team in window $w had ${f
+                  .of(m, id, "maximumCoauthorsOnOnePaper")} coauthors on one paper$titles; the average is ${f
+                  .of(m, id, "averageCoauthorsPerPaper")} coauthors per paper."
             )
           if ops(BRIDGE_RANKING) || ops(COMMUNITY_COMPARISON) then
             if m.values.contains("bridgeScore") then
-              add(
-                s"$name's bridge importance in window $w: bridge score ${v(m, "bridgeScore")} (sampled betweenness), participation coefficient ${v(m, "participationCoefficient")}, ${v(m, "crossCommunityDegree")} cross-community coauthors, touching ${v(m, "communitiesConnected")} communities, its own included.",
-                Vector(m.evidenceId)
+              add(Vector(m.evidenceId))(f =>
+                s"$name's bridge importance in window $w: bridge score ${f
+                    .of(m, id, "bridgeScore")} (sampled betweenness), participation coefficient ${f
+                    .of(m, id, "participationCoefficient")}, ${f.of(m, id, "crossCommunityDegree")} cross-community coauthors, touching ${f
+                    .of(m, id, "communitiesConnected")} communities, its own included."
               )
-            else add(s"$name has no stored bridge score in window $w.", Vector(m.evidenceId))
+            else add(Vector(m.evidenceId))(_ => s"$name has no stored bridge score in window $w.")
           if ops(COMPONENT_LOOKUP) || e.plan.rankingMetric == CollaborationMetric.CORENESS then
-            val core = m.values.get("coreness").fold("")(c => s", with coreness $c")
-            add(
-              s"$name is in connected component ${v(m, "componentId")} of ${v(m, "componentSize")} researchers in window $w$core.",
-              Vector(m.evidenceId)
+            add(Vector(m.evidenceId))(f =>
+              val core =
+                if m.values.contains("coreness") then s", with coreness ${f.of(m, id, "coreness")}"
+                else ""
+              s"$name is in connected component ${v(m, "componentId")} of ${f
+                  .of(m, id, "componentSize")} researchers in window $w$core."
             )
         }
         // Communities: membership and cross-community links.
@@ -395,17 +515,17 @@ object DeterministicSynthesizer extends Synthesizer:
           val near = v(c, "neighbouringCommunitiesOnRetrievedEdges").split(';').filter(_.nonEmpty)
           val community = v(c, "communityId")
           if community.nonEmpty then
-            add(
+            add(Vector(c.evidenceId))(_ =>
               s"${v(c, "displayName")} is in community $community (weighted label propagation) in window ${v(c, "window")}; neighbouring communities on the retrieved coauthor edges: ${
                   if near.isEmpty then "none" else near.mkString(", ")
-                }.",
-              Vector(c.evidenceId)
+                }."
             )
         }
         kind("cross-community-link").foreach { x =>
-          add(
-            s"${nameOf(v(x, "researcherId"))}'s coauthor ${v(x, "coauthorName")} is in another community (${v(x, "otherCommunityId")}, not ${v(x, "ownCommunityId")}); joint publications in window ${v(x, "window")}: ${v(x, "jointPublicationCount")}.",
-            Vector(x.evidenceId) ++ x.values.get("edgeEvidenceId").filter(b.byId.contains)
+          val id = v(x, "researcherId")
+          add(Vector(x.evidenceId) ++ x.values.get("edgeEvidenceId").filter(b.byId.contains))(f =>
+            s"${nameOf(id)}'s coauthor ${v(x, "coauthorName")} is in another community (${v(x, "otherCommunityId")}, not ${v(x, "ownCommunityId")}); joint publications in window ${v(x, "window")}: ${f
+                .of(x, id, "jointPublicationCount")}."
           )
         }
         val structural = claims.result()
@@ -414,8 +534,10 @@ object DeterministicSynthesizer extends Synthesizer:
           if structural.nonEmpty then Vector.empty
           else
             b.semantic.take(3).map { s =>
-              s"Descriptive context (untrusted retrieved text) from the ${v(s, "documentType")} index about ${v(s, "entityId")}; it supports no graph value." -> Vector(
-                s.evidenceId
+              Drafted(
+                s"Descriptive context (untrusted retrieved text) from the ${v(s, "documentType")} index about ${v(s, "entityId")}; it supports no graph value.",
+                Vector(s.evidenceId),
+                Vector.empty
               )
             }
         val all = number(structural ++ descriptive)
@@ -441,35 +563,25 @@ object DeterministicSynthesizer extends Synthesizer:
           all
         )
 
-  private def number(cs: Vector[(String, Vector[String])]): Vector[DraftClaim] =
-    cs.take(SynthesisRules.MaxClaims).zipWithIndex.map { case ((t, ids), i) =>
-      DraftClaim(s"claim-${i + 1}", t, ids, None)
+  private def number(cs: Vector[Drafted]): Vector[DraftClaim] =
+    cs.take(SynthesisRules.MaxClaims).zipWithIndex.map { (d, i) =>
+      DraftClaim(s"claim-${i + 1}", d.text, d.ids, None, d.figures)
     }
 
   private def other(x: EvidenceItem, id: String): String =
     if x.values.get("researcherA").contains(id) then x.values.getOrElse("researcherB", "")
     else x.values.getOrElse("researcherA", "")
 
-  private def hopText(h: EvidenceItem, pubs: Map[String, EvidenceItem]): String =
+  /** A hop's joint publications and years, as figures of the edge for its first endpoint. */
+  private def coauthored(f: Figures, h: EvidenceItem): String =
     def v(k: String) = h.values.getOrElse(k, "")
-    val pub = v("supportingWorkIds").split(';').headOption.flatMap(pubs.get)
-    s"${v("nameA")} and ${v("nameB")} coauthored ${v("jointPublicationCount")} joint publications in window ${v("window")}, first in ${v("firstCollaborationYear")} and last in ${v("lastCollaborationYear")}${pub
-        .fold("")(p =>
-          s", including \"${p.values.getOrElse("title", "")}\" (${p.values.getOrElse("year", "")})"
-        )}."
-
-  private def hopIds(h: EvidenceItem, pubs: Map[String, EvidenceItem]): Vector[String] =
-    h.evidenceId +: h.values
-      .getOrElse("supportingWorkIds", "")
-      .split(';')
-      .headOption
-      .flatMap(pubs.get)
-      .map(_.evidenceId)
-      .toVector
+    val a = v("researcherA")
+    s"${v("nameA")} and ${v("nameB")} coauthored ${f.of(h, a, "jointPublicationCount")} joint publications in window ${v("window")}, first in ${f
+        .of(h, a, "firstCollaborationYear")} and last in ${f.of(h, a, "lastCollaborationYear")}"
 
 // ---------------------------------------------------------------- prompt and context
 
-/** The versioned synthesis prompt (`prompts/runtime/answer-synthesis-v1.md`). Its first line names
+/** The versioned synthesis prompt (`prompts/runtime/answer-synthesis-v2.md`). Its first line names
   * the version; its placeholders are exactly [[SynthesisPrompt.Placeholders]]; `sha256` is of the
   * file text and is recorded in the audit with the version.
   */
@@ -482,8 +594,8 @@ final case class SynthesisPrompt(version: String, template: String, sha256: Stri
     )
 
 object SynthesisPrompt:
-  val Version = "answer-synthesis-v1"
-  val File = "prompts/runtime/answer-synthesis-v1.md"
+  val Version = "answer-synthesis-v2"
+  val File = "prompts/runtime/answer-synthesis-v2.md"
   val Placeholders: Set[String] = Set("BOUNDARY", "REQUEST", "NOTES", "EVIDENCE", "FEEDBACK")
   private val Placeholder = "\\{\\{([A-Z]+)\\}\\}".r
 
@@ -697,7 +809,7 @@ final class LlmSynthesizer(
                   )
                   loop(
                     n + 1,
-                    s"Your previous reply was refused: $reason. Reply again with exactly one JSON object that matches answer-synthesis-v1."
+                    s"Your previous reply was refused: $reason. Reply again with exactly one JSON object that matches answer-synthesis-v2."
                   )
                 case Right(o) if o.abstain && e.bundle.deterministic.nonEmpty =>
                   attempts += SynthesisAttempt(
