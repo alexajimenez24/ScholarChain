@@ -260,6 +260,20 @@ object QueryService:
 
   private def js[A: upickle.default.Writer](a: A): ujson.Value = upickle.default.writeJs(a)
 
+  /** The fixed category of a synthesis fallback. The audit's text is only matched, never returned;
+    * a text this list does not know is `other`.
+    */
+  def fallbackCategory(reason: String): String =
+    FallbackCategories.collectFirst { case (p, c) if reason.startsWith(p) => c }.getOrElse("other")
+
+  private val FallbackCategories = Vector(
+    "the evidence stage abstained" -> "evidence-abstained",
+    "model call failed" -> "model-call-failed",
+    "model output refused" -> "model-output-refused",
+    "output token budget" -> "token-budget-exhausted",
+    "the model abstained" -> "model-abstained"
+  )
+
   def explainView(a: AuditRecord, bundle: Option[EvidenceBundle]): ujson.Obj =
     val items = bundle.fold(Vector.empty[EvidenceItem])(_.all)
     ujson.Obj(
@@ -299,8 +313,11 @@ object QueryService:
           )
         )
       ),
-      "synthesisAttempts" -> js(a.synthesisAttempts),
-      "synthesisFallback" -> js(a.synthesisFallback),
+      // An attempt's reason and the fallback text can quote a downstream error, so neither leaves.
+      "synthesisAttempts" -> ujson.Arr.from(
+        a.synthesisAttempts.map(t => ujson.Obj("attempt" -> t.attempt, "status" -> t.status))
+      ),
+      "synthesisFallback" -> js(a.synthesisFallback.map(fallbackCategory)),
       "claims" -> ujson.Obj(
         "checks" -> ujson.Arr.from(
           a.claimChecks.map(c =>

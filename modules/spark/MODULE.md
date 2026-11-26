@@ -31,7 +31,13 @@ the reject mapping `SparkPipeline.coreReject`.
 - Arguments and inputs: `SparkArgs.parse`, `SparkArgs.Usage`, `Upstream.locate`,
   `Inputs` (JSON-lines reader with counted rejects) and `Schemas` (explicit read schemas).
 - Run manifest: `SparkRunManifest.build`, `SparkRunManifest.runId` and
-  `SparkRunManifest.LogicVersion` ("spark-v2"; it was "spark-v1" before repair R1-1).
+  `SparkRunManifest.LogicVersion` ("spark-v5" since Phase 11; earlier versions are in the
+  sections below).
+- Upstream pins (Phase 11, C20): `SparkRunManifest`'s `Upstream.HadoopPipelines` accepts
+  `hadoop-v2` and `hadoop-v3`.
+- Phase 11 (C12, C14): `Canonical.constrainedClusters` takes `maxClusterLinks: Int`
+  after the maximum-iterations argument; new `Export.CommunitiesJson`; `dynamodb.json`
+  has a new top-level `communities` block (details under "Phase 11 additions").
 - Identity (job 1, repair R1-1): `Canonical.build(src, run, identityPolicy)` takes the ER
   policy version, `Canonical.constrainedClusters`, `Canonical.Clusters`,
   `Canonical.ContradictingOutcomes`, `IdentityCut.cut` (pure step) and
@@ -152,6 +158,33 @@ Run details: [docs/spark-jobs.md](../../docs/spark-jobs.md).
 - `neptune.json` lists every coauthor window.
 - The path-evidence table holds requested pairs even when none is found.
 
+### Phase 11 additions
+
+Sources, in `docs/agent-runs/phase-11/`: `repair-01-spark-engineer.md`,
+`repair-01-spark-engineer-c20.md` and `test-report-03.md`.
+
+- Logic version `spark-v5`, so new run IDs change; the config's new bound field is also
+  in the run manifest.
+- C12: the bound is inclusive.
+  All accepted links of an over-bound contradicted cluster are refused (under-merge is
+  preferred to over-merge, and the job does not fail), counted before any
+  `collect_list`; members keep their own ID and are flagged `identityConflict`.
+  Uncontradicted clusters are not limited.
+  New report keys per prefix (researcher, work): `<p>CutMaxClusterLinks`,
+  `<p>LargestContradictedClusterLinks`, `<p>ClustersOverCutBound` and
+  `<p>DecisionLinksRefusedOverCutBound` (also counted in
+  `<p>DecisionLinksRefusedByCut`).
+  They are counters, not invariants, so they never cause exit 3.
+- C14: `communities` is also written as JSON lines under
+  `<run>/jsonl/communities/windowLabel=<w>/recordKind=<kind>/`.
+  Each line is a core `EvidenceItem` plus the extra fields `windowLabel` and
+  `recordKind`; the kinds are `community` and `cross_community_edge`.
+  It is listed in `s3.json` and in the `communities` block of `dynamodb.json`, which has
+  no `tableConfigKey`.
+- C20: Hadoop `hadoop-v2` and `hadoop-v3` manifests are accepted.
+- Spark module-unit tests in the full `sbt check`: 48 passed.
+- No local pipeline run, cloud run or Hadoop v3 to Spark run was made.
+
 ## Not done
 
 - The bounded EMR Spark run: NOT RUN.
@@ -201,9 +234,9 @@ Run details: [docs/spark-jobs.md](../../docs/spark-jobs.md).
   The hadoop and entityResolution jars keep scala-library bundled.
 - Identity cut (MAJOR-1 repair): it is greedy, not optimal, so with several
   contradictions it can refuse more links than a minimum cut would.
-  There is no config bound on the size of a contradicted cluster: its links sit in one row
-  on one executor, so memory grows with the largest one.
-  A field from domain-engineer is needed before a full-DBLP run.
+  The missing config bound on a contradicted cluster is closed in Phase 11 (C12):
+  `graph.identityCutMaxClusterLinks` bounds it, and an over-bound cluster is refused (see
+  "Phase 11 additions").
   Policy (a) was routed by the orchestrator and the human may overrule it at the gate.
 - The convergence flags `componentsConverged`, `corenessConverged` and
   `<kind>ClusterConverged` were replaced by the invariant keys above; no reader of the old
@@ -229,6 +262,17 @@ Run details: [docs/spark-jobs.md](../../docs/spark-jobs.md).
   `score` is 0.0 at export.
 - The black-box test classpath has no fork or module opens for a local SparkSession
   (Phase 02 MINOR-A, build-engineer); slf4j-api is bundled in the job jars (N-c).
+
+### Phase 11 known issues
+
+- The EMR run must check `researcherClustersOverCutBound` and the work counterpart for a
+  nonzero value; a refused cluster splits into singletons.
+- Within-bound clusters still collect their in-cluster contradiction list without a
+  bound.
+- `PipelineSuite` has no `cross_community_edge` rows (only `ExportSuite` covers them),
+  and its fixtures still use `hadoop-v2`.
+- No cross-stage test runs real Spark communities output through the storage loader and
+  the rag reader.
 
 ### Phase 08 known issues
 

@@ -78,7 +78,8 @@
     "betweennessSampleSources": 16,
     "betweennessSeed": 441,
     "kcoreMaxK": 64,
-    "pathMaxDepth": 6
+    "pathMaxDepth": 6,
+    "identityCutMaxClusterLinks": 100000
   },
   "retrieval": {
     "graphLimit": 100,

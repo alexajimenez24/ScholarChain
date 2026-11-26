@@ -89,7 +89,14 @@ private def keyPart(label: String, v: String): Either[KvError, String] =
 enum LedgerStatus derives ReadWriter:
   case Started, Succeeded, Failed
 
-/** The state of one stage of one run. */
+/** A report a stage recorded earlier, replaced by a later replay's report. */
+final case class PriorOutput(attempt: Int, uri: String, sha256: String, recordedAt: String)
+    derives ReadWriter
+
+/** The state of one stage of one run. `outputUri` and `outputSha256` name the latest report;
+  * `priorOutputs` (oldest first, empty for most stages and then absent from the stored JSON) keeps
+  * the ones a later replay replaced.
+  */
 final case class LedgerEntry(
     runId: String,
     stage: String,
@@ -99,7 +106,8 @@ final case class LedgerEntry(
     outputUri: Option[String],
     outputSha256: Option[String],
     error: Option[String],
-    updatedAt: String
+    updatedAt: String,
+    priorOutputs: Vector[PriorOutput] = Vector.empty
 ) derives ReadWriter
 
 /** One failed subject (a rejected vector key, a bad file) with its retry count. */
@@ -195,6 +203,31 @@ final class RunLedger(kv: KeyValueStore, table: String, clock: Clock = Clock.sys
       cur,
       Set(LedgerStatus.Started),
       cur.value.copy(status = LedgerStatus.Failed, error = Some(error.take(500)), updatedAt = stamp)
+    )
+
+  /** A replay of a `Succeeded` stage produced another report: the stage stays `Succeeded`, one
+    * attempt higher, and names the new report; the replaced one moves to `priorOutputs`. The write
+    * is version-guarded, so a concurrent change is a `ConditionFailed`, never a lost report. The
+    * history is bounded only by the 400 KB item limit, beyond which the write is refused.
+    */
+  def recordReport(
+      cur: Versioned[LedgerEntry],
+      outputUri: String,
+      outputSha256: String
+  ): Either[KvError, Versioned[LedgerEntry]] =
+    val e = cur.value
+    val replaced = for u <- e.outputUri; h <- e.outputSha256
+    yield PriorOutput(e.attempt, u, h, e.updatedAt)
+    move(
+      cur,
+      Set(LedgerStatus.Succeeded),
+      e.copy(
+        attempt = e.attempt + 1,
+        outputUri = Some(outputUri),
+        outputSha256 = Some(outputSha256),
+        updatedAt = stamp,
+        priorOutputs = e.priorOutputs ++ replaced
+      )
     )
 
   /** Failed to Started again, one attempt higher. */

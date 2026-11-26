@@ -313,6 +313,18 @@ class CanonicalSuite extends munit.FunSuite:
       ),
       (7L, 1L, 1L, 5L, 1L)
     )
+    // C12 through Canonical.build: the configured bound is read; the one contradicted cluster
+    // (4 links) is far below it.
+    assertEquals(
+      (
+        n("researcherCutMaxClusterLinks"),
+        n("researcherLargestContradictedClusterLinks"),
+        n("researcherClustersOverCutBound"),
+        n("researcherDecisionLinksRefusedOverCutBound"),
+        n("workClustersOverCutBound")
+      ),
+      (graphConfig.identityCutMaxClusterLinks.toLong, 4L, 0L, 0L, 0L)
+    )
     // Per outcome: (decisions, in one cluster before the cut, kept apart, merged after the cut).
     def outcome(o: String) = (
       n(s"researcherContradictions_$o"),
@@ -388,6 +400,8 @@ class CanonicalSuite extends munit.FunSuite:
         Row("m:c1", "m:c3", "CONFLICT")
       )
     )
+    // K1, K2 and K3 hold exactly 3 accepted links each: a bound of 3 is exactly at the bound for
+    // all three, so they are cut as without a bound (C12, inclusive bound).
     def clustersWith(maxIterations: Int) =
       val report = ujson.Obj()
       val c = Canonical.constrainedClusters(
@@ -396,12 +410,21 @@ class CanonicalSuite extends munit.FunSuite:
         contra,
         Some("orcid:" -> "Orcids"),
         maxIterations,
+        3,
         report,
         "t"
       )
       (c, report)
     val (c, report) = clustersWith(graphConfig.componentMaxIterations)
     def r(k: String) = report(k).num.toLong
+    assertEquals(
+      (
+        r("tLargestContradictedClusterLinks"),
+        r("tClustersOverCutBound"),
+        r("tDecisionLinksRefusedOverCutBound")
+      ),
+      (3L, 0L, 0L)
+    )
     val label = asMap(c.labels, "id", "label")
     def members(l: String) = label.collect { case (id, x) if x == l => id }.toSet
     assertEquals(members("m:h"), Set("m:h", "m:k", "m:q"))
@@ -463,6 +486,146 @@ class CanonicalSuite extends munit.FunSuite:
     // MINOR-1: the identity clustering cut off below its diameter is an invariant failure.
     val (_, cutOff) = clustersWith(1)
     assertEquals(cutOff("invariant_tClusterNotConverged").num.toLong, 1L)
+  }
+
+  test("C12 cluster bound: at the bound the cut runs as now; bound+1 refuses every link, counted") {
+    // Known graph (confidence on each link):
+    //   K1  p -0.925- h -1.0- q,  k -0.5- h                    3 links, UNRESOLVED p-q
+    //   K5  e1 -0.9- e2 -0.8- e3 -0.7- e4 -0.6- e5             4 links, CONFLICT e1-e5
+    //   K3  orcid:A -0.99- o1 -0.95- o2 -0.9- o3 -0.85- orcid:B 4 links, two ORCID iDs
+    //   K4  u0 -0.6- u1, u2, u3, u4 (a star)                    4 links, no contradiction
+    // Bound 3: K1 holds exactly 3 links and is cut as now ({h,k,q}, {p}); K5 and K3 hold 4 = bound+1,
+    // so all 8 of their links are refused and their 10 members stay singletons; K4 is not
+    // contradicted and is not limited. Bound 4: every contradicted cluster is at the bound and is
+    // cut: K5 refuses e4-e5 (the weakest on the path e1..e5), K3 refuses o3-orcid:B.
+    val ids = Seq("m:p", "m:h", "m:q", "m:k") ++ (1 to 5).map(i => s"m:e$i") ++
+      Seq("m:o1", "m:o2", "m:o3", "orcid:A", "orcid:B") ++ (0 to 4).map(i => s"m:u$i")
+    val linkSchema = StructType(
+      Seq("a", "b").map(StructField(_, StringType)) :+ StructField("confidence", DoubleType)
+    )
+    def ordered(x: String, y: String) = if x < y then (x, y) else (y, x)
+    val links = frame(
+      linkSchema,
+      (Seq(
+        ("m:p", "m:h", 0.925),
+        ("m:h", "m:q", 1.0),
+        ("m:k", "m:h", 0.5),
+        ("m:e1", "m:e2", 0.9),
+        ("m:e2", "m:e3", 0.8),
+        ("m:e3", "m:e4", 0.7),
+        ("m:e4", "m:e5", 0.6),
+        ("orcid:A", "m:o1", 0.99),
+        ("m:o1", "m:o2", 0.95),
+        ("m:o2", "m:o3", 0.9),
+        ("m:o3", "orcid:B", 0.85)
+      ) ++ (1 to 4).map(i => ("m:u0", s"m:u$i", 0.6))).map { (x, y, c) =>
+        val (a, b) = ordered(x, y)
+        Row(a, b, c)
+      }
+    )
+    val contra = frame(
+      StructType(Seq("x", "y", "outcome").map(StructField(_, StringType))),
+      Seq(Row("m:p", "m:q", "UNRESOLVED"), Row("m:e1", "m:e5", "CONFLICT"))
+    )
+    def clustersWith(bound: Int) =
+      val report = ujson.Obj()
+      val c = Canonical.constrainedClusters(
+        nodes(ids*),
+        links,
+        contra,
+        Some("orcid:" -> "Orcids"),
+        graphConfig.componentMaxIterations,
+        bound,
+        report,
+        "t"
+      )
+      (c, report)
+    def groups(c: Canonical.Clusters): Set[Set[String]] =
+      asMap(c.labels, "id", "label").toSeq.groupBy(_._2).values.map(_.map(_._1).toSet).toSet
+    def applied(c: Canonical.Clusters) =
+      c.applied.collect().map(x => x.getString(0) -> x.getString(1)).toSet
+    val star = (1 to 4).map(i => "m:u0" -> s"m:u$i").toSet
+    val uStar = (0 to 4).map(i => s"m:u$i").toSet
+    val e = (1 to 5).map(i => s"m:e$i")
+    val o = Seq("m:o1", "m:o2", "m:o3", "orcid:A", "orcid:B")
+    def invariantsZero(r: ujson.Obj) =
+      for k <- Seq(
+          "invariant_tContradictionsMerged_UNRESOLVED",
+          "invariant_tContradictionsMerged_CONFLICT",
+          "invariant_tContradictionsMerged_REJECTED",
+          "invariant_tClustersWithSeveralOrcids",
+          "invariant_tClusterNotConverged"
+        )
+      do assertEquals(r(k).num.toLong, 0L, k)
+
+    // Bound 3: K1 at the bound, K5 and K3 at bound+1.
+    val (c3, r3) = clustersWith(3)
+    def n3(k: String) = r3(k).num.toLong
+    assertEquals(
+      groups(c3),
+      Set(Set("m:h", "m:k", "m:q"), Set("m:p"), uStar) ++ (e ++ o).map(Set(_)),
+      "over-bound members stay apart; K4 (uncontradicted) is not limited"
+    )
+    assertEquals(applied(c3), Set("m:h" -> "m:q", "m:h" -> "m:k") ++ star)
+    assertEquals(
+      c3.cut.collect().map(_.getString(0)).toSet,
+      Set("m:h", "m:p") ++ e ++ o,
+      "every member of an over-bound cluster is touched by a refused link"
+    )
+    assertEquals(
+      (
+        n3("tCutMaxClusterLinks"),
+        n3("tLargestContradictedClusterLinks"),
+        n3("tClustersCut"),
+        n3("tClustersOverCutBound"),
+        n3("tDecisionLinksRefusedOverCutBound")
+      ),
+      (3L, 4L, 3L, 2L, 8L)
+    )
+    assertEquals(
+      (
+        n3("tDecisionLinksAccepted"),
+        n3("tDecisionLinksRefusedByCut"),
+        n3("tDecisionLinksApplied")
+      ),
+      (15L, 9L, 6L),
+      "refused by cut = 1 (K1 cut) + 8 (over the bound)"
+    )
+    assertEquals(
+      (
+        n3("tContradictionsKeptApart_UNRESOLVED"),
+        n3("tContradictionsKeptApart_CONFLICT"),
+        n3("tClustersWithSeveralOrcidsBeforeCut")
+      ),
+      (1L, 1L, 1L)
+    )
+    invariantsZero(r3)
+
+    // Bound 4: every contradicted cluster is exactly at the bound and is cut as without a bound.
+    val (c4, r4) = clustersWith(4)
+    def n4(k: String) = r4(k).num.toLong
+    assertEquals(
+      groups(c4),
+      Set(
+        Set("m:h", "m:k", "m:q"),
+        Set("m:p"),
+        uStar,
+        Set("m:e1", "m:e2", "m:e3", "m:e4"),
+        Set("m:e5"),
+        Set("m:o1", "m:o2", "m:o3", "orcid:A"),
+        Set("orcid:B")
+      )
+    )
+    assertEquals(
+      (
+        n4("tClustersOverCutBound"),
+        n4("tDecisionLinksRefusedOverCutBound"),
+        n4("tDecisionLinksRefusedByCut"),
+        n4("tDecisionLinksApplied")
+      ),
+      (0L, 0L, 3L, 12L)
+    )
+    invariantsZero(r4)
   }
 
   test("works: accepted work links merge source copies; a CONFLICT keeps works apart") {

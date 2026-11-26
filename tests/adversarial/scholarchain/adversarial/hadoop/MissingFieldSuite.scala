@@ -134,7 +134,10 @@ class MissingFieldSuite extends PipelineSuite:
       assert(!r.works.exists(_("title").str == m), s"record $m was kept")
       assertEquals(rejectsNaming("J01", m), 1, s"reject lines naming $m")
     }
-    assert(r.counter("J01", "MISSING_KEY") >= 1L, r.counters("J01"))
+    // no key attribute and key="" are missing keys (2); key="m/has space" is present but invalid,
+    // so it may or may not count as missing (2 or 3); a doubled count is out of range
+    val missing = r.counter("J01", "MISSING_KEY")
+    assert(Set(2L, 3L).contains(missing), s"MISSING_KEY = $missing: ${r.counters("J01")}")
   }
 
   test("DBLP: records with missing or bad year, authors, title or venue are accounted") {
@@ -166,16 +169,20 @@ class MissingFieldSuite extends PipelineSuite:
 
   test("DBLP: a dropped invalid ORCID is counted as INVALID_IDENTIFIER") {
     // MODULE.md "Behavior to rely on": invalid DOI, ORCID and arXiv values are dropped and
-    // counted as INVALID_IDENTIFIER. m/badorcid carries one invalid ORCID (check digit), so the
-    // run must count at least 1; with the invalid doi.org link of m/baddoi it would be 2.
+    // counted as INVALID_IDENTIFIER. "Counters", J01 INVALID_IDENTIFIER: a present but invalid
+    // orcid attribute and an ee on doi.org that fails the DOI check are counted. m/badorcid (check
+    // digit) and m/baddoi (https://doi.org/10.bogus) carry one each, so J01 counts exactly 2.
+    // Other stages (an invalid Crossref DOI, an invalid ORCID record) may add to the total.
     observe(
       "INVALID_IDENTIFIER per stage",
       r.stageNames.map(s => s -> r.counter(s, "INVALID_IDENTIFIER"))
     )
     observe("J01 _counters.json", r.countersFile("J01"))
     val fromFiles = r.stageNames.map(s => r.countersFile(s).getOrElse("INVALID_IDENTIFIER", 0L)).sum
-    assert(r.total("INVALID_IDENTIFIER") >= 1L, "INVALID_IDENTIFIER is 0 in every stage")
-    assert(fromFiles >= 1L, "INVALID_IDENTIFIER is 0 in every _counters.json")
+    assert(r.total("INVALID_IDENTIFIER") >= 2L, "INVALID_IDENTIFIER below 2 over all stages")
+    assert(fromFiles >= 2L, "INVALID_IDENTIFIER below 2 over every _counters.json")
+    assertEquals(r.counter("J01", "INVALID_IDENTIFIER"), 2L, r.counters("J01"))
+    assertEquals(r.countersFile("J01").getOrElse("INVALID_IDENTIFIER", 0L), 2L, "J01 counters file")
   }
 
   test(

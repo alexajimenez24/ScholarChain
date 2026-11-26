@@ -256,7 +256,12 @@ class RejectsAndLimitsSuite extends munit.FunSuite:
     )
     val rej = s.rejects(s.paths.blockedCandidates)
     assertEquals(rej.size, 1)
-    assert(rej.head.reason.contains("has 25 clusters > 3"), rej.head.reason)
+    // the refused full-name part is named in the one line and not counted a second time
+    assertEquals(
+      rej.head.reason,
+      "block smith_j has 25 clusters > 3; not compared whole, split by full name; " +
+        "1 parts refused: block smith_j/john smith has 25 clusters > 3"
+    )
     assertEquals(s.decode[MatchCandidate](s.paths.blockedCandidates), Vector.empty)
     assertEquals(s.summary("largestBlockObserved")("members").num.toInt, 25)
     assertEquals(s.summary("largestBlockObserved")("key").str, "r:smith_j")
@@ -280,4 +285,137 @@ class RejectsAndLimitsSuite extends munit.FunSuite:
     assertEquals(s.summary("maxTeamObserved")("teamSize").num.toInt, 25)
     assertEquals(s.summary("largestPairExpansion").num.toLong, 300L)
     assertEquals(s.decode[CoauthorPairCandidate](s.paths.pairs).count(_.teamSize == 25), 300)
+  }
+
+  // ------------------------------------------------------------ J03 exact-key cap and J04 fallback
+
+  private def article(key: String, authors: Vector[String], title: String, rest: String): String =
+    val names = authors.map(a => s"<author>$a</author>").mkString
+    s"""<article key="$key">$names<title>$title</title>$rest</article>"""
+
+  /** 10 works, run once with `--max-block 3`. Four works share one DOI and two share another, with
+    * the same title in different years. Four more works have four different "H. Zhang" authors
+    * (block zhang_h) of one year: all four share "Kim Lee" and the first two also share "Pat
+    * Quill". Keys `z/...` give no venue. No other name or title block holds two clusters or works.
+    */
+  private val caps: String =
+    val shared = Vector(
+      ("Ada Abel", "Quantum Lattices"),
+      ("Ben Boyd", "Marine Sediments"),
+      ("Cal Cruz", "Protein Folding"),
+      ("Dee Dunn", "Urban Mobility")
+    ).zipWithIndex.map { case ((name, title), i) =>
+      article(
+        s"j/shared/$i",
+        Vector(name),
+        title,
+        "<year>2010</year><ee>https://doi.org/10.1000/shared</ee>"
+      )
+    }
+    val pair = Vector("Eve East", "Fay Ford").zipWithIndex.map { (name, i) =>
+      article(
+        s"j/pair/$i",
+        Vector(name),
+        "Glacier Dynamics",
+        s"<year>${2001 + i}</year><ee>https://doi.org/10.1000/pair</ee>"
+      )
+    }
+    val zhangs = Vector(
+      ("Hao Zhang", "Sparse Solvers"),
+      ("Hui Zhang", "Coral Genomics"),
+      ("Hong Zhang", "Lunar Regolith"),
+      ("Han Zhang", "Wireless Beamforming")
+    ).zipWithIndex.map { case ((name, title), i) =>
+      val coauthors = Vector(name, "Kim Lee") ++ Vector("Pat Quill").filter(_ => i < 2)
+      article(s"z/zhang$i", coauthors, title, "<year>2018</year>")
+    }
+    (shared ++ pair ++ zhangs).mkString("<dblp>\n", "\n", "\n</dblp>\n")
+
+  private lazy val capped: h.Result =
+    h.run(
+      Vector(
+        "--dblp",
+        h.write("caps.xml", caps).toString,
+        "--snapshot",
+        FixtureIO.snapshot,
+        "--max-block",
+        "3",
+        "--reducers",
+        "2",
+        "--output",
+        h.dir.resolve("out-caps").toString
+      )
+    )
+
+  test("J03 job: an exact key above --max-block is counted once, rejected once and not paired") {
+    assertEquals(capped.code, 0)
+    // 10 works in; the 4 z/ works have no identifier. Each DOI key counts one source that holds
+    // more than one work (2 duplicates). The only expanded work pair is the control DOI pair.
+    assertEquals(
+      capped.counters(capped.paths.exactCandidates),
+      Map(
+        Ctr.Input -> 10L,
+        Ctr.Accepted -> 10L,
+        Ctr.MissingKey -> 4L,
+        "MISSING_DOI" -> 4L,
+        Ctr.Duplicate -> 2L,
+        Ctr.OversizeBlock -> 1L,
+        Ctr.Rejected -> 1L,
+        Ctr.ExactCandidates -> 1L
+      )
+    )
+    val rej = capped.rejects(capped.paths.exactCandidates)
+    assertEquals(
+      rej.map(x => (x.stage, x.reason, x.input, x.runId)),
+      Vector(
+        (
+          "J03",
+          "exact key doi:10.1000/shared holds 4 works > 3; work pairs not expanded",
+          "doi:10.1000/shared",
+          capped.paths.runId
+        )
+      )
+    )
+    assertEquals(
+      capped.decode[MatchCandidate](capped.paths.exactCandidates).map(_.blockKey),
+      Vector("doi:10.1000/pair")
+    )
+  }
+
+  test("J04 job: the block above the cap and each refused fallback block are counted apart") {
+    // zhang_h: 4 clusters > 3, every full name its own part, so no part is refused: one
+    // OVERSIZE_BLOCKS. Its fallback blocks co:lee_k and y:2018 hold 4 (refused), co:quill_p holds
+    // 2 (compared, 1 pair). The other 4 candidates are same-cluster links: 3 for the 4 "Kim Lee"
+    // mentions and 1 for the 2 "Pat Quill" mentions.
+    assertEquals(
+      capped.counters(capped.paths.blockedCandidates),
+      Map(
+        Ctr.Input -> 10L,
+        Ctr.Accepted -> 10L,
+        Ctr.OversizeBlock -> 1L,
+        Ctr.FallbackRefused -> 2L,
+        Ctr.FallbackCompared -> 1L,
+        Ctr.Rejected -> 3L,
+        Ctr.BlockedCandidates -> 5L
+      )
+    )
+    val rej = capped.rejects(capped.paths.blockedCandidates)
+    assertEquals(
+      rej.map(_.reason).sorted,
+      Vector(
+        "block zhang_h has 4 clusters > 3; not compared whole, split by full name",
+        "fallback block zhang_h|co:lee_k has 4 clusters > 3",
+        "fallback block zhang_h|y:2018 has 4 clusters > 3"
+      )
+    )
+    assert(
+      rej.forall(x => x.stage == "J04" && x.runId == capped.paths.runId && x.input == x.reason),
+      rej.toString
+    )
+    val candidates = capped.decode[MatchCandidate](capped.paths.blockedCandidates)
+    assertEquals(candidates.size, 5)
+    assertEquals(
+      candidates.map(_.blockKey).filter(_.contains("zhang_h")),
+      Vector("zhang_h|co:quill_p")
+    )
   }

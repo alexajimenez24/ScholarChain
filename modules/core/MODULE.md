@@ -213,6 +213,11 @@ and timeouts, worker batch and in-flight sizes, retrieval path depth and
 `vectors.dimension` >= 1, `maxBlockSize` >= 1, operations limits (retries >= 0, others
 >= 1), `maxLlmCallsPerRun` >= 0, graph and retrieval parameters >= 1, non-blank policy and
 metric versions and a non-empty `vectors.indexes`.
+`graph.identityCutMaxClusterLinks` (`GraphConfig`, last field, no code default; Phase 11)
+must be 1..1000000 (`ConfigLoader.MaxIdentityCutClusterLinks`); the shipped value is
+100000.
+It is the largest number of accepted identity links, inclusive, that a contradicted
+identity cluster may hold and still be rebuilt by the contradiction cut.
 `retrieval.maxPathDepth` must be in `1..graph.pathMaxDepth`, read from the file, with no
 code constant.
 A number is accepted from a placeholder or an override only as plain decimal text
@@ -297,6 +302,17 @@ Source: `docs/agent-runs/phase-08/step-00c-domain-engineer-report.md`.
 - A new `ConfigSuite` test pins the value; `sbt core/test` passed 120, failed 0.
 - The value is part of the Spark run manifest, so changing it changes the run ID.
 - No schema version changed.
+
+### Phase 11 additions
+
+Sources: `docs/agent-runs/phase-11/repair-01-domain-engineer.md` and
+`test-report-03.md`.
+
+- C12: the new required config field above; `config-v1` and all schema versions are
+  unchanged.
+- The Spark run manifest holds the whole `graph` section, so new Spark run IDs change.
+  A config file without the key fails to load.
+- Core tests in the full `sbt check`: 123 passed.
 
 ## Not done
 

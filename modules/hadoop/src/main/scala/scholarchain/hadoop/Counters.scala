@@ -8,7 +8,9 @@ package scholarchain.hadoop
   *   - SKIPPED_RECORDS: valid units outside the stage's scope (DBLP www, proceedings, data)
   *   - SCHEMA_FAILURE: rejects caused by contract validation (a subset of REJECTED_RECORDS)
   *   - DUPLICATE_RECORDS / CONFLICT_RECORDS: extra copies of one key, and copies that differ
-  *   - OVERSIZE_BLOCKS / OVERSIZE_TEAMS: blocks and teams above their caps
+  *   - OVERSIZE_BLOCKS / OVERSIZE_TEAMS: blocks and teams above their caps; a researcher block
+  *     counts once, whether or not its full-name parts fit under the cap (fallback blocks count in
+  *     FALLBACK_BLOCKS_REFUSED instead)
   *   - EMITTED_PAIRS: coauthor pair candidates written
   *   - MISSING_KEY: a unit that lacks the key a stage needs (DBLP key, DOI, name key)
   *

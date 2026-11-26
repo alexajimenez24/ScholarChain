@@ -65,13 +65,14 @@ object QFx:
       audit: Option[AuditLog] = None,
       maxPending: Int = 8,
       extraChecks: List[ReadinessCheck] = Nil,
-      maxRecords: Int = 1000
+      maxRecords: Int = 1000,
+      synthesizer: Synthesizer = DeterministicSynthesizer
   ):
     private val (rs, retriever) = QueryFixture.stores()
     val wfAudit = new InMemoryAuditLog
     val auditLog: AuditLog = audit.getOrElse(wfAudit)
     val real = new WorkflowEngine(
-      new CollaborationWorkflow(ctx, rs, retriever, DeterministicSynthesizer, wfAudit)
+      new CollaborationWorkflow(ctx, rs, retriever, synthesizer, wfAudit)
     )
     val counting = new CountingEngine(engine.getOrElse(real))
     val bundles = new EvidenceBundles(rs.kv, cfg.dynamo.evidenceBundleTable)
@@ -468,6 +469,72 @@ class QueryServiceSuite extends munit.FunSuite:
       )
     )
     assertEquals(send(rig.routes, get("/v1/explain/qry-nope"))._1.status, Status.NotFound)
+  }
+
+  /** A model path over a scripted port: the real synthesizer writes the audit texts. */
+  private def modelPath(step: String => Either[String, LlmReply]): Synthesizer =
+    val template = "prompt-version: answer-synthesis-v2\n" +
+      SynthesisPrompt.Placeholders.toVector.sorted.map(p => s"{{$p}}").mkString("\n")
+    val prompt = SynthesisPrompt.parse(template).fold(sys.error, identity)
+    new LlmSynthesizer(new ScriptedLlm(Vector.fill(5)(step)), prompt, cfg)
+
+  test("explain shows attempt status and a fallback category, never downstream error text") {
+    val secret = "AKIAFAKESECRET-hunter2"
+    val rig = new Rig(synthesizer =
+      modelPath(_ => Left(s"InvokeModel failed: connect https://host/?token=$secret"))
+    )
+    val (_, posted) = send(rig.routes, post(body(AliceQ)))
+    val queryId = answerOf(posted)("queryId").str
+    val audited = rig.wfAudit.get(queryId).toOption.flatten.get
+    assert(audited.synthesisAttempts.exists(_.reason.exists(_.contains(secret))))
+    assert(audited.synthesisFallback.exists(_.contains(secret)))
+    val (r, b) = send(rig.routes, get(s"/v1/explain/$queryId"))
+    assertEquals(r.status, Status.Ok)
+    val jobId = ujson.read(posted)("jobId").str
+    val job = send(rig.routes, get(s"/v1/jobs/$jobId"))._2
+    val result = send(rig.routes, get(s"/v1/jobs/$jobId/result"))._2
+    Seq(posted, b, job, result).foreach(x =>
+      assert(!x.contains(secret) && !x.contains("InvokeModel"), x)
+    )
+    val e = ujson.read(b)
+    assertEquals(e("synthesisFallback"), ujson.Str("model-call-failed"): ujson.Value)
+    assertEquals(
+      e("synthesisAttempts"),
+      ujson.Arr(ujson.Obj("attempt" -> 1, "status" -> "call-failed")): ujson.Value
+    )
+  }
+
+  test("explain of refused model replies drops each reason and names the fallback category") {
+    val rig = new Rig(synthesizer = modelPath(_ => Right(LlmReply("not json", None, None))))
+    val queryId = answerOf(send(rig.routes, post(body(AliceQ)))._2)("queryId").str
+    val e = ujson.read(send(rig.routes, get(s"/v1/explain/$queryId"))._2)
+    assertEquals(e("synthesisFallback"), ujson.Str("model-output-refused"): ujson.Value)
+    val attempts = e("synthesisAttempts").arr
+    assert(attempts.nonEmpty)
+    assert(attempts.forall(_.obj.keySet == Set("attempt", "status")), attempts.toString)
+    assert(attempts.forall(_("status").str == "refused"))
+  }
+
+  test("every synthesis fallback text maps to a fixed category; unknown text is other") {
+    val got = Vector(
+      "the evidence stage abstained; no model call",
+      "model call failed: boom",
+      "model output refused 3 times",
+      "output token budget of 10 per query exhausted",
+      "the model abstained although deterministic evidence exists",
+      "secret-password=hunter2"
+    ).map(QueryService.fallbackCategory)
+    assertEquals(
+      got,
+      Vector(
+        "evidence-abstained",
+        "model-call-failed",
+        "model-output-refused",
+        "token-budget-exhausted",
+        "model-abstained",
+        "other"
+      )
+    )
   }
 
   test("explain of a job that has not finished is 409; a store failure on explain is 502") {

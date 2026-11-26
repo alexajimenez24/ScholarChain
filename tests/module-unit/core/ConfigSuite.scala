@@ -76,6 +76,38 @@ class ConfigSuite extends munit.FunSuite:
     assertEquals(cfg.graph.componentMaxIterations, 100)
     assert(cfg.graph.componentMaxIterations > 39 + 2, "diameter 39 plus a quiet round")
   }
+  test(
+    "shipped identityCutMaxClusterLinks is above every link total of the recorded real sample run"
+  ) {
+    // The Phase 06 real sample has 267 accepted researcher and 71 accepted work links in total, so
+    // no cluster of it can exceed the bound.
+    val cfg = load(Map.empty)
+    assertEquals(cfg.graph.identityCutMaxClusterLinks, 100000)
+  }
+  test("a config without graph.identityCutMaxClusterLinks is refused: no default in code") {
+    val line = ",\n    \"identityCutMaxClusterLinks\": 100000"
+    assert(bundledText.contains(line), "the line to remove is in the bundled file")
+    assert(ConfigLoader.parse(bundledText, Map.empty).isRight)
+    val r = ConfigLoader.parse(bundledText.replace(line, ""), Map.empty)
+    assert(r.left.exists(_.contains("does not match the schema")), r.toString)
+  }
+  test("graph.identityCutMaxClusterLinks is range checked: 1..MaxIdentityCutClusterLinks") {
+    val key = "SCHOLARCHAIN__GRAPH__IDENTITYCUTMAXCLUSTERLINKS"
+    assertEquals(ConfigLoader.MaxIdentityCutClusterLinks, 1000000)
+    assert(
+      err(Map(key -> "0")).contains("graph.identityCutMaxClusterLinks must be >= 1 (is 0)")
+    )
+    assert(err(Map(key -> "-1")).contains("graph.identityCutMaxClusterLinks must be >= 1"))
+    assert(
+      err(Map(key -> "1000001"))
+        .contains("graph.identityCutMaxClusterLinks must be <= 1000000 (is 1000001)")
+    )
+    assert(err(Map(key -> "3000000000")).contains("clamped"))
+    assert(err(Map(key -> "2.5")).contains("whole number"))
+    Vector(1, 250, 1000000).foreach { v =>
+      assertEquals(load(Map(key -> v.toString)).graph.identityCutMaxClusterLinks, v)
+    }
+  }
   test("overrides can replace the time windows and keep the type of the replaced value") {
     val cfg = load(
       Map("SCHOLARCHAIN__GRAPH__WINDOWS" -> """[{"startYear":2000,"endYear":2001}]""")

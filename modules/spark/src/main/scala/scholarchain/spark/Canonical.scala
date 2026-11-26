@@ -43,6 +43,9 @@ final case class Sources(
   *     (non-convergence is the invariant `invariant_<kind>ClusterNotConverged`); the rebuild is one
   *     pass per contradicted cluster, run on the executor that holds the cluster's links (one
   *     shuffle by cluster label), never on the driver, with memory linear in that cluster's links.
+  *     A contradicted cluster above `graph.identityCutMaxClusterLinks` accepted links (inclusive
+  *     bound) is not rebuilt: all its accepted links are refused and its members stay apart,
+  *     counted as `<kind>ClustersOverCutBound` and `<kind>DecisionLinksRefusedOverCutBound`.
   *   - Flags: `unresolved` when an UNRESOLVED decision touches a member; `identityConflict` when
   *     the cut refused an accepted link touching a member (the accepted links alone would have
   *     merged this researcher with a node a contradicting decision or a second ORCID iD keeps
@@ -110,6 +113,15 @@ object Canonical:
     * `invariant_pContradictionsMerged_O`; for `exclusive` `pClustersWithSeveral<name>BeforeCut` and
     * `invariant_pClustersWithSeveral<name>`; `pClusterIterations` and
     * `invariant_pClusterNotConverged` (0 or 1).
+    *
+    * Cluster-size bound (`maxClusterLinks` = core `graph.identityCutMaxClusterLinks`, inclusive):
+    * the accepted links of every contradicted cluster are counted first (an aggregate, nothing
+    * collected). A contradicted cluster with at most `maxClusterLinks` links is cut as above. One
+    * with more is never collected into a row: all its accepted links are refused and each member
+    * stays its own cluster (under-merge preferred to over-merge; the job does not fail). Its
+    * members are therefore flagged by `cut`. Uncontradicted clusters are not limited. Report keys
+    * `pCutMaxClusterLinks` (the bound), `pLargestContradictedClusterLinks`, `pClustersOverCutBound`
+    * and `pDecisionLinksRefusedOverCutBound` (included in `pDecisionLinksRefusedByCut`).
     */
   def constrainedClusters(
       nodes: DataFrame,
@@ -117,6 +129,7 @@ object Canonical:
       contradictions: DataFrame,
       exclusive: Option[(String, String)],
       maxIterations: Int,
+      maxClusterLinks: Int,
       report: ujson.Obj,
       prefix: String
   ): Clusters =
@@ -160,14 +173,34 @@ object Canonical:
     )
     Report.put(report, s"${prefix}ClustersCut", contradicted.count())
 
-    // One row per contradicted cluster: its accepted links and its in-cluster contradictions. The
-    // groupBy is the one shuffle of the cut; the rebuild runs on the executor holding the row.
-    val groupLinks = linked
+    // Cluster-size bound (C12): links are counted per contradicted cluster before anything is
+    // collected. Both ends of a link share its component, so the label of `a` is the cluster's.
+    val clusterLinks = linked
       .join(l0.select(col("id").as("a"), col("label")), "a")
       .join(contradicted, Seq("label"), "left_semi")
+    val linkCounts = Lineage.cut(clusterLinks.groupBy("label").agg(count(lit(1)).as("nLinks")))
+    val overBound = Lineage.cut(
+      linkCounts.filter(col("nLinks") > lit(maxClusterLinks.toLong)).select("label", "nLinks")
+    )
+    val boundStats = overBound
+      .agg(count(lit(1)), coalesce(sum("nLinks"), lit(0L)))
+      .head() // one row
+    val largest = linkCounts.agg(coalesce(max("nLinks"), lit(0L))).head().getLong(0) // one row
+    Report.put(report, s"${prefix}CutMaxClusterLinks", maxClusterLinks.toLong)
+    Report.put(report, s"${prefix}LargestContradictedClusterLinks", largest)
+    Report.put(report, s"${prefix}ClustersOverCutBound", boundStats.getLong(0))
+    Report.put(report, s"${prefix}DecisionLinksRefusedOverCutBound", boundStats.getLong(1))
+    val overLabels = overBound.select("label")
+
+    // One row per contradicted cluster within the bound: its accepted links and its in-cluster
+    // contradictions. The groupBy is the one shuffle of the cut; the rebuild runs on the executor
+    // holding the row. Over-bound clusters never reach the collect.
+    val groupLinks = clusterLinks
+      .join(overLabels, Seq("label"), "left_anti")
       .groupBy("label")
       .agg(collect_list(struct(col("a"), col("b"), col("confidence"))).as("links"))
     val groupContra = inOne
+      .join(overLabels.withColumnRenamed("label", "lx"), Seq("lx"), "left_anti")
       .groupBy(col("lx").as("label"))
       .agg(collect_list(struct(col("x"), col("y"))).as("contra"))
     val rebuilt = Lineage.cut(
@@ -175,12 +208,18 @@ object Canonical:
         .join(groupContra, Seq("label"), "left")
         .select(IdentityCut.udfFor(exclusive.map(_._1))(col("links"), col("contra")).as("r"))
     )
+    // Over-bound clusters: every accepted link is refused and every member stays its own cluster
+    // (under-merge, never over-merge), so no contradiction or second ORCID iD can share a cluster.
     val assigned = rebuilt
       .select(explode(col("r.assign")).as("x"))
       .select(col("x.id").as("id"), col("x.label").as("sub"))
+      .unionByName(
+        l0.join(overLabels, Seq("label"), "left_semi").select(col("id"), col("id").as("sub"))
+      )
     val refused = rebuilt
       .select(explode(col("r.refused")).as("x"))
       .select(col("x.a").as("a"), col("x.b").as("b"))
+      .unionByName(clusterLinks.join(overLabels, Seq("label"), "left_semi").select("a", "b"))
     val labels = Lineage.cut(
       l0.join(assigned, Seq("id"), "left")
         .select(col("id"), coalesce(col("sub"), col("label")).as("label"))
@@ -312,6 +351,7 @@ object Canonical:
       contradictionPairs(src.decisions, "RESEARCHER"),
       Some("orcid:" -> "Orcids"),
       g.componentMaxIterations,
+      g.identityCutMaxClusterLinks,
       report,
       "researcher"
     )
@@ -438,6 +478,7 @@ object Canonical:
       contradictionPairs(src.decisions, "WORK"),
       None,
       g.componentMaxIterations,
+      g.identityCutMaxClusterLinks,
       report,
       "work"
     )

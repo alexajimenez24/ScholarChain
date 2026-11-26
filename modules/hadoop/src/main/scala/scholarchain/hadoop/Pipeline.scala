@@ -400,7 +400,7 @@ object Pipeline:
     * change of job logic, keys or output format: a rerun then never reuses stage outputs written by
     * older logic. Input paths are treated as immutable per snapshot.
     */
-  val LogicVersion: String = "hadoop-v2"
+  val LogicVersion: String = "hadoop-v3"
 
   /** The settings every job shares: run, snapshot, caps and intermediate (map output) compression,
     * which is always on.

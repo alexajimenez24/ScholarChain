@@ -47,7 +47,7 @@ final case class LocalRuntime(
   ): CollaborationWorkflow =
     new CollaborationWorkflow(ctx, stores, retriever, synthesizer, audit, limits)
 
-/** Loads a Spark run's JSON-lines export into the in-memory stores (`local-runtime-v1`).
+/** Loads a Spark run's JSON-lines export into the in-memory stores (`local-runtime-v2`).
   *
   * The run is found through its run manifest (`<out>/run-manifests/<run>.json`); the run ID must be
   * the hash of that manifest, the manifest must name the expected er-v1 run, and the graph and ER
@@ -55,10 +55,12 @@ final case class LocalRuntime(
   * validated (one bad row fails the load), every partition's row count must equal the load
   * manifest's, metrics go through storage's ResearcherMetricsLoader into ResearcherMetricCache,
   * vectors through storage's LocalIngestion, and the graph is a [[TemplateGraph]] behind storage's
-  * InMemoryGraphStore.
+  * InMemoryGraphStore. v2 (Phase 11, C14): community rows, when the export has them, go through
+  * storage's CommunityLoader into CommunityCache, the runtime's community reader (see
+  * `communityReader`; an older export without them serves no community store).
   */
 object LocalRuntime:
-  val Version = "local-runtime-v1"
+  val Version = "local-runtime-v2"
   private val NodeLabels =
     Vector(GraphLabels.Researcher, GraphLabels.Topic, GraphLabels.Institution, GraphLabels.Work)
   private val EdgeTypes =
@@ -159,6 +161,16 @@ object LocalRuntime:
       writer = new ArtifactWriter(local.objects, new S3Layout(cfg.storage))
       loaded <- new ResearcherMetricsLoader(tables.metrics, tables.runLedger, writer)
         .load(runId, RowSource.of(metricRows), Some(metricRows.size.toLong))
+      communities <- communityReader(
+        folder,
+        runId,
+        dynamo,
+        windows,
+        new CommunityCache(local.kv, cfg.dynamo.researcherMetricTable),
+        tables.runLedger,
+        writer,
+        (k, n) => counts += k -> n
+      )
       renderer <- SemanticRenderer(cfg.vectors)
       embedder = new HashingEmbedder(cfg.vectors.dimension)
       ingestion <- LocalIngestion.run(
@@ -184,11 +196,60 @@ object LocalRuntime:
         local.objects,
         embedder,
         directory,
-        new InMemoryMetricRanking(metricRows)
+        new InMemoryMetricRanking(metricRows),
+        communities
       ),
       retriever,
       LocalRuntimeReport(runId, er, snapshot, windows, counts.result(), ingestion.first.chunks)
     )
+
+  /** The community rows of the loaded windows (`jsonl/communities/windowLabel=W/recordKind=
+    * community`), counted against `dynamodb.json`'s `communities` entry and loaded through
+    * storage's CommunityLoader into `cache`, which becomes the runtime's community reader.
+    *
+    * An export without that entry (written before Phase 11, C14) gives None: the runtime then reads
+    * no community store and reports every community size as missing evidence. A window whose
+    * partition the entry does not count and whose folder does not exist holds no communities. The
+    * cross-community edge rows are not read (the analyst reads coauthor edges from the graph). Any
+    * refused row, count mismatch or rejected row fails the load, as for the other tables.
+    */
+  private def communityReader(
+      folder: Path,
+      runId: String,
+      dynamo: ujson.Value,
+      windows: Vector[String],
+      cache: CommunityCache,
+      ledger: RunLedger,
+      writer: ArtifactWriter,
+      count: (String, Long) => Unit
+  ): Either[String, Option[CommunityReader]] =
+    Try(dynamo("communities")("source")).toOption match
+      case None        => Right(None)
+      case Some(entry) =>
+        def counted(partition: String) =
+          Try(entry("jsonLines")("rowsByPartition")(partition)).toOption
+            .orElse(Try(entry("rowsByPartition")(partition)).toOption)
+            .isDefined
+        for
+          rs <- seq(windows.map { w =>
+            val partition = s"windowLabel=$w/recordKind=${CommunitySize.CommunityKind}"
+            if !counted(partition) && !Files.exists(folder.resolve(s"jsonl/communities/$partition"))
+            then Right(Vector.empty)
+            else
+              rows[EvidenceItem](folder, "communities", partition, entry, Validate.evidence).map {
+                xs =>
+                  count(s"communities/$partition", xs.size.toLong); xs
+              }
+          }).map(_.flatten)
+          result <- new CommunityLoader(cache, ledger, writer)
+            .load(runId, RowSource.of(rs), Some(rs.size.toLong))
+          _ <- Either.cond(
+            result.rejected.isEmpty,
+            (),
+            s"communities: ${result.rejected.size} rows rejected, first: ${result.rejected.headOption
+                .fold("")(_.reason.take(200))}"
+          )
+        yield Some(cache)
 
   private def str(v: ujson.Value, k: String): Either[String, String] =
     Try(v(k).str).toEither.left.map(_ => s"run manifest has no $k")

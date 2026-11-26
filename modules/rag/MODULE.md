@@ -141,7 +141,9 @@ The case classes derive uPickle `ReadWriter`, so `JsonLines.encode` and `decode`
   must be `run-<16 hex>` and the snapshot `YYYY-MM-DD`, or construction throws.
 - `RuntimeStores(kv: KeyValueStore, graph: GraphStore, vectors: VectorStore,
   objects: ObjectStore, embedder: Embedder, directory: ResearcherDirectory,
-  ranking: MetricRanking)`.
+  ranking: MetricRanking, communities: Option[CommunityReader] = None)`.
+  `CommunityReader` is storage's port; with `None` every community size is reported as
+  missing.
 - `new CollaborationWorkflow(ctx, stores, retriever: SemanticContextRetriever,
   synthesizer: Synthesizer, audit: AuditLog, limits: EvidenceLimits = EvidenceLimits(),
   clock: () => Long = () => System.currentTimeMillis())`.
@@ -205,7 +207,7 @@ The case classes derive uPickle `ReadWriter`, so `JsonLines.encode` and `decode`
   promptSha256: Option[String], modelVersion, inputTokens, outputTokens,
   attempts: Vector[SynthesisAttempt], fallback: Option[String],
   context: Option[ContextUse])`; `byModel` is true when `synthesizer` is
-  `llm-synthesis-v1`.
+  `LlmSynthesizer.Version` (`llm-synthesis-v2` since Phase 11).
 - `SynthesisOutput(schemaVersion, summary, abstain: Boolean,
   abstentionReason: Option[String], claims: Vector[DraftClaim])` and
   `DraftClaim(claimId, text, evidenceIds, uncertainty: Option[String])`.
@@ -381,6 +383,44 @@ llm.prompts // every prompt the model received
 In `WorkflowSuite` the same calls run on `RagWorld.default.workflow(synth, log)`, which
 returns `(CollaborationWorkflow, RuntimeStores)` over a hand-built run.
 
+### Phase 11 changes
+
+Sources, in `docs/agent-runs/phase-11/`: `repair-01-rag-engineer.md`,
+`repair-01-rag-engineer-c19.md` and `repair-02-rag-engineer.md`.
+
+- Filtered rankings (C09, closes R6-1): new `ClaimVerifier.rankingFilter(e):
+  Option[String]` (sanitized, at most 120 characters; `None` for a filter starting with
+  "none") and `ClaimVerifier.amongText(e)` (" among <filter>").
+  The verifier's rank label and structured text and the deterministic ranking claim and
+  summary lead name the filter.
+  Unfiltered rank texts and values on a filtered ranking are unchanged.
+- Community size (C14): `RuntimeStores.communities`; `CommunityAnalystAgent` has a 4th
+  defaulted parameter `communities: Option[CommunityReader] = None`.
+  The record value `communitySizeStatus` is one of `CommunityAnalystAgent.SizeStatus`:
+  `present`, `not-stored`, `read-failed`, `no-store` or `no-community`.
+  Only `present` adds `communitySize`, its evidence ID and the exported row as
+  provenance; a missing size is never 0, and a read failure gives a fixed note.
+  `LocalRuntime` loads `jsonl/communities/windowLabel=W/recordKind=community` through
+  storage's `CommunityLoader` when `dynamodb.json` has a `communities` block, and fails
+  the load on a count mismatch or a refused or rejected row.
+- Error text (C19): a failed semantic retrieval leaves only the fixed
+  `EvidencePipeline.SemanticUnavailableNote`.
+  A dropped item's note is "dropped invalid evidence item <id or (malformed ID)>: it
+  failed core validation".
+  An invalid bundle or answer is now `WorkflowError.Downstream` with stage `evidence` or
+  `answer`, not `InvalidRequest`.
+  The raw semantic error is no longer kept anywhere; operators see the audit stage
+  status `failed`.
+- Versions: `llm-synthesis-v2` (C11, closes R6-3), `community-agent-v2`,
+  `local-runtime-v2`.
+  `claim-verifier-v3` and `evidence-pipeline-v1` are unchanged (a bump is the human's
+  call).
+- R-4: `InvariantErrorSuite` (5 tests) pins the note and the remap; test only.
+- rag tests in the full `sbt check`: 163 passed.
+- Not done: services construct no `RuntimeStores`, so community size reads `no-store`
+  there until the cloud wiring passes `communities`.
+  No cross-stage test runs real Spark communities output through storage into rag.
+
 ## Done
 
 - R1 (step 01): templates, chunk policy and embedding version rule; 33 tests.
@@ -473,11 +513,11 @@ returns `(CollaborationWorkflow, RuntimeStores)` over a hand-built run.
 
 ## Not done
 
-- Community size: no store the runtime reads holds it, so it is reported as missing
-  evidence and a "N members" claim is never VERIFIED.
+- Community size (closed in Phase 11, C14): it is now missing only when no community
+  store is wired or no record can be read (see "Phase 11 changes").
 - The Phase 09 human gate: review 4 returned REQUEST_CHANGES, so "Code review returns
   APPROVE" is not met.
-- R4-1 to R4-3 are superseded by the v3 construction rule; R6-1 (Known issues) is open.
+- R4-1 to R4-3 are superseded by the v3 construction rule; R6-1 is closed (Phase 11).
 - MINOR m1 (an exact-name hit never consults the token-order key, so swapped-order
   homonyms are not listed), m2 (the name check accepts a name as a substring of a cited
   value) and m4 (a topic phrase such as "collaboration graphs" gives a filter that
@@ -528,18 +568,10 @@ returns `(CollaborationWorkflow, RuntimeStores)` over a hand-built run.
   PARTIALLY_SUPPORTED, not caught as wrong.
 - The planner recognises names, topics and institutions only in explicit forms
   (see [docs/runtime-workflow.md](../../docs/runtime-workflow.md)).
-- R6-1 (MAJOR, rag-engineer, review 6, model path only, open, carried to Phase 11):
-  `Verification.scala` `held` (ranking rank case, about lines 290-297) and
-  `Held.statement` (about line 118) write the rank text from the metric and window only,
-  omitting the ranking's filter and limit.
-  With a topic filter, a figure (Alice, rank, 1) is VERIFIED as "rank of Alice Arden
-  (<id>) by distinctCoauthorCount in window 2015-2026: 1.", false unfiltered.
-  Brief: add the filter text (bounded) to `label` and `about`, or refuse rank figures on
-  a filtered ranking, and add a test where the filtered rank is 1 and the global rank is
-  not.
-  It must be closed before Bedrock or the LLM is enabled.
-- R6-3 (MINOR, rag-engineer): `LlmSynthesizer.Version` is still "llm-synthesis-v1"
-  though its output schema is v2.
+- R6-1 (MAJOR, review 6, a filtered-ranking rank text that omitted the filter) and R6-3
+  (MINOR, stale `LlmSynthesizer.Version`) are closed in Phase 11 (C09, C11).
+- K13 stays open: m1 (swapped name order), m2 (substring name check) and m4 (topic
+  phrase filter), listed under "Not done".
 - R4-1 to R4-3 and V5b-1, V5b-2 below are superseded by the v3 construction rule: free
   text is never VERIFIED.
   False numbers in labeled prose, summaries and notes stay visible under the label by

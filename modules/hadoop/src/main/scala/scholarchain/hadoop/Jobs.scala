@@ -335,10 +335,13 @@ class BlockingReducer
         case Left(reason) => reject(ctx, "J04", reason, l, true); None
     }
 
+  private def refuse(counter: String, reason: String, ctx: Ctx): Unit =
+    count(ctx, counter)
+    reject(ctx, "J04", reason, reason)
+
   private def emit(r: BlockLogic.BlockResult, ctx: Ctx): Unit =
     r.oversize.foreach { reason =>
-      count(ctx, if r.fallback then Ctr.FallbackRefused else Ctr.OversizeBlock)
-      reject(ctx, "J04", reason, reason)
+      refuse(if r.fallback then Ctr.FallbackRefused else Ctr.OversizeBlock, reason, ctx)
     }
     if r.fallback && r.oversize.isEmpty then count(ctx, Ctr.FallbackCompared)
     count(ctx, Ctr.BlockedCandidates, r.candidates.size.toLong)
@@ -346,7 +349,11 @@ class BlockingReducer
 
   private def reduceMentions(k: String, lines: Vector[String], ctx: Ctx): Unit =
     val members = decodeAll[BlockLogic.MentionSummary](lines, ctx)
-    BlockLogic.block(k.stripPrefix("r:"), members, maxBlock, run).foreach(emit(_, ctx))
+    val key = k.stripPrefix("r:")
+    val results = BlockLogic.block(key, members, maxBlock, run)
+    // one OVERSIZE_BLOCKS and one reject line per block above the cap; its parts are folded in
+    BlockLogic.primaryRefusal(key, results, maxBlock).foreach(refuse(Ctr.OversizeBlock, _, ctx))
+    results.foreach(r => emit(if r.fallback then r else r.copy(oversize = None), ctx))
 
   private def reduceWorks(k: String, lines: Vector[String], ctx: Ctx): Unit =
     val members = decodeAll[BlockLogic.WorkSummary](lines, ctx)

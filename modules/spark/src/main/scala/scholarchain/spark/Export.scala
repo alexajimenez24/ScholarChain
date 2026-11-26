@@ -91,10 +91,21 @@ object Evidence:
   * gets one file. Row counts are read back from the written files.
   *
   * JSON lines (Phase 07 gate): every table a storage loader reads (graph-nodes, graph-edges,
-  * coauthor-edges, researcher-metrics, semantic-summaries, paper-abstracts) is also written as JSON
-  * lines under `<run>/jsonl/<table>/`, see [[JsonLinesExport]].
+  * coauthor-edges, researcher-metrics, communities, semantic-summaries, paper-abstracts) is also
+  * written as JSON lines under `<run>/jsonl/<table>/`, see [[JsonLinesExport]]. `communities` was
+  * added in Phase 11 (C14, [[CommunitiesJson]]) so the runtime can read community sizes.
   */
 object Export:
+  /** JSON-lines spec of the `communities` table (C14): core EvidenceItem COMMUNITY_RECORD rows of
+    * both record kinds, `community` (values `recordKind`, `communityId`, `communitySize`,
+    * `internalEdgeCount`, `crossCommunityEdgeCount`, `window`, `method`, `maxIterations`,
+    * `converged`) and `cross_community_edge` (values `recordKind`, `edgeId`, `communityA`,
+    * `communityB`, `jointPublicationCount`, `window`). The partition columns `windowLabel` and
+    * `recordKind` are the extra fields; `evidenceId` (which hashes the window) identifies a row.
+    */
+  val CommunitiesJson: JsonSpec =
+    JsonSpec("core EvidenceItem", Seq("evidenceId"), Seq("windowLabel", "recordKind"))
+
   /** How a table's JSON-lines copy maps onto its core record: `coreRecord` names the record,
     * `extraFields` are the table's columns that record does not have, and `idColumns` identify a
     * row (checked equal between the Parquet and the JSON-lines copy).
@@ -721,6 +732,20 @@ object Export:
         "partitionKey" -> "researcherId",
         "sortKey" -> "windowLabel"
       )
+    )
+    // C14: community records for the runtime (community sizes). Kept out of `tables` so the
+    // researcher-metric entry and its readers are unchanged; storage chooses the target table.
+    dynamo("communities") = ujson.Obj(
+      "source" -> t("communities"),
+      "evidenceType" -> "COMMUNITY_RECORD",
+      "recordKindField" -> "recordKind",
+      "recordKinds" -> ujson.Arr("community", "cross_community_edge"),
+      "identifierField" -> "evidenceId",
+      "windowField" -> "values.window",
+      "note" -> ("core EvidenceItem COMMUNITY_RECORD rows; community rows carry values " +
+        "communityId, communitySize and window; cross_community_edge rows carry values edgeId, " +
+        "communityA, communityB, jointPublicationCount and window; the target table is the " +
+        "storage loader's choice (no DynamoDB table config key for these records in config-v1)")
     )
     val vectors = head
     vectors("target") = "s3vectors"

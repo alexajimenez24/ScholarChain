@@ -83,8 +83,12 @@ final case class Upstream(
 )
 
 object Upstream:
-  /** The Hadoop logic and normalization versions whose J07 records [[Schemas]] mirrors. */
-  val HadoopPipelines: Set[String] = Set("hadoop-v2")
+  /** The Hadoop logic and normalization versions whose J07 records [[Schemas]] mirrors. hadoop-v3
+    * (Phase 11 A-1) changed only J04 blocking counters and reject lines, which Spark does not read;
+    * its J07 export and J02 abstracts records are those of hadoop-v2, kept so earlier runs stay
+    * readable.
+    */
+  val HadoopPipelines: Set[String] = Set("hadoop-v2", "hadoop-v3")
   val Normalizations: Set[String] = Set("norm-v1")
   val ErStage = "entity-resolution"
 
@@ -204,7 +208,8 @@ object Upstream:
   */
 object SparkRunManifest:
   val Stage = "spark-analytics"
-  val LogicVersion = "spark-v4"
+  // spark-v5 (Phase 11 C12, C14): identity-cut cluster bound; communities JSON-lines export.
+  val LogicVersion = "spark-v5"
 
   /** Core record versions Spark reads and writes (the `hadoop` local `author-paper-v1` included).
     */

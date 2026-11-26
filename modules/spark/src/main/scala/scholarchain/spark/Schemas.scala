@@ -3,9 +3,10 @@ package scholarchain.spark
 import org.apache.spark.sql.types.*
 
 /** Explicit read schemas for the records Spark consumes: the Phase 04 Hadoop J07 export
-  * (`export/{works,mentions,pairs,authorpapers,topics,institutions,venues}`, pipeline `hadoop-v2`,
-  * normalization `norm-v1`), the Phase 04 J02 OpenAlex `abstracts` and the Phase 05 er-v1
-  * `MatchDecision` outputs (`match-decisions/.../{accepted,rejected,unresolved,conflict}`).
+  * (`export/{works,mentions,pairs,authorpapers,topics,institutions,venues}`, pipeline `hadoop-v2`
+  * or `hadoop-v3`, whose J07 records are identical, normalization `norm-v1`), the Phase 04 J02
+  * OpenAlex `abstracts` and the Phase 05 er-v1 `MatchDecision` outputs
+  * (`match-decisions/.../{accepted,rejected,unresolved,conflict}`).
   *
   * Field names and types mirror the core records as committed (`WorkRecord`, `AuthorMention`,
   * `CoauthorPairCandidate`, `Topic`, `Institution`, `Venue`, `MatchDecision`) and the hadoop-local

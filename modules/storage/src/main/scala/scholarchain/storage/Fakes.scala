@@ -90,3 +90,17 @@ final class InMemoryGraphStore(
       responder(query)
 
   def executed: Vector[GraphQuery] = log.synchronized(log.toVector)
+
+/** Community port fake: the DynamoDB adapter over [[InMemoryKeyValueStore]], so it enforces the
+  * same keys, checks and conditions.
+  */
+final class InMemoryCommunityReader extends CommunityReader:
+  private val cache = new CommunityCache(new InMemoryKeyValueStore, "communities")
+
+  def put(row: scholarchain.core.EvidenceItem): Either[KvError, Stored] = cache.put(row)
+
+  def community(
+      runId: String,
+      communityId: String,
+      window: scholarchain.core.TimeWindow
+  ): Either[KvError, Option[CommunitySize]] = cache.community(runId, communityId, window)

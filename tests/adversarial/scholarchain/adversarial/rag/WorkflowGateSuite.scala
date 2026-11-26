@@ -448,6 +448,15 @@ class WorkflowGateSuite extends munit.FunSuite:
       figureVerified(res, "claim-1", 1, Haizhou, BigDecimal(10)) ++
         interpretation(res, "claim-1", mayRemove = false) ++
         // a fabricated value conflicts with the cited record and is removed
+        // C10 (R6-2, Phase 11): the pre-v3 check `!kept.contains("claim-2")` is not restored, on
+        // purpose. Under claim-verifier-v3 (rag MODULE.md 4b) the number is the structured claim
+        // `claim-2-figure-1`, and that claim must be removed as CONFLICTING (asserted below); the
+        // prose `claim-2` holds no number of its own and may be kept only as a labeled
+        // interpretation. The spec allows "removed, weakened, or explicitly labeled" (lines 1571,
+        // 2599, 2832), so requiring the prose to be absent would test more than the spec says. In
+        // its place the prose is now held to the v3 rule: removed, or kept PARTIALLY_SUPPORTED
+        // and labeled, and never showing 999 (below).
+        interpretation(res, "claim-2") ++
         figureNotVerified(res, "claim-2", 1) ++
         Option.when(figureRemoval(res, "claim-2", 1) != Some("CONFLICTING"))(
           s"figure 1 of claim-2 removal ${figureRemoval(res, "claim-2", 1)}; removed $removed"

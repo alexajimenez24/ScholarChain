@@ -123,16 +123,22 @@ class CommonNameSuite extends PipelineSuite:
     assertEquals(r.counter("J01", "REJECTED_RECORDS"), 0L)
   }
 
-  test("oversize blocks are counted and each writes a reject line: at least the 2 built here") {
+  // MODULE.md "Key-value contracts": a researcher or work block above --max-block counts once in
+  // OVERSIZE_BLOCKS with one reject line, and a block above the hard cap is refused whole. The
+  // fixture builds exactly 3: wang_w (10 clusters > 5), the 2019 "Common Graph Title" work block
+  // (7 > 5) and zhang_h (60 > hard cap 50). No fallback block holds more than 2 members, so none
+  // is refused, and every other block is at most the cap (ray_b holds exactly 5).
+  test("oversize blocks are counted and each writes a reject line: exactly the 3 built here") {
     observe("J04 counters", r.counters("J04"))
     observe("J04 rejects", r.rejects("J04").map(x => x("reason").str))
     observe(
       "candidates per block key",
       r.blockedCandidates.groupBy(_("blockKey").str).view.mapValues(_.size).toVector.sorted
     )
-    assert(r.counter("J04", "OVERSIZE_BLOCKS") >= 2L, r.counters("J04"))
+    assertEquals(r.counter("J04", "OVERSIZE_BLOCKS"), 3L, r.counters("J04"))
+    assertEquals(r.counter("J04", "FALLBACK_BLOCKS_REFUSED"), 0L, r.counters("J04"))
     assertEquals(r.rejects("J04").size.toLong, r.counter("J04", "REJECTED_RECORDS"))
-    assert(r.rejects("J04").size >= 2, "fewer than 2 J04 reject lines")
+    assertEquals(r.rejects("J04").size, 3, "J04 reject lines")
   }
 
   test("common name, 10 distinct people: the oversize block itself yields no candidates") {

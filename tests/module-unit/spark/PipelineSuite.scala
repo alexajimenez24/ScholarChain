@@ -689,11 +689,17 @@ class PipelineSuite extends munit.FunSuite:
         "graph-edges",
         "coauthor-edges",
         "researcher-metrics",
+        "communities",
         "semantic-summaries",
         "paper-abstracts"
       )
     )
     // The target manifests carry the same blocks.
+    assertEquals(
+      lm("dynamodb")("communities")("source")("jsonLines"),
+      s3("communities")("jsonLines")
+    )
+    assertEquals(lm("dynamodb")("tables").arr.size, 1, "the researcher-metric entry is unchanged")
     assertEquals(lm("neptune")("nodes")("jsonLines"), s3("graph-nodes")("jsonLines"))
     assertEquals(lm("neptune")("edges")("jsonLines"), s3("graph-edges")("jsonLines"))
     assertEquals(lm("neptune")("coauthorEdges")("jsonLines"), s3("coauthor-edges")("jsonLines"))
@@ -744,6 +750,22 @@ class PipelineSuite extends munit.FunSuite:
     assertEquals(docs.size, 20)
     assert(docs.forall(d => d.textHash == d.text.map(Hashing.tagged)))
     assertEquals(decoded[AbstractRow]("paper-abstracts", _ => Vector.empty).size, 1)
+    // C14: per non-empty window one community {Ann, Bob, Cat} of 3 and {Dan} of 1; no cross edge.
+    val cms = decoded[EvidenceItem]("communities", Validate.evidence)
+    assert(cms.forall(_.evidenceType == EvidenceType.COMMUNITY_RECORD))
+    assertEquals(
+      cms.map(c => (c.values("window"), c.values("recordKind"), c.values("communitySize"))).sorted,
+      Vector(
+        ("1950-2026", "community", "1"),
+        ("1950-2026", "community", "3"),
+        ("2015-2026", "community", "1"),
+        ("2015-2026", "community", "3")
+      )
+    )
+    assertEquals(
+      s3("communities")("jsonLines")("extraFields").arr.map(_.str).toVector,
+      Vector("windowLabel", "recordKind")
+    )
     // Partition folders mirror the Parquet layout.
     assert(
       Files.isDirectory(
@@ -800,5 +822,5 @@ class PipelineSuite extends munit.FunSuite:
     assertEquals(a("notEmitted_ABSTRACT_WORK_NOT_FOUND").num, 1.0)
     val mf = ujson.read(Files.readAllBytes(Path.of(outcome.manifestPath)))
     assertEquals(mf("inputs")("hadoop")("abstracts").str, s"$abstractsDir/abstracts")
-    assertEquals(mf("logic").str, "spark-v4")
+    assertEquals(mf("logic").str, "spark-v5")
   }

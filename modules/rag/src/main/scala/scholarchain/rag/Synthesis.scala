@@ -348,10 +348,8 @@ object DeterministicSynthesizer extends Synthesizer:
         // Rankings, greedily packed into claims of at most MaxClaimText characters.
         kind("ranking").foreach { r =>
           val metric = Try(CollaborationMetric.valueOf(v(r, "metric"))).toOption
-          val filter = v(r, "filter")
-          val filterText =
-            if filter.isEmpty || filter.startsWith("none") then ""
-            else s" among ${UntrustedText.bound(filter, 120)}"
+          // R6-1: the same filter text the verifier writes and blanks (ClaimVerifier.rankingFilter).
+          val filterText = ClaimVerifier.amongText(r)
           val positions = v(r, "positions").split(';').toVector.filter(_.nonEmpty).flatMap { p =>
             p.split(':').toList match
               case rank :: rest =>
@@ -514,9 +512,16 @@ object DeterministicSynthesizer extends Synthesizer:
         kind("community-membership").foreach { c =>
           val near = v(c, "neighbouringCommunitiesOnRetrievedEdges").split(';').filter(_.nonEmpty)
           val community = v(c, "communityId")
+          // The size only when the community store held it (C14): a figure of the record, which
+          // cites the exported community row it came from; never 0 or a guess when missing.
+          val sized = v(c, "communitySize").nonEmpty
+          val sizeRow = c.values.get("communitySizeEvidenceId").filter(b.byId.contains).toVector
           if community.nonEmpty then
-            add(Vector(c.evidenceId))(_ =>
-              s"${v(c, "displayName")} is in community $community (weighted label propagation) in window ${v(c, "window")}; neighbouring communities on the retrieved coauthor edges: ${
+            add(c.evidenceId +: sizeRow)(f =>
+              val members =
+                if sized then s" of ${f.of(c, v(c, "researcherId"), "communitySize")} members"
+                else ""
+              s"${v(c, "displayName")} is in community $community$members (weighted label propagation) in window ${v(c, "window")}; neighbouring communities on the retrieved coauthor edges: ${
                   if near.isEmpty then "none" else near.mkString(", ")
                 }."
             )
@@ -546,7 +551,9 @@ object DeterministicSynthesizer extends Synthesizer:
           val lead = ranking match
             case Some(r) =>
               val names = r.researcherIds.take(10).map(nameOf)
-              s"Researchers ranked by ${Try(CollaborationMetric.valueOf(v(r, "metric"))).toOption.fold(v(r, "metric"))(label)} in window ${v(r, "window")}: ${names.mkString(", ")}."
+              // A filtered ranking's order holds among its filter only (R6-1).
+              s"Researchers ranked by ${Try(CollaborationMetric.valueOf(v(r, "metric"))).toOption.fold(v(r, "metric"))(label)} in window ${v(r, "window")}${ClaimVerifier
+                  .amongText(r)}: ${names.mkString(", ")}."
             case None if all.nonEmpty =>
               "Collaboration evidence follows; every figure cites the stored record or graph query it comes from."
             case None => "No stored evidence answers the question."
@@ -712,7 +719,7 @@ final case class SynthesisLimits(
     minOutputTokens: Int = 200
 )
 
-/** Model synthesizer (`llm-synthesis-v1`) behind [[LlmPort]].
+/** Model synthesizer (`llm-synthesis-v2`, replies in `answer-synthesis-v2`) behind [[LlmPort]].
   *
   * Budgets: the prompt's data sections stay within `retrieval.contextTokenBudget` (estimated
   * tokens, [[ContextPacker]]); the model's output tokens summed over all attempts stay within
@@ -836,7 +843,8 @@ final class LlmSynthesizer(
       loop(1, "")
 
 object LlmSynthesizer:
-  val Version = "llm-synthesis-v1"
+  /** v2 (Phase 11, C11): the version names the output schema it accepts, `answer-synthesis-v2`. */
+  val Version = "llm-synthesis-v2"
 
 /** Chooses the synthesizer from configuration: the model path only when `models.llmEnabled` is
   * true, and then both a model port and the prompt are required.

@@ -6,7 +6,7 @@ description: Adversarial read-only review of any ScholarChain diff, phase or rep
   spec unclear and write the repair brief. Read-only - reports verified findings with
   severity, file and line and the owning agent; never edits or fixes anything.
 tools: Read, Grep, Glob, Bash
-tier: high
+tier: standard
 ---
 
 You are the reviewer of last resort for ScholarChain.

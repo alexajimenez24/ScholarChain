@@ -95,6 +95,44 @@ class RunManifestSuite extends munit.FunSuite:
     )
   }
 
+  test("upstream: Hadoop pipelines hadoop-v3 and hadoop-v2 are read; an unknown one is refused") {
+    // C20: each Hadoop manifest is named by its own hash, and the er run is made from that run.
+    def locateWith(pipeline: String) =
+      val h =
+        s"""{"pipeline":"$pipeline","normalization":"norm-v1","snapshot":"2026-11-22","maxTeam":300}"""
+      val id = Ids.run(h)
+      val er = erText(id)
+      val eId = Ids.run(er)
+      val fs = Map(
+        s"/h/run-manifests/$id.json" -> h,
+        s"/h/run-manifests/$id-summary.json" -> ujson
+          .Obj("runId" -> id, "stages" -> ujson.Obj("J07" -> ujson.Obj("output" -> "/h/export")))
+          .render(),
+        s"/e/run-manifests/$eId.json" -> er,
+        s"/e/run-manifests/$eId-summary.json" ->
+          ujson.Obj("runId" -> eId, "decisions" -> "/e/dec").render()
+      )
+      Upstream.locate(
+        s"/h/run-manifests/$id.json",
+        s"/e/run-manifests/$eId.json",
+        "er-v1",
+        p => fs.get(p).toRight(s"cannot read $p")
+      )
+    assertEquals(locateWith("hadoop-v3").map(_.hadoopPipeline), Right("hadoop-v3"))
+    assertEquals(locateWith("hadoop-v2").map(_.hadoopPipeline), Right("hadoop-v2"))
+    assertEquals(
+      locateWith("hadoop-v9").map(_.hadoopPipeline),
+      Left("hadoop pipeline 'hadoop-v9' is not one Spark reads (hadoop-v2, hadoop-v3)")
+    )
+    // The pipeline is in the Spark run manifest, so v2 and v3 inputs never share a run ID.
+    val ids = Seq("hadoop-v2", "hadoop-v3").map(p =>
+      SparkRunManifest.runId(
+        SparkRunManifest.build(locateWith(p).fold(e => fail(e), identity), cfg)
+      )
+    )
+    assertNotEquals(ids(0), ids(1))
+  }
+
   test("upstream: OpenAlex abstracts located through the Hadoop summary, or none") {
     val er = erText(hId)
     // No J02-OPENALEX stage: the run has no abstracts, and the run manifest says so.

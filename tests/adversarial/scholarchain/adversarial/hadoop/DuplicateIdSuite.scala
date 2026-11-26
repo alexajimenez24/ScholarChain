@@ -153,8 +153,13 @@ class DuplicateIdSuite extends PipelineSuite:
         (s, r1.counter(s, "DUPLICATE_RECORDS"), r1.counter(s, "CONFLICT_RECORDS"))
       )
     )
+    // MODULE.md "J03 DUPLICATE_RECORDS and CONFLICT_RECORDS": counts are per key, and "a repeated
+    // OpenAlex work with a DOI and an OpenAlex ID counts once under doi: and once under openalex:".
+    // That is this fixture's OpenAlex line given twice; no source holds two distinct works under
+    // the DOI key (DBLP d/doi, W9200000001, one Crossref work), so DUPLICATE_RECORDS is exactly 2.
     val n = r1.counter("J03", "DUPLICATE_RECORDS") + r1.counter("J03", "CONFLICT_RECORDS")
     assert(n >= 1L, s"J03 DUPLICATE_RECORDS + CONFLICT_RECORDS = $n")
+    assertEquals(r1.counter("J03", "DUPLICATE_RECORDS"), 2L, r1.counters("J03"))
   }
 
   test("graph export holds one work and one team per work ID: 6 and 6") {

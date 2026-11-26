@@ -1,0 +1,1990 @@
+# Phase 11 repair round 1, factory-engineer: git diff of control-plane files (generated adapters included), then new files in full
+diff --git a/.agents/skills/handoff/SKILL.md b/.agents/skills/handoff/SKILL.md
+index 1382b6c..2c44a83 100644
+--- a/.agents/skills/handoff/SKILL.md
++++ b/.agents/skills/handoff/SKILL.md
+@@ -23,7 +23,8 @@ Run it when the human asks, or as soon as the orchestrator knows a cut-off is co
+    - the state of every changed file (finished, partial, or must be discarded);
+    - the exact next step, written as the next work order line;
+    - the commands that verify the state (`git status --short`,
+-     `.agents/render.sh --check`, `sbt check` when sources changed);
++     `.agents/render.sh --check`, `timeout 45m sbt check` when sources changed, run in
++     the foreground);
+    - when a session hit its usage limit: the exact command to continue in a fresh
+      Claude Code session (the only harness in use, `docs/agents.md` harness scope), for
+      example
+diff --git a/.agents/skills/run-pipeline/SKILL.md b/.agents/skills/run-pipeline/SKILL.md
+index 55ded2e..3c346ef 100644
+--- a/.agents/skills/run-pipeline/SKILL.md
++++ b/.agents/skills/run-pipeline/SKILL.md
+@@ -24,6 +24,9 @@ If any gate is missing, stop and tell the human which one; do not delegate.
+ Use the **deploy-engineer** agent to run `scripts/run-bounded-pipeline.sh` with
+ <argument>, confirm the EMR cluster auto-terminated after evidence was archived, and
+ record dataset snapshot, run IDs, configuration and output locations.
++The work order writes the script call in the foreground under `timeout` with the bound
++the human gate names, and any local `sbt` step as `timeout 45m sbt check` or
++`timeout 30m sbt ...`; no background run, polling or wait loop (`AGENTS.md`, Commands).
+ 
+ Report: run IDs, Hadoop and Spark counters, output paths, duration, estimated cost and
+ anything left running.
+diff --git a/.claude/commands/handoff.md b/.claude/commands/handoff.md
+index 4865782..3075cb9 100644
+--- a/.claude/commands/handoff.md
++++ b/.claude/commands/handoff.md
+@@ -21,7 +21,8 @@ Run it when the human asks, or as soon as the orchestrator knows a cut-off is co
+    - the state of every changed file (finished, partial, or must be discarded);
+    - the exact next step, written as the next work order line;
+    - the commands that verify the state (`git status --short`,
+-     `.agents/render.sh --check`, `sbt check` when sources changed);
++     `.agents/render.sh --check`, `timeout 45m sbt check` when sources changed, run in
++     the foreground);
+    - when a session hit its usage limit: the exact command to continue in a fresh
+      Claude Code session (the only harness in use, `docs/agents.md` harness scope), for
+      example
+diff --git a/.claude/commands/run-pipeline.md b/.claude/commands/run-pipeline.md
+index cc9f8c4..f9fbb15 100644
+--- a/.claude/commands/run-pipeline.md
++++ b/.claude/commands/run-pipeline.md
+@@ -22,6 +22,9 @@ If any gate is missing, stop and tell the human which one; do not delegate.
+ Use the **deploy-engineer** agent to run `scripts/run-bounded-pipeline.sh` with
+ <argument>, confirm the EMR cluster auto-terminated after evidence was archived, and
+ record dataset snapshot, run IDs, configuration and output locations.
++The work order writes the script call in the foreground under `timeout` with the bound
++the human gate names, and any local `sbt` step as `timeout 45m sbt check` or
++`timeout 30m sbt ...`; no background run, polling or wait loop (`AGENTS.md`, Commands).
+ 
+ Report: run IDs, Hadoop and Spark counters, output paths, duration, estimated cost and
+ anything left running.
+diff --git a/.claude/hooks/guard-dangerous.sh b/.claude/hooks/guard-dangerous.sh
+index 78bed81..e1e0896 100755
+--- a/.claude/hooks/guard-dangerous.sh
++++ b/.claude/hooks/guard-dangerous.sh
+@@ -9,7 +9,12 @@
+ # secret files (Codex has no per-file read deny rule).
+ # Owner: factory-engineer. Floor invariant: patterns may be added, never removed.
+ # Known false positive: patterns also match prose inside heredocs or messages; reword
+-# the prose, never weaken the list. Fails open if the payload cannot be parsed.
++# the prose, never weaken the list. Fails open if the JSON payload cannot be parsed.
++# Shell parsing (Phase 11 repair round 1): every pass below parses the command twice, as
++# written and with unquoted '#' comments removed (bash drops them), and blocks if either
++# reading blocks. A command that one of the readings cannot parse fails closed: each pass
++# then applies its raw-text check (terraform, push, sbt, polling loops, the test marker,
++# datasets/gold, secret names and glob words).
+ set -uo pipefail
+ 
+ payload=$(cat)
+@@ -46,35 +51,152 @@ block() {
+   exit 2
+ }
+ 
++# Shared shell helpers, prepended to the Python passes that parse the command.
++# uncomment: drop unquoted '#' comments the way bash does (a '#' that starts a word).
++# subst: replace $(...), backticks, ${...} and $NAME by SUB and return the inner commands.
++# wrappers: strip command wrappers, VAR=value prefixes and wrapper options (with their
++# values: timeout -s KILL, env -u NAME, nice -n 5, stdbuf -o L, xargs -I {}, sudo -u x).
++IFS= read -r -d '' PYLIB <<'PYLIB'
++import os, re, shlex
++SUB = "@@SUB@@"
++def uncomment(s):
++    out, i, q, n = [], 0, "", len(s)
++    while i < n:
++        ch = s[i]
++        if q == "\x27":
++            out.append(ch); i += 1
++            if ch == "\x27": q = ""
++            continue
++        if ch == "\\" and i + 1 < n:
++            out.append(s[i:i + 2]); i += 2; continue
++        if q == "\"":
++            out.append(ch); i += 1
++            if ch == "\"": q = ""
++            continue
++        if ch in "\x27\"":
++            q = ch; out.append(ch); i += 1; continue
++        if ch == "#" and (i == 0 or s[i - 1] in " \t\n;&|()<>"):
++            j = s.find("\n", i)
++            i = n if j < 0 else j
++            continue
++        out.append(ch); i += 1
++    return "".join(out)
++def subst(s):
++    out, inner, i, q = [], [], 0, ""
++    while i < len(s):
++        ch = s[i]
++        if q == "\x27":
++            out.append(ch); i += 1
++            if ch == "\x27": q = ""
++            continue
++        if ch == "\\" and i + 1 < len(s):
++            out.append(s[i:i + 2]); i += 2; continue
++        if ch == "\x27" and not q:
++            q = "\x27"; out.append(ch); i += 1; continue
++        if ch == "\"":
++            q = "" if q else "\""; out.append(ch); i += 1; continue
++        if ch == "$" and s[i + 1:i + 2] == "(":
++            depth, j = 1, i + 2
++            while j < len(s) and depth:
++                depth += {"(": 1, ")": -1}.get(s[j], 0); j += 1
++            inner.append(s[i + 2:j - 1]); out.append(SUB); i = j; continue
++        if ch == "`":
++            j = s.find("`", i + 1); j = len(s) if j < 0 else j
++            inner.append(s[i + 1:j]); out.append(SUB); i = j + 1; continue
++        if ch == "$" and s[i + 1:i + 2] == "{":
++            j = s.find("}", i); j = len(s) if j < 0 else j
++            out.append(SUB); i = j + 1; continue
++        m = re.match(r"\$([A-Za-z_][A-Za-z0-9_]*|[0-9@*#?!$-])", s[i:])
++        if m:
++            out.append(SUB); i += len(m.group()); continue
++        out.append(ch); i += 1
++    return "".join(out), inner
++HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*[\x27\"]?([A-Za-z_][A-Za-z0-9_]*)[\x27\"]?")
++SHELLS = {"sh", "bash", "zsh", "dash", "ksh"}
++KEYWORDS = {"then", "do", "else", "elif", "if", "while", "until", "!", "{", "}", "fi",
++            "done", "esac"}
++WRAPPERS = {"command", "builtin", "exec", "env", "nohup", "time", "nice", "timeout",
++            "stdbuf", "xargs", "sudo", "doas", "busybox", "ionice", "chrt", "setsid",
++            "unbuffer", "flock"}
++WRAPVAL = {"timeout": {"-s", "--signal", "-k", "--kill-after"},
++           "env": {"-u", "--unset", "-C", "--chdir"},
++           "nice": {"-n", "--adjustment"}, "ionice": {"-c", "-n", "-p"},
++           "stdbuf": {"-i", "-o", "-e", "--input", "--output", "--error"},
++           "xargs": {"-I", "-L", "-n", "-P", "-s", "-d", "-E", "-a", "--arg-file",
++                     "--delimiter", "--max-args", "--max-procs", "--max-lines",
++                     "--max-chars", "--replace", "--eof"},
++           "sudo": {"-u", "-g", "-C", "-D", "-h", "-p", "-U", "-r", "-t"},
++           "doas": {"-u", "-C"}, "exec": {"-a"}, "time": {"-f", "-o", "--format", "--output"},
++           "flock": {"-w", "-E", "--timeout", "--conflict-exit-code"}}
++def wrappers(words, keywords=KEYWORDS):
++    # Returns (command words, saw xargs, VAR=value words, env -S string or None, keywords).
++    xa, cur, assigns, split, seen = False, None, [], None, []
++    while words:
++        w = words[0]; b = os.path.basename(w)
++        if w in keywords:
++            seen.append(w); cur = None; words = words[1:]; continue
++        if b in WRAPPERS:
++            xa = xa or b == "xargs"; cur = b; words = words[1:]; continue
++        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", w):
++            assigns.append(w); words = words[1:]; continue
++        if cur == "env" and re.fullmatch(r"-S.*|--split-string(=.*)?", w):
++            v = w[2:] if w.startswith("-S") else w.partition("=")[2]
++            if not v and len(words) > 1: v, words = words[1], words[1:]
++            split = " ".join([v] + words[1:]); words = []; break
++        if re.fullmatch(r"-\S*", w):
++            words = words[2:] if (cur and w in WRAPVAL.get(cur, ()) and len(words) > 1) else words[1:]
++            continue
++        if re.fullmatch(r"\d+(\.\d+)?[smhd]?", w):
++            words = words[1:]; continue
++        break
++    return words, xa, assigns, split, seen
++def variants(s):
++    # The command as written and with unquoted comments removed (bash drops them). The
++    # last reading is the one bash sees: only its parse failure fails closed.
++    u = uncomment(s)
++    return [s] if u == s else [s, u]
++PYLIB
++
+ # Structural pass: identify shell operators before shlex decodes words. The guard splits
+ # the command into segments on unquoted ; & | ( ) ` and newlines, drops redirections,
+-# strips wrappers and VAR=value prefixes, recurses into sh -c / bash -c strings and eval,
+-# and checks argv tokens: terraform or tofu with an apply or destroy token; git push with
+-# a force flag (-f in any short group, --force*, --mirror, +refspec); git commit with
+-# --no-verify or n in a short group (values of -m, -F and similar are skipped); env with no
+-# command, printenv with no name, and printenv of a secret-looking name (PAT, TOKEN,
+-# SECRET, KEY; repair round 3), because they print credential values. It also
+-# prints each segment in canonical form (quotes and escapes resolved; for aws, global
+-# options removed so service and operation are adjacent), and the pattern list below is
+-# matched against those too. Malformed quoting: the pass adds nothing and the raw and
+-# normalized checks still apply (it fails open, not closed, so odd commands still run).
+-structural=$(printf '%s' "$cmd" | python3 -c '
+-import os, re, shlex, sys
++# strips wrappers (with their option values) and VAR=value prefixes, replaces $(...),
++# backticks and $VAR by a placeholder and checks the inner commands too, recurses into
++# sh -c / bash -c strings, eval, env -S and heredoc bodies fed to a shell, and checks argv
++# tokens:
++# - terraform or tofu with an apply or destroy token, fed by xargs, or with a variable
++#   subcommand; a variable or $(...) command word followed by apply, destroy or push;
++# - git push with a force flag (-f in any short group, --force*, --mirror and their
++#   abbreviations, +refspec), a remote.*.push or remote.*.mirror value given with -c or
++#   --config-env, GIT_CONFIG* variables, xargs, or a variable argument; git config that
++#   sets remote.*.push or remote.*.mirror;
++# - git commit with --no-verify or n in a short group (values of -m, -F and similar are
++#   skipped);
++# - env with no command, printenv with no name or a secret-looking name (PAT, TOKEN,
++#   SECRET, KEY, PASSWORD, PASSWD, PASSPHRASE, CREDENTIAL), export, declare, typeset or
++#   readonly with no name, and a bare set, because they print credential values;
++# - sbt, sbtn and java -jar sbt-launch.jar running arbitrary code (Phase 11 B-1): the sbt
++#   commands eval, console*, set, session, alias, addCommandAlias, apply, '<', load*,
++#   onFailure, iflast, append, early, shell, boot, reboot, client, bgRun*, reStart,
++#   scripted, '!' history, '~' continuous execution, reload or projects with arguments,
++#   runMain (and fgRunMain) of a class outside the scholarchain package, markTestRun;
++#   launcher options that load code from outside the build (-sbt-jar, -sbt-launch-jar,
++#   -java-home, -jvm-opts, -sbt-opts, -sbt-dir, -sbt-boot, -ivy, -sbt-launch-repo,
++#   -Dsbt.global.base and similar, -J agents and OnError hooks, @argfiles); sbt with no
++#   command (its shell reads commands from stdin); JVM agent options in
++#   JAVA_TOOL_OPTIONS, JDK_JAVA_OPTIONS, _JAVA_OPTIONS, SBT_OPTS, JAVA_OPTS or JVM_OPTS.
++#   run, Test/run and runMain of a scholarchain.* class stay allowed: local pipeline runs
++#   use them, and they run only the build's own code, which is reviewed in the diff like
++#   every test. Residual: tests and the build's own mains are arbitrary code by design.
++# - polling and wait loops (Phase 11 B-7): sleep, pgrep, pidof or ps inside a while,
++#   until, for or select loop, and watch. A bare pgrep stays allowed.
++# It also prints each segment in canonical form (quotes and escapes resolved; for aws,
++# global options removed so service and operation are adjacent), and the pattern list
++# below is matched against those too. A command that a reading cannot parse fails closed
++# for terraform, tofu, git push, sbt and loop words (see the UNPARSED check below).
++structural=$(printf '%s' "$cmd" | python3 -c "$PYLIB"'
++import sys
+ raw = sys.stdin.read()
+-lines, kept, i = raw.split("\n"), [], 0
+-while i < len(lines):
+-    kept.append(lines[i])
+-    delims = re.findall(r"<<-?\s*[\x27\"]?([A-Za-z_][A-Za-z0-9_]*)[\x27\"]?", lines[i])
+-    i += 1
+-    for d in delims:
+-        while i < len(lines) and lines[i].strip() != d:
+-            i += 1
+-        i += 1
+-SEP = set(";&|()`\n")
+-WRAP = {"command", "exec", "env", "nohup", "time", "nice", "timeout", "stdbuf", "xargs",
+-        "builtin", "then", "do", "else", "elif", "if", "while", "until", "!", "{", "}",
+-        "sudo", "doas"}
+-SHELLS = {"sh", "bash", "zsh", "dash", "ksh"}
++SOURCE = {"source", ".", "eval"}
+ AWS_NOVAL = {"--debug", "--no-verify-ssl", "--no-paginate", "--no-sign-request",
+              "--no-cli-pager", "--cli-auto-prompt", "--no-cli-auto-prompt"}
+ PUSH_VAL = {"--push-option", "--repo", "--receive-pack", "--exec"}
+@@ -84,8 +206,20 @@ COMMIT_VAL = {"--message", "--file", "--reuse-message", "--reedit-message", "--t
+ GIT_GLOBAL_VAL = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env",
+                   "--super-prefix"}
+ # A variable name whose value is a credential: an underscore-separated part that is PAT,
+-# KEY (or ends in KEY), or contains TOKEN or SECRET. PATH, HOME and JAVA_HOME do not match.
+-SECRET_VAR = re.compile(r"(?:^|_)(?:[A-Z0-9]*(?:TOKEN|SECRET)[A-Z0-9]*|PATS?|[A-Z0-9]*KEYS?)(?:_|$)")
++# KEY (or ends in KEY), PASSWORD, PASSWD, PASSPHRASE, CREDENTIAL(S), or contains TOKEN or
++# SECRET. PATH, HOME, PWD and JAVA_HOME do not match.
++SECRET_VAR = re.compile(r"(?:^|_)(?:[A-Z0-9]*(?:TOKEN|SECRET)[A-Z0-9]*|PATS?|[A-Z0-9]*KEYS?|PASSWORDS?|PASSWD|PASSPHRASE|CREDENTIALS?)(?:_|$)")
++JVM_ENV = re.compile(r"(JAVA_TOOL_OPTIONS|JDK_JAVA_OPTIONS|_JAVA_OPTIONS|SBT_OPTS|JAVA_OPTS|JVM_OPTS)=(.*)", re.S)
++JVM_BAD = re.compile(r"javaagent|agentpath|agentlib|OnOutOfMemoryError|OnError|-jar\b|sbt\.global\.base|sbt\.boot\.(directory|properties)|sbt\.ivy\.home|sbt\.override\.build\.repos|sbt\.repository\.config|sbt\.global\.(plugins|settings)", re.I)
++SBT_DENY = {"eval", "console", "consolequick", "consoleproject", "set", "session", "alias",
++            "addcommandalias", "apply", "<", "load", "loadp", "loadfailed", "onfailure",
++            "iflast", "append", "early", "shell", "oldshell", "boot", "reboot", "client",
++            "bgrun", "bgrunmain", "restart", "ammonite", "amm", "scripted",
++            "addpluginsbtfile", "marktestrun"}
++SBT_ARGS = {"testonly", "testquick", "test", "run", "fgrun", "runmain", "fgrunmain"}
++SBT_INFO = {"-h", "-help", "--help", "-version", "--version", "-V", "--numeric-version",
++            "--script-version", "-script-version"}
++SBT_OPT_BAD = re.compile(r"^--?(sbt-jar|sbt-launch-jar|java-home|jvm-opts|sbt-opts|sbt-dir|sbt-boot|ivy|sbt-launch-repo|sbt-launch-dir)(=|$)|^-D(sbt\.(global\.(base|plugins|settings|staging)|boot\.(directory|properties)|ivy\.home|override\.build\.repos|repository\.config)|java\.home|coursier\.)|^-J.*(javaagent|agentpath|agentlib|OnOutOfMemoryError|OnError)|^@", re.I)
+ blocks, canon = [], []
+ 
+ # Consume quotes and escapes before recognizing a run of unquoted operators.
+@@ -94,6 +228,21 @@ syntax = re.compile(
+     re.S | re.X,
+ )
+ 
++def keep_lines(text):
++    # Heredoc bodies are data, except a body fed to a shell (bash <<EOF), which is commands.
++    lines, kept, i = text.split("\n"), [], 0
++    while i < len(lines):
++        line = lines[i]; kept.append(line); i += 1
++        for d in HEREDOC.findall(line):
++            w = re.split(r"[;&|()]", line[:line.find("<<")])[-1].split()
++            w = wrappers(w)[0]
++            feeds = bool(w) and os.path.basename(w[0]) in SHELLS | SOURCE
++            while i < len(lines) and lines[i].strip() != d:
++                if feeds: kept.append(lines[i])
++                i += 1
++            i += 1
++    return "\n".join(kept)
++
+ def tokens(s):
+     start = 0
+     for match in syntax.finditer(s):
+@@ -112,7 +261,7 @@ def segments(s):
+             skip = False; continue
+         if operator and set(tok) <= set("<>&") and ("<" in tok or ">" in tok):
+             skip = True; continue
+-        if operator and set(tok) <= SEP:
++        if operator and set(tok) <= set(";&|()`\n"):
+             segs.append(cur); cur = []; continue
+         cur.append(tok)
+     segs.append(cur)
+@@ -135,27 +284,82 @@ def flags(args, hit, vals, longval, longhit, optional=""):
+         i += 1
+     return False
+ 
+-def analyze(argv, depth):
+-    env = False
+-    while argv:
+-        a = argv[0]
+-        if a == "eval":
+-            run(" ".join(argv[1:]), depth + 1); return
+-        if os.path.basename(a) == "env": env = True
+-        if a in WRAP or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", a) or re.fullmatch(r"-\S*|\d+[smhd]?", a):
+-            argv = argv[1:]; continue
+-        break
+-    if not argv:
++def sbt_check(args):
++    opts = [a for a in args if a.startswith(("-", "@"))]
++    cmds = [p.strip() for a in args if not a.startswith(("-", "@")) for p in a.split(";") if p.strip()]
++    for o in opts:
++        if SBT_OPT_BAD.search(o):
++            return "an sbt launcher option that loads code or settings from outside the build (" + o + ")"
++    if not cmds:
++        if any(o in SBT_INFO for o in opts): return None
++        return "sbt with no command (its interactive shell reads commands from stdin)"
++    for c in cmds:
++        toks = c.split()
++        for k, t in enumerate(toks):
++            if t.startswith("!"): return "an sbt history command (" + t + ")"
++            if t.startswith("~"): return "sbt continuous execution (~), a wait loop"
++            base = t.rsplit("/", 1)[-1].lstrip("+\"\x27(")
++            m = re.match(r"<|[A-Za-z][A-Za-z0-9_+-]*", base)
++            key = (m.group() if m else base).lower().replace("-", "")
++            if key == "marktestrun": return "running the markTestRun task by name; run sbt check"
++            if key in ("reload", "projects") and k + 1 < len(toks):
++                return "sbt " + t + " with arguments (it loads another build)"
++            if key in SBT_DENY: return "the sbt command " + t + ", which runs arbitrary code"
++            if key in ("runmain", "fgrunmain"):
++                cls = toks[k + 1] if k + 1 < len(toks) else ""
++                if not cls.startswith("scholarchain."):
++                    return "sbt runMain of a class outside the scholarchain package (" + (cls or "none") + ")"
++            if key in SBT_ARGS and toks[k + 1:k + 2] != ["/"]:
++                break                      # the rest are test patterns or program arguments
++    return None
++
++def analyze(argv, depth, st):
++    if argv and argv[0] == "done":
++        st["loop"] = max(0, st["loop"] - 1)
++    words, xa, assigns, split, seen = wrappers(argv)
++    st["loop"] += sum(1 for k in seen if k in ("while", "until"))
++    env = any(os.path.basename(a) == "env" for a in argv[:len(argv) - len(words)])
++    for a in assigns:
++        m = JVM_ENV.fullmatch(a)
++        if m and JVM_BAD.search(m.group(2)):
++            blocks.append("a JVM agent or hook option in " + m.group(1))
++    if split is not None:
++        run(split, depth + 1, st); return
++    if words and words[0] == "eval":
++        run(" ".join(words[1:]), depth + 1, st); return
++    if not words:
+         # env with no command prints every variable, the secret ones included.
+         if env: blocks.append("printing the whole environment (env with no command)")
+         return
+-    name, args = os.path.basename(argv[0]), argv[1:]
++    name, args = os.path.basename(words[0]), words[1:]
++    if name in ("for", "select"): st["loop"] += 1
++    if st["loop"] and name in ("sleep", "pgrep", "pidof", "ps"):
++        blocks.append("a polling or wait loop (" + name + " inside a loop); run the command once in the foreground under timeout")
++    if name == "watch":
++        blocks.append("a polling loop (watch); run the command once in the foreground under timeout")
+     if name == "printenv":
+         names = [a for a in args if not a.startswith("-")]
+         if not names:
+             blocks.append("printing the whole environment (printenv with no name)")
+-        elif any(SECRET_VAR.search(n.upper()) for n in names):
+-            blocks.append("printing a secret environment variable (a name with PAT, TOKEN, SECRET or KEY)")
++        elif any(SECRET_VAR.search(n.upper()) or SUB in n for n in names):
++            blocks.append("printing a secret environment variable (a name with PAT, TOKEN, SECRET, KEY or PASSWORD)")
++    if name in ("export", "declare", "typeset", "readonly"):
++        names = [a for a in args if not a.startswith(("-", "+"))]
++        if not names and (not args or not all(re.fullmatch(r"[-+][fF]+", a) for a in args)):
++            blocks.append("printing the whole environment (" + name + " with no name)")
++        for a in names:
++            m = JVM_ENV.fullmatch(a)
++            if m and JVM_BAD.search(m.group(2)):
++                blocks.append("a JVM agent or hook option in " + m.group(1))
++            if "-p" in args and SECRET_VAR.search(a.split("=")[0].upper()):
++                blocks.append("printing a secret environment variable")
++    if name == "set" and not args:
++        blocks.append("printing the whole environment (set with no arguments)")
++    if SUB in words[0]:
++        if any(a in ("apply", "destroy") for a in args):
++            blocks.append("apply or destroy run through a variable or $(...) command word")
++        if "push" in args:
++            blocks.append("a git push run through a variable or $(...) command word")
+     if name == "aws":
+         pos, rest, i = [], [], 0
+         while i < len(args):
+@@ -169,39 +373,90 @@ def analyze(argv, depth):
+     if name in SHELLS:
+         for j, a in enumerate(args):
+             if re.fullmatch(r"-[a-zA-Z]*c[a-zA-Z]*", a) and j + 1 < len(args):
+-                run(args[j + 1], depth + 1); break
+-    if name in ("terraform", "tofu") and any(a in ("apply", "destroy") for a in args):
+-        blocks.append("raw terraform apply or destroy (the only apply path is scripts/deploy.sh)")
++                run(args[j + 1], depth + 1, st); break
++    if name in ("terraform", "tofu"):
++        if any(a in ("apply", "destroy") for a in args):
++            blocks.append("raw terraform apply or destroy (the only apply path is scripts/deploy.sh)")
++        sub = next((a for a in args if not a.startswith("-")), "")
++        if xa or SUB in sub:
++            blocks.append("terraform with a subcommand the guard cannot see (xargs or a variable)")
++    if name in ("sbt", "sbtn"):
++        r = sbt_check(args)
++        if r: blocks.append(r)
++    if name == "java":
++        for k, a in enumerate(args):
++            if a == "-jar" and k + 1 < len(args) and "sbt-launch" in os.path.basename(args[k + 1]):
++                r = sbt_check(args[k + 2:]); r and blocks.append(r); break
++            if a in ("xsbt.boot.Boot", "sbt.xMain"):
++                r = sbt_check(args[k + 1:]); r and blocks.append(r); break
+     if name == "git":
+-        i = 0
++        i, gconf = 0, []
+         while i < len(args) and args[i].startswith("-"):
++            if args[i] in ("-c", "--config-env") and i + 1 < len(args): gconf.append(args[i + 1])
++            if args[i].startswith("--config-env="): gconf.append(args[i].split("=", 1)[1])
+             i += 2 if args[i] in GIT_GLOBAL_VAL else 1
+         sub, rest = (args[i], args[i + 1:]) if i < len(args) else ("", [])
++        pushkey = lambda k: re.fullmatch(r"remote\..*\.(push|mirror)", k.lower()) is not None
+         if sub == "push":
+             force = lambda t: t.startswith("--force") or (len(t) >= 4 and ("--force".startswith(t) or "--mirror".startswith(t)))
+             if flags(rest, "f", "o", PUSH_VAL, force) or any(r.startswith("+") and len(r) > 1 for r in rest):
+                 blocks.append("a force push")
++            if any(pushkey(c.split("=", 1)[0]) for c in gconf):
++                blocks.append("a force push (a push refspec or mirror given with -c)")
++            if any(a.split("=", 1)[0].startswith("GIT_CONFIG") for a in assigns):
++                blocks.append("a git push with configuration from GIT_CONFIG variables")
++            if xa or any(SUB in a for a in args):
++                blocks.append("a git push with arguments the guard cannot see (xargs or a variable)")
++        if sub == "config" and any(pushkey(a) for a in rest) and not any(
++                a in ("--get", "--get-all", "--get-regexp", "--list", "-l", "--show-origin") for a in rest):
++            blocks.append("git config that sets a push refspec or mirror (a force push)")
+         if sub == "commit":
+             nov = lambda t: t == "--no-verify" or (len(t) >= 9 and "--no-verify".startswith(t))
+             if flags(rest, "n", "mFCct", COMMIT_VAL, nov, optional="S"):
+                 blocks.append("a commit that skips the gate")
+ 
+-def run(s, depth):
++def run(s, depth, st):
+     if depth > 4: return
++    s, inner = subst(s)
++    for x in inner:
++        run(x, depth + 1, st)
+     for seg in segments(s):
+-        analyze(seg, depth)
++        analyze(seg, depth, st)
+ 
+-try:
+-    run(re.sub(r"\\\r?\n", " ", "\n".join(kept)), 0)
+-except ValueError:
+-    print("UNPARSED"); sys.exit(0)
+-print(("BLOCK " + blocks[0]) if blocks else "OK")
++text = keep_lines(raw)
++failed = False
++vs = variants(re.sub(r"\\\r?\n", " ", text))
++for k, v in enumerate(vs):
++    try:
++        run(v, 0, {"loop": 0})
++    except ValueError:
++        failed = failed or k == len(vs) - 1
++if blocks: print("BLOCK " + blocks[0])
++elif failed: print("UNPARSED")
++else: print("OK")
+ print("\n".join(canon))
+ ' 2>/dev/null || true)
+ verdict=${structural%%$'\n'*}
+ canon=""
+ [[ "$structural" == *$'\n'* ]] && canon=${structural#*$'\n'}
+ [[ "$verdict" == "BLOCK "* ]] && block "${verdict#BLOCK }"
++# Fail closed (Phase 11 C01, C03): a command that a reading cannot parse (an unbalanced
++# quote after a comment, an apostrophe in prose) is blocked when its unquoted, unescaped
++# text names terraform or tofu with apply or destroy, git with push, sbt or sbtn, or a
++# loop with sleep, pgrep or pidof. A crashed pass (no verdict) is treated the same way.
++if [[ "$verdict" != "OK" ]]; then
++  bare=${norm//\\/}
++  c0='(^|[[:space:];&|(`])'                 # a command or argument word starts here
++  c1='([[:space:];&|)`]|$)'
++  [[ "$bare" =~ $c0(terraform|tofu)$c1 && "$bare" =~ $c0(apply|destroy)$c1 ]] \
++    && block "a terraform or tofu apply or destroy the guard could not parse"
++  [[ "$bare" =~ ${c0}git$c1 && "$bare" =~ ${c0}push$c1 ]] \
++    && block "a git push the guard could not parse"
++  [[ "$bare" =~ ${c0}sbtn?$c1 ]] && block "an sbt command the guard could not parse"
++  [[ "$bare" =~ $c0(while|until|for|watch)$c1 && "$bare" =~ $c0(sleep|pgrep|pidof|watch)$c1 ]] \
++    && block "a loop the guard could not parse"
++fi
++# end of structural pass
+ 
+ # Substring patterns, case-insensitive.
+ blocked_patterns=(
+@@ -338,12 +593,12 @@ fi
+ # literally is blocked when it also holds a write shape: a redirection, tee, sed -i, mv,
+ # cp, rm, truncate, dd, install, ln, touch, chmod, shred, unlink, find -delete, -exec or
+ # -ok, git --output, checkout or restore, or an interpreter (python, perl, ruby, node,
+-# php, awk). Round 3 added touch, chmod, shred, unlink, the find actions, the git forms,
++# php, awk; sbt, sbtn, scala, scala-cli, amm and jshell since Phase 11 B-1). Round 3 added touch, chmod, shred, unlink, the find actions, the git forms,
+ # the interpreters, and perl without -i. A write that does not name the file
+ # literally (a glob, a variable, an ancestor directory) is not matched; the file-tool deny
+ # rules, git diff, the pre-commit gate and the human gate review are the backstop.
+ if [[ "$cmd" == *human-gate.md* || "$norm" == *human-gate.md* ]] \
+-   && [[ "$cmd" =~ ([>]|tee|sed$s+-i|perl$s|mv$s|cp$s|rm$s|truncate|dd$s|install$s|ln$s|touch$s|chmod$s|shred|unlink|-delete|-exec|$s-ok|--output|checkout$s|restore$s|python|ruby$s|node$s|php$s|awk$s) ]]; then
++   && [[ "$cmd" =~ ([>]|tee|sed$s+-i|perl$s|mv$s|cp$s|rm$s|truncate|dd$s|install$s|ln$s|touch$s|chmod$s|shred|unlink|-delete|-exec|$s-ok|--output|checkout$s|restore$s|python|ruby$s|node$s|php$s|awk$s|sbtn?$s|scala|amm$s|jshell) ]]; then
+   block "a shell write to human-gate.md (written only by the human)"
+ fi
+ 
+@@ -358,12 +613,25 @@ fi
+ # (python -c, awk, sed scripts, interpreter heredocs) that names datasets/gold is
+ # blocked; sh -c, eval, $(...) and shell heredocs are checked recursively. The value of a
+ # git --output option (and -o of archive and format-patch) is a write target (round 3).
+-# Not matched by design (human decision, repair round 2): a bare datasets token and a
+-# glob directly under datasets/, such as datasets/* or datasets/*.tmp.
+-# Fails closed: if the parse fails and the command names datasets/gold with a write shape,
+-# it is blocked.
++# Ancestors (Phase 11 C04): rm, rmdir, unlink, shred, chmod, chown and similar on an
++# ancestor of datasets/gold (datasets, the repository root, anything above it, or a glob
++# that can match one), mv of an ancestor, cp, rsync, scp, install, ln or mv into an
++# ancestor from a source that can land on datasets/gold (a name datasets or gold, a glob,
++# a trailing / or /.), find with -delete or a writing -exec, -execdir, -ok or -okdir under
++# an ancestor whose -name filters can match a file in datasets/gold (any -path, -regex,
++# -o or negation fails closed), git checkout or restore of an ancestor, and the output
++# option (--out, --output, --capture) of an sbt run. Interpreter code (python, perl,
++# ruby, node, php, lua, awk, Rscript, scala, scala-cli, amm, jshell; inline or a heredoc)
++# that names both datasets and gold, or names datasets with rmtree, rename, move or a
++# shell call, is blocked. Not matched: a bare variable ("$X"), code that builds the
++# path some other way, and the human decision below.
++# Not matched by design (human decision, repair round 2): a glob directly under
++# datasets/, such as datasets/* or datasets/*.tmp (so also cd datasets && rm -rf *).
++# Fails closed: if a reading cannot be parsed and the command names datasets/gold with a
++# write shape, or names datasets with rm, mv, rmdir, shred, rsync, unlink, -delete or
++# rmtree, it is blocked.
+ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)
+-goldv=$(printf '%s' "$payload" | python3 -c '
++goldv=$(printf '%s' "$payload" | python3 -c "$PYLIB"'
+ import fnmatch, json, os, posixpath, re, shlex, sys
+ top = posixpath.normpath(sys.argv[1])
+ roots = {top, posixpath.normpath(os.path.realpath(top))}
+@@ -376,7 +644,18 @@ SUB = "@@SUB@@"
+ GOLDTXT = re.compile(r"datasets/+(?:\./+)*gold(?![A-Za-z0-9_.-])")
+ SHELLS = {"sh", "bash", "zsh", "dash", "ksh"}
+ INTERP = {"python", "python2", "python3", "perl", "ruby", "node", "php", "lua", "awk",
+-          "gawk", "mawk", "nawk", "sed", "Rscript", "jq"}
++          "gawk", "mawk", "nawk", "sed", "Rscript", "jq", "scala", "scala-cli", "amm",
++          "jshell"}
++# General-purpose interpreters: code that names datasets and gold separately is blocked.
++INTERP_CODE = INTERP - {"sed", "jq"}
++DIRCODE = re.compile(r"rmtree|removedirs|rename|move|copytree|system|subprocess|Popen|spawn|exec|rm\s+-")
++ANC_ANY = {"rm", "rmdir", "unlink", "shred", "chmod", "chown", "chgrp", "setfacl", "chattr",
++           "truncate"}
++COPYERS = {"cp", "mv", "rsync", "scp", "install", "ln"}
++FIND_READ = {"cat", "head", "tail", "wc", "grep", "egrep", "fgrep", "rg", "ls", "stat", "file",
++             "md5sum", "sha1sum", "sha256sum", "du", "echo", "printf", "test", "[", "diff",
++             "cmp", "basename", "dirname", "readlink", "realpath", "jq"}
++SBT_OUT = re.compile(r"--?(out|output|capture|out-dir|output-dir|output-root)")
+ WRAP = {"command", "builtin", "exec", "env", "nohup", "time", "nice", "timeout", "stdbuf",
+         "then", "do", "else", "elif", "if", "while", "until", "!", "{", "}", "sudo", "doas"}
+ EVERY = {"rm", "rmdir", "unlink", "touch", "truncate", "mkdir", "chmod", "chown", "chgrp",
+@@ -507,6 +786,62 @@ def under_gold(word, cwd):
+                 if p.startswith(r + "/") and gold_parts(p[len(r) + 1:].split("/")): return True
+     return False
+ 
++def ancestor(word, cwd):
++    # True when the word resolves to datasets, the repository root or anything above it
++    # (or a glob that can match one of them). A bare variable is not resolved.
++    if word in (SUB, "\"" + SUB + "\""): return False
++    for w in braces(word):
++        if w == "~" or w.startswith("~/"): w = home + w[1:]
++        cands = []
++        if w.startswith(SUB):
++            rest = w[len(SUB):].lstrip("/").replace(SUB, "*")
++            cands += [posixpath.join(r, rest) for r in roots]
++        else:
++            w = w.replace(SUB, "*")
++            if w.startswith("/"): cands.append(w)
++            elif cwd is None:
++                cands += [posixpath.join(r, x, w) for r in roots for x in ("", "datasets")]
++            else: cands.append(posixpath.join(cwd, w))
++        for p in cands:
++            pc = [x for x in posixpath.normpath(p).split("/") if x]
++            for r in roots:
++                gc = [x for x in (r + "/datasets/gold").split("/") if x]
++                if len(pc) < len(gc) and all(can(a, b) for a, b in zip(pc, gc)): return True
++    return False
++
++def gold_names():
++    if "names" not in GOLD:
++        names = {"gold"}
++        for r in roots:
++            for dp, dn, fn in os.walk(posixpath.join(r, "datasets", "gold")):
++                names.update(dn + fn)
++                if len(names) > 5000: break
++        GOLD["names"] = names
++    return GOLD["names"]
++GOLD = {}
++
++def copy_operands(args):
++    dest, ops, i = None, [], 0
++    while i < len(args):
++        a = args[i]
++        if a in ("-t", "--target-directory") and i + 1 < len(args): dest = args[i + 1]; i += 2; continue
++        if a.startswith("--target-directory="): dest = a.split("=", 1)[1]
++        elif re.fullmatch(r"-t.+", a): dest = a[2:]
++        elif not a.startswith("-"): ops.append(a)
++        i += 1
++    if dest is None:
++        return (ops[-1] if len(ops) > 1 else None), ops[:-1]
++    return dest, ops
++
++def find_reaches_gold(expr):
++    if any(a in ("-path", "-ipath", "-wholename", "-iwholename", "-regex", "-iregex", "-o",
++                 "-or", "!", "-not") for a in expr): return True
++    pats = [(expr[i + 1], expr[i] == "-iname") for i, a in enumerate(expr)
++            if a in ("-name", "-iname") and i + 1 < len(expr)]
++    if not pats: return True
++    return any(all(fnmatch.fnmatchcase(n.lower() if ci else n, p.lower() if ci else p)
++                   for p, ci in pats) for n in gold_names())
++
+ def chdir(args, cwd):
+     a = [x for x in args if not re.fullmatch(r"-[LPe@]+|--", x)]
+     if not a: return home
+@@ -532,18 +867,10 @@ def every(args):
+     return out
+ 
+ def strip(words):
+-    xa = False
+-    while words:
+-        w = words[0]
+-        if w == "xargs":
+-            xa, words = True, words[1:]
+-            while words and words[0].startswith("-"):
+-                o, words = words[0], words[1:]
+-                if o in XARGS_VAL and words: words = words[1:]
+-            continue
+-        if w in WRAP or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*|-\S*|\d+[smhd]?", w):
+-            words = words[1:]; continue
+-        break
++    # Wrappers with their option values (timeout -s KILL, env -u NAME; Phase 11), so the
++    # command word is never a wrapper option value.
++    words, xa, _, split, _ = wrappers(words)
++    if split is not None: words = ["eval", split]
+     return words, xa
+ 
+ def analyze(words, reds, st, depth):
+@@ -567,6 +894,41 @@ def analyze(words, reds, st, depth):
+         for a in args:
+             if GOLDTXT.search(a) and not re.fullmatch(r"[A-Za-z0-9_./*?\[\]{},@=+:-]+", a):
+                 return name + " inline code that names datasets/gold"
++    if name in INTERP_CODE:
++        for a in args:
++            if re.fullmatch(r"[A-Za-z0-9_./*?\[\]{},@=+:-]+", a): continue
++            if "datasets" in a and ("gold" in a or DIRCODE.search(a)):
++                return name + " inline code that names datasets with gold or a directory operation"
++    if name in ("sbt", "sbtn"):
++        toks = [t for a in args for t in re.split(r"[\s;]+", a) if t]
++        for j, t in enumerate(toks):
++            k, _, v = t.partition("=")
++            if SBT_OUT.fullmatch(k):
++                v = v or (toks[j + 1] if j + 1 < len(toks) else "")
++                if under_gold(v, cwd) or ancestor(v, cwd): return "an sbt run writing to " + v
++    if name in ANC_ANY:
++        for t in every(args):
++            if ancestor(t, cwd): return name + " on " + t + ", an ancestor of datasets/gold"
++    if name in COPYERS:
++        dest, srcs = copy_operands(args)
++        if name == "mv":
++            for x in srcs:
++                if ancestor(x, cwd): return "mv of " + x + ", an ancestor of datasets/gold"
++        if dest and ancestor(dest, cwd):
++            for x in srcs:
++                b = posixpath.basename(x.rstrip("/"))
++                if (x.endswith(("/", "/.")) or b in ("", ".", "..", "datasets", "gold")
++                        or SUB in x or re.search(r"[*?\[]", b)):
++                    return name + " into " + dest + ", which can overwrite datasets/gold"
++    if name == "find":
++        i = 0
++        while i < len(args) and not args[i].startswith(("-", "(", "!", ")")): i += 1
++        starts, expr = args[:i] or ["."], args[i:]
++        writes = "-delete" in expr or any(
++            a in ("-exec", "-execdir", "-ok", "-okdir") and j + 1 < len(expr)
++            and posixpath.basename(expr[j + 1]) not in FIND_READ for j, a in enumerate(expr))
++        if writes and any(ancestor(x, cwd) for x in starts) and find_reaches_gold(expr):
++            return "find under " + " ".join(starts) + " that can delete or change datasets/gold"
+     targets, tcwd = [], cwd
+     inplace = any(re.fullmatch(r"-[A-Za-z]*i\S*|--in-place\S*", a) for a in args)
+     if name in EVERY or (name in ("sed", "perl") and inplace):
+@@ -593,6 +955,9 @@ def analyze(words, reds, st, depth):
+         # --output (diff, log, show and every other subcommand; repair round 3) and the
+         # -o and --output-directory of archive and format-patch name a file git writes.
+         sub, rest = (args[i], args[i + 1:]) if i < len(args) else ("", [])
++        if sub in ("checkout", "restore", "rm", "mv"):
++            for t in every(rest):
++                if ancestor(t, tcwd): return "git " + sub + " of " + t + ", an ancestor of datasets/gold"
+         for j, a in enumerate(rest):
+             n = a.split("=", 1)[0]
+             out = n.startswith("--output") or (len(n) >= 6 and "--output".startswith(n))
+@@ -624,98 +989,255 @@ def run(s, st, depth):
+         except ValueError: pass
+         w, _ = strip(w)
+         name = posixpath.basename(w[0]) if w else ""
+-        if name in SHELLS:
++        if name in SHELLS or name in ("eval", "source", "."):
+             r = run(body, st, depth + 1)
+             if r: return r
+         elif name in INTERP and GOLDTXT.search(body):
+             return name + " heredoc code that names datasets/gold"
++        elif name in INTERP_CODE and "datasets" in body and ("gold" in body or DIRCODE.search(body)):
++            return name + " heredoc code that names datasets with gold or a directory operation"
+     return None
+ 
+-try:
+-    start = posixpath.normpath(d.get("cwd") or top)
+-    r = run(c, {"cwd": start}, 0)
+-except Exception:
+-    print("UNPARSED"); sys.exit(0)
+-print(("BLOCK " + r.replace(SUB, "$")) if r else "OK")
++start = posixpath.normpath(d.get("cwd") or top)
++r, failed = None, False
++vs = variants(c)
++for k, v in enumerate(vs):
++    try:
++        r = run(v, {"cwd": start}, 0)
++    except Exception:
++        failed = failed or k == len(vs) - 1
++    if r: break
++print(("BLOCK " + r.replace(SUB, "$")) if r else ("UNPARSED" if failed else "OK"))
+ ' "$root" 2>/dev/null || true)
+ case "$goldv" in
+   OK) ;;
+   "BLOCK "*) block "a shell write to the gold-set labels under datasets/gold/: ${goldv#BLOCK } (written only by the human)" ;;
+-  *) [[ "$cmd" =~ datasets/+(\./+)*gold ]] \
+-       && [[ "$cmd" =~ ([>]|tee|sed$s+-i|perl$s+-i|mv$s|cp$s|rm$s|truncate|dd$s|install$s|ln$s|touch$s|chmod$s|--output) ]] \
+-       && block "a shell write to the gold-set labels under datasets/gold/ that the guard could not parse (written only by the human)" ;;
++  *) if { [[ "$cmd" =~ datasets/+(\./+)*gold ]] \
++          && [[ "$cmd" =~ ([>]|tee|sed$s+-i|perl$s+-i|mv$s|cp$s|rm$s|truncate|dd$s|install$s|ln$s|touch$s|chmod$s|--output) ]]; } \
++        || { [[ "$cmd" =~ (^|[^[:alnum:]_.-])datasets([^[:alnum:]_.-]|$) ]] \
++          && [[ "$cmd" =~ (rm|mv|rmdir|shred|rsync|unlink)$s|-delete|rmtree ]]; }; then
++       block "a shell write to the gold-set labels under datasets/gold/ that the guard could not parse (written only by the human)"
++     fi ;;
+ esac
+ 
+ # Shell writes to the test marker .claude/.last-test-run. Only the sbt markTestRun task
+ # writes it, inside the sbt JVM at the end of 'sbt check', so no agent command may.
+-# - a redirection (> >> >| &>) into the marker is blocked;
+-# - running markTestRun by name through sbt is blocked ('sbt check' stays allowed);
+-# - a command that names the marker (or a glob directly under .claude/) may only use
+-#   read-only commands in every segment: cat, stat, test, ls and similar; touch, cp, mv,
+-#   tee, ln, install, dd, truncate, rm, interpreters and editors are blocked, and so is a
+-#   git read subcommand with --output (repair round 3).
+-# Heredoc bodies are checked too, because a heredoc can feed an interpreter.
+-# Fails closed: if the parse fails and the command names the marker, it is blocked.
+-marker=$(printf '%s' "$cmd" | python3 -c '
+-import os, re, sys
++# Rewritten in Phase 11 (C05) to stop blocking harmless text; every write shape below
++# stays blocked:
++# - a redirection (> >> >| &>) into the marker;
++# - markTestRun as an argument of sbt or sbtn (quotes resolved, so "mark""TestRun" too),
++#   also inside sh -c, eval, $(...) and a heredoc fed to a shell ('sbt check' stays
++#   allowed); the structural pass blocks it as an sbt command as well;
++# - a command segment that names the marker (or a glob directly under .claude/) unless it
++#   is a read: cat, head, tail, stat, ls, test, wc, grep, diff and similar, find without a
++#   write action, a git read subcommand without --output, sed without -i (the marker as a
++#   file operand, never in the script), and cp with the marker only as a source (no -l or
++#   -s, and a destination that is neither the marker nor the .claude directory);
++# - when the marker name is handed on as data (a VAR=value word, export, read, for or
++#   case, an echo or printf piped onward, $(...)), the old rule: every segment of the
++#   command must be a read;
++# - a heredoc that names the marker or the task, fed to a shell (checked as commands), an
++#   interpreter or any command other than cat, tee, head, grep and similar readers.
++# Allowed: heredoc report bodies written with cat or tee, grep, sed -n, echo, git log,
++# and other commands beside a segment that only reads the marker.
++# Fails closed: if a reading cannot be parsed and the command names the marker or the
++# task, it is blocked.
++marker=$(printf '%s' "$cmd" | python3 -c "$PYLIB"'
++import posixpath, sys
+ c = re.sub(r"\\\r?\n", " ", sys.stdin.read())
+-MARK = r"(?:\.last-test-run|\.claude/\.?[^\s/]*[*?\[])"
+-WRAP = {"command", "builtin", "exec", "env", "nohup", "time", "nice", "timeout", "stdbuf",
+-        "xargs", "then", "do", "else", "elif", "if", "while", "until", "!", "{", "}",
+-        "sudo", "doas", "fi", "done", "esac"}
++MARK = re.compile(r"\.last-test-run|\.claude/\.?[^\s/]*[*?\[]|(?i:marktestrun)")
+ READ = {"cat", "head", "tail", "less", "more", "stat", "ls", "test", "[", "[[", "wc",
+         "file", "grep", "egrep", "fgrep", "rg", "diff", "cmp", "md5sum", "sha1sum",
+-        "sha256sum", "echo", "printf", "readlink", "realpath", "du", "date", "true",
+-        "false", "basename", "dirname", "cd", "pushd", "popd", "for", "case", "find",
+-        "git"}
++        "sha256sum", "readlink", "realpath", "du", "date", "true", "false", "basename",
++        "dirname", "cd", "pushd", "popd"}
++OLD_READ = READ | {"echo", "printf", "for", "case", "find", "git"}
++DATA = {"echo", "printf", "for", "case", "select", "export", "declare", "local",
++        "readonly", "typeset", "read", "set", "let"}
++SAFE_CONSUMERS = {"cat", "tee", "head", "tail", "wc", "grep", "egrep", "fgrep", "rg", "sort",
++                  "uniq", "diff", "cmp", "md5sum", "sha1sum", "sha256sum", "less", "more",
++                  "cut", "tr", "nl", "fold", "fmt", "column", "base64", "jq", "true", "false"}
+ GIT_READ = {"status", "diff", "log", "show", "ls-files", "check-ignore", "rev-parse",
+             "blame", "grep"}
+ FIND_WRITE = {"-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fprint0",
+               "-fprintf", "-fls"}
+-segs = []
+-for seg in re.split(r"[;&|()`\n]|\$\(", c):
+-    w = [x.strip("\"\x27\\") for x in seg.split()]
+-    while w and (w[0] in WRAP or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", w[0])
+-                 or re.fullmatch(r"-\S*|\d+[smhd]?", w[0])):
+-        w.pop(0)
+-    if w:
+-        segs.append((os.path.basename(w[0]), w[1:]))
+-if re.search(r"\bmarkTestRun\b", c, re.I) and any(n in ("sbt", "sbtn") for n, _ in segs):
+-    print("BLOCK running the markTestRun task by name; run sbt check"); sys.exit()
+-if not re.search(MARK, c):
+-    print("OK"); sys.exit()
+-if re.search(r">[>|]?\s*[\"\x27]?[^\s;&|<>\"\x27]*" + MARK, c):
+-    print("BLOCK a redirection into the test marker"); sys.exit()
+-for name, args in segs:
+-    ok = name in READ
+-    if name == "git":
+-        i = 0
+-        while i < len(args) and args[i].startswith("-"):
+-            i += 2 if args[i] in ("-C", "-c") else 1
+-        ok = i < len(args) and args[i] in GIT_READ
+-        # git diff, log and show write a file with --output (repair round 3).
+-        if any(a.split("=", 1)[0].startswith("--output") or
+-               (len(a.split("=", 1)[0]) >= 6 and "--output".startswith(a.split("=", 1)[0]))
+-               for a in args[i:]):
+-            ok = False
+-    if name == "find":
+-        ok = not any(a in FIND_WRITE for a in args)
+-    if not ok:
+-        print(f"BLOCK {name} in a command that names the test marker"); sys.exit()
+-print("OK")
++WOPS = {">", ">>", ">|", "&>", "&>>", "<>", ">&"}
++SEPS = {"&&", "||", "|", "|&", ";", ";;", "&", "(", ")", "`", "\n"}
++syntax = re.compile(r"""\\. | "(?:\\.|[^"\\])*" | \x27[^\x27]*\x27 |
++    (?P<op>&>>|&>|>>|>\||>&|<<<|<<-|<<|<>|<&|&&|\|\||\|&|;;|[;&|()<>`\n])""", re.S | re.X)
++
++class Block(Exception): pass
++
++def heredocs(s):
++    lines, kept, bodies, i = s.split("\n"), [], [], 0
++    while i < len(lines):
++        line = lines[i]; kept.append(line); i += 1
++        for dl in HEREDOC.findall(line):
++            body = []
++            while i < len(lines) and lines[i].strip() != dl:
++                body.append(lines[i]); i += 1
++            i += 1
++            bodies.append((line[:line.find("<<")], "\n".join(body)))
++    return "\n".join(kept), bodies
++
++def tokens(s):
++    pos = 0
++    for m in syntax.finditer(s):
++        if m.lastgroup == "op":
++            for w in shlex.split(s[pos:m.start()]): yield False, w
++            yield True, m.group(); pos = m.end()
++    for w in shlex.split(s[pos:]): yield False, w
++
++def segments(s):
++    segs, words, reds, it, i = [], [], [], list(tokens(s)), 0
++    while i < len(it):
++        op, t = it[i]
++        if op and (t in SEPS or (t not in WOPS and not t.startswith("<"))):
++            segs.append((words, reds, t)); words, reds = [], []
++        elif op:
++            if i + 1 < len(it) and not it[i + 1][0]:
++                i += 1
++                if t in WOPS: reds.append(it[i][1])
++        else:
++            words.append(t)
++        i += 1
++    segs.append((words, reds, ""))
++    return [x for x in segs if x[0] or x[1]]
++
++def named(w): return MARK.search(w) is not None
++
++def git_read(args):
++    i = 0
++    while i < len(args) and args[i].startswith("-"):
++        i += 2 if args[i] in ("-C", "-c") else 1
++    if i >= len(args) or args[i] not in GIT_READ: return False
++    # git diff, log and show write a file with --output (repair round 3).
++    return not any(a.split("=", 1)[0].startswith("--output") or
++                   (len(a.split("=", 1)[0]) >= 6 and "--output".startswith(a.split("=", 1)[0]))
++                   for a in args[i:])
++
++def sed_read(args):
++    if any(re.fullmatch(r"-[A-Za-z]*i\S*|--in-place\S*|-s?i", a) for a in args): return False
++    script, pos, i = False, [], 0
++    while i < len(args):
++        a = args[i]
++        if a in ("-e", "--expression", "-f", "--file"):
++            if i + 1 < len(args) and named(args[i + 1]): return False
++            script = True; i += 2; continue
++        if a.startswith(("--expression=", "--file=")) or re.fullmatch(r"-[nrsuzE]*[ef].*", a):
++            if named(a): return False
++            script = True
++        elif a.startswith("-"):
++            if named(a): return False
++        else: pos.append(a)
++        i += 1
++    if not script and pos and named(pos[0]): return False
++    return True
++
++def cp_read(args):
++    if any(re.fullmatch(r"-[A-Za-z]*[ls][A-Za-z]*", a) or a.split("=")[0] in
++           ("--link", "--symbolic-link", "--target-directory") or re.fullmatch(r"-t.*", a)
++           for a in args): return False
++    ops = [a for a in args if not a.startswith("-")]
++    if len(ops) < 2: return False
++    dest = ops[-1]
++    base = posixpath.basename(posixpath.normpath(dest))
++    return not (named(dest) or base in (".claude", ".", "..") or dest.endswith("/"))
++
++def reader(name, args):
++    if name in READ: return True
++    if name == "find": return not any(a in FIND_WRITE for a in args)
++    if name == "git": return git_read(args)
++    if name == "sed": return sed_read(args)
++    if name == "cp": return cp_read(args)
++    return False
++
++def old_reader(name, args):
++    if name == "git": return git_read(args)
++    if name == "find": return not any(a in FIND_WRITE for a in args)
++    return name in OLD_READ
++
++def run(s, depth, st):
++    if depth > 4: return
++    s, bodies = heredocs(s)
++    s, inner = subst(s)
++    for x in inner:
++        if named(x): st["strict"] = True
++        run(x, depth + 1, st)
++    for words, reds, sep in segments(s):
++        for r in reds:
++            if named(r): raise Block("a redirection into the test marker")
++        cmd, xa, assigns, split, _ = wrappers(words)
++        if any(named(a) for a in assigns): st["strict"] = True
++        if split is not None:
++            st["names"].append(("env", []))
++            run(split, depth + 1, st); continue
++        if not cmd:
++            if any(named(w) for w in words) and not any(named(a) for a in assigns):
++                raise Block("a command naming the test marker that the guard cannot classify")
++            continue
++        name, args = os.path.basename(cmd[0]), cmd[1:]
++        st["names"].append((name, args))
++        if name == "eval":
++            run(" ".join(args), depth + 1, st); continue
++        if name in SHELLS:
++            for j, a in enumerate(args):
++                if re.fullmatch(r"-[a-zA-Z]*c[a-zA-Z]*", a) and j + 1 < len(args):
++                    run(args[j + 1], depth + 1, st); break
++            else:
++                if any(named(w) for w in cmd): raise Block(name + " in a command that names the test marker")
++            continue
++        if not any(named(w) for w in cmd): continue
++        if name in DATA:
++            if sep in ("|", "|&") or name not in ("echo", "printf"): st["strict"] = True
++            continue
++        if xa and name not in READ: raise Block("xargs " + name + " in a command that names the test marker")
++        if not reader(name, args): raise Block(name + " in a command that names the test marker")
++    for prefix, body in bodies:
++        if not named(body): continue
++        w = []
++        try: w = shlex.split(re.split(r"[;&|()\n]", prefix)[-1])
++        except ValueError: pass
++        cmd, xa, _, _, _ = wrappers(w)
++        name = os.path.basename(cmd[0]) if cmd else ""
++        if name in SHELLS or name in ("eval", "source", "."):
++            run(body, depth + 1, st); continue
++        if name in SAFE_CONSUMERS and not xa: continue
++        raise Block((name or "a command") + " reading a heredoc that names the test marker")
++
++failed = False
++try:
++    vs = variants(c)
++    for k, v in enumerate(vs):
++        st = {"strict": False, "names": []}
++        try:
++            run(v, 0, st)
++        except ValueError:
++            failed = failed or k == len(vs) - 1; continue
++        if st["strict"]:
++            for name, args in st["names"]:
++                if not old_reader(name, args):
++                    raise Block(name + " in a command that hands on the test marker name")
++except Block as b:
++    print("BLOCK " + str(b)); sys.exit()
++print("UNPARSED" if failed else "OK")
+ ' 2>/dev/null || true)
+ case "$marker" in
+   OK) ;;
+   "BLOCK "*) block "${marker#BLOCK } (.claude/.last-test-run is written only by sbt check)" ;;
+-  *) [[ "$cmd" == *last-test-run* || "$cmd" == *markTestRun* ]] \
++  *) [[ "$cmd" == *last-test-run* || "$cmd" == *markTestRun* || "$norm" == *markTestRun* ]] \
+        && block "a command naming the test marker that the guard could not parse" ;;
+ esac
++# end of marker section
+ 
+ # Secret-file reads through the shell: .env and .envrc files, *.tfvars, secrets/, keys,
+ # SSH, AWS SSO and CLI caches, credentials, harness and gh tokens, state.
+ # The text scanned is the command with grep and rg search patterns removed, because a
+ # pattern such as grep '.env' docs/x.md names no file; every file operand, -f pattern
+-# file, redirection and other word stays. If that scrub fails, the raw command is scanned.
++# file, redirection and other word stays.
++# Parse failures fail closed (Phase 11 C01): the command is read as written and with its
++# unquoted comments removed; if either reading cannot be parsed, a loose whitespace split
++# of the raw text is scanned as well, with every glob character taken as real; and if the
++# scan itself fails, the raw command is scanned and any glob or brace character blocks.
+ # A file operand that is a secret is a read, whatever the flags (human, repair round 3):
+ # -f, --file and -e, --regexp (and the GNU abbreviations --fil, --reg, --rege, --regex)
+ # supply the patterns, so then no file operand is taken for a pattern.
+@@ -728,6 +1250,11 @@ esac
+ # secret match is blocked. {a,b} words are expanded and scanned. Quoted glob characters
+ # are literal, and a heredoc body is skipped unless it feeds a shell, because the shell
+ # expands neither. The glob analysis stops after 3 seconds (the hook timeout is 10).
++# Nested globs (Phase 11 C02): the same analysis runs on the string of sh -c, bash -c and
++# eval, recursively, and on the -name, -iname, -path and -ipath patterns of a find that
++# has -exec, -execdir, -ok or -okdir or pipes its names onward: aimed matching, plus a
++# bounded walk of the start directories (.git, target and node_modules skipped).
++# /proc/<pid>/environ is a secret file (B-18): it holds a process's whole environment.
+ # Exemption (human decision, repair round 2): the value of -var-file=<name>.tfvars or
+ # -var-file <name>.tfvars given to terraform plan, validate or console, or to
+ # scripts/plan.sh, is terraform input, not a shell read. Only that value is rewritten so
+@@ -738,9 +1265,9 @@ pcwd=$(printf '%s' "$payload" | python3 -c '
+ import json, sys
+ print(json.load(sys.stdin).get("cwd") or "")
+ ' 2>/dev/null || true)
+-scan_out=$(printf '%s' "$cmd" | python3 -c '
++scan_out=$(printf '%s' "$cmd" | python3 -c "$PYLIB"'
+ import fnmatch, functools, itertools, os, posixpath, re, shlex, sys, time
+-raw = re.sub(r"\\\r?\n", " ", sys.stdin.read())
++raw0 = re.sub(r"\\\r?\n", " ", sys.stdin.read())
+ cwd = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else "."
+ home = os.environ.get("HOME") or "/nonexistent"
+ # Quoted or escaped glob and brace characters become sentinels, so a word still holding
+@@ -764,15 +1291,44 @@ def protect(s):
+     return "".join(out)
+ def restore(s):
+     return "".join(UNQ.get(c, c) for c in s)
+-raw = protect(raw)
+ syntax = re.compile(r"""\\. | "(?:\\.|[^"\\])*" | \x27[^\x27]*\x27 | (?P<op>[;&|()<>`\n]+)""",
+                     re.S | re.X)
+-toks, start = [], 0
+-for m in syntax.finditer(raw):
+-    if m.lastgroup == "op":
+-        toks += [(False, w) for w in shlex.split(raw[start:m.start()])]
+-        toks.append((True, m.group())); start = m.end()
+-toks += [(False, w) for w in shlex.split(raw[start:])]
++def lex(text):
++    p, toks, start = protect(text), [], 0
++    for m in syntax.finditer(p):
++        if m.lastgroup == "op":
++            toks += [(False, w) for w in shlex.split(p[start:m.start()])]
++            toks.append((True, m.group())); start = m.end()
++    toks += [(False, w) for w in shlex.split(p[start:])]
++    return p, toks
++def loose(text):
++    # Fail-closed reading: a whitespace split, quotes dropped, every glob character real.
++    toks = []
++    for m in re.finditer(r"[;&|()`\n]+|[<>]+|[^\s;&|()<>`]+", text):
++        w = m.group()
++        if re.fullmatch(r"[;&|()`\n]+|[<>]+", w): toks.append((True, w))
++        else: toks.append((False, re.sub(r"[\x27\"\\]", "", w)))
++    return None, toks
++def split_bodies(text):
++    # Heredoc bodies that do not feed a shell are data: they are not lexed (prose with an
++    # apostrophe must not break the parse), but their words are still scanned.
++    lines, kept, data, i = text.split("\n"), [], [], 0
++    while i < len(lines):
++        line = lines[i]; kept.append(line); i += 1
++        for dl in HEREDOC.findall(line):
++            w = wrappers(re.split(r"[;&|()]", line[:line.find("<<")])[-1].split())[0]
++            feeds = bool(w) and os.path.basename(w[0]) in SHELLS | {"eval", "source", "."}
++            while i < len(lines) and lines[i].strip() != dl:
++                (kept if feeds else data).append(lines[i]); i += 1
++            i += 1
++    return "\n".join(kept), [re.sub(r"[\x27\"]", "", x) for x in " ".join(data).split()]
++kept0, BODYW = split_bodies(raw0)
++VARIANTS, failed = [], False
++vs = variants(kept0)
++for k, v in enumerate(vs):
++    try: VARIANTS.append(lex(v))
++    except ValueError: failed = failed or k == len(vs) - 1
++if failed or not VARIANTS: VARIANTS.append(loose(raw0))
+ GREP = {"grep", "egrep", "fgrep", "zgrep"}
+ RG = {"rg"}
+ # Options whose value is a separate word (a wrong entry here could hide a file operand,
+@@ -864,16 +1420,25 @@ def scrub(seg):
+         i += 1
+     if not have_e and pos: drop.add(pos[0])
+     return drop, {}
+-out, seg, idx = [], [], []
+-def flush():
+-    d, repl = scrub(seg)
+-    out.extend(repl.get(j, w) for j, (_, w) in enumerate(seg) if j not in d)
+-for op, w in toks:
+-    if op and set(w) & set(";&|()`\n") and not set(w) & set("<>"):
+-        flush(); seg = []; out.append(";")
+-    else:
+-        seg.append((op, w))
+-flush()
++out, GLOBW = [], []
++def process(toks, depth, top, kw):
++    # Split into segments; keep the scrubbed words (top level only) for the secret scan,
++    # collect glob and brace words, and look inside sh -c, eval and find patterns.
++    segs, seg = [], []
++    for op, w in toks:
++        if op and set(w) & set(";&|()`\n") and not set(w) & set("<>"):
++            segs.append((seg, w)); seg = []
++        else:
++            seg.append((op, w))
++    segs.append((seg, ""))
++    for sg, sep in segs:
++        d, repl = scrub(sg)
++        kept = [repl.get(j, w) for j, (_, w) in enumerate(sg) if j not in d]
++        if top: out.extend(kept + [";"])
++        for w in kept:
++            if (GLOB.search(w) or re.search(r"\{[^{}]*,[^{}]*\}", w)) and (kw is None or w in kw):
++                GLOBW.append(w)
++        nested(sg, sep, depth)
+ 
+ # Glob and brace words. SHAPES: a secret name pattern, the representative name that the
+ # scan regexes below recognize, and the distinctive text that an aimed glob shares.
+@@ -1005,12 +1570,70 @@ def shell_words(s):
+             words.update(shlex.split(kraw[st:m.start()])); st = m.end()
+     words.update(shlex.split(kraw[st:]))
+     return words
+-try: kwords = shell_words(raw)
+-except ValueError: kwords = None
+ LISTED, records, deadline = {}, [], time.time() + 3
+-for w in out:
+-    real = GLOB.search(w) or re.search(r"\{[^{}]*,[^{}]*\}", w)
+-    if not real or (kwords is not None and w not in kwords): continue
++PRUNE = {".git", "target", "node_modules", ".bloop", ".metals", ".bsp"}
++FIND_PAT = {"-name": "n", "-iname": "ni", "-path": "p", "-ipath": "pi", "-wholename": "p",
++            "-iwholename": "pi"}
++def walk(start):
++    base = re.sub(r"^\$\{?HOME\}?(?=/|$)", home, home + start[1:] if start == "~" or start.startswith("~/") else start)
++    top = base if base.startswith("/") else posixpath.join(cwd, base)
++    budget = 20000
++    for dp, dn, fn in os.walk(top):
++        dn[:] = [x for x in dn if x not in PRUNE]
++        for n in dn + fn:
++            budget -= 1
++            if budget < 0 or time.time() > deadline: return
++            yield posixpath.join(base + dp[len(top):], n)
++def find_globs(args, sep):
++    i = 0
++    while i < len(args) and not args[i].startswith(("-", "(", "!", ")")): i += 1
++    starts, expr = args[:i] or ["."], args[i:]
++    if not (sep in ("|", "|&") or any(a in ("-exec", "-execdir", "-ok", "-okdir") for a in expr)):
++        return
++    for j, a in enumerate(expr):
++        kind = FIND_PAT.get(a)
++        if not kind or j + 1 >= len(expr): continue
++        pat, ci = expr[j + 1], "i" in kind
++        cands = []
++        for s0 in starts:
++            if kind[0] == "n":
++                cands += [posixpath.join(s0, h) for h in names(pat.lower() if ci else pat)]
++            else:
++                combos = itertools.islice(itertools.product(*[names(x) for x in pat.split("/")]), 256)
++                cands += ["/".join(x) for x in combos]
++            for path in walk(s0):
++                target = posixpath.basename(path) if kind[0] == "n" else path
++                if fnmatch.fnmatchcase(target.lower() if ci else target, pat.lower() if ci else pat):
++                    cands.append(path)
++        if cands: records.append(" ".join(cands[:2000]) + "\x1f" + pat)
++def inner(text, depth):
++    if depth > 4: return
++    try: p, tk = lex(text)
++    except ValueError: p, tk = loose(text)
++    process(tk, depth, False, None)
++def nested(sg, sep, depth):
++    cmd = wrappers([w for op, w in sg if not op])[0]
++    if not cmd: return
++    name, args = os.path.basename(restore(cmd[0])), cmd[1:]
++    if name in SHELLS:
++        for j, a in enumerate(args):
++            if re.fullmatch(r"-[a-zA-Z]*c[a-zA-Z]*", a) and j + 1 < len(args):
++                inner(restore(args[j + 1]), depth + 1); break
++    elif name == "eval":
++        inner(" ".join(restore(a) for a in args), depth + 1)
++    elif name == "find":
++        find_globs([restore(a) for a in args], sep)
++out.extend(BODYW + [";"])
++for p, tk in VARIANTS:
++    kw = None
++    if p is not None:
++        try: kw = shell_words(p)
++        except ValueError: kw = None
++    process(tk, 0, True, kw)
++seen = set()
++for w in GLOBW:
++    if w in seen: continue
++    seen.add(w)
+     if time.time() > deadline: break
+     cands = []
+     for e in braces(w):
+@@ -1026,8 +1649,15 @@ sys.stdout.write(restore(" ".join(out)) + "\x1d" + "".join(r + "\x1e" for r in r
+ ' "${pcwd:-$root}" 2>/dev/null || true)
+ # Split on the \x1d separator with read (bash pattern operators are slow on long text).
+ scan="" globs=""
+-{ IFS= read -r -d $'\x1d' scan; IFS= read -r -d '' globs; } <<< "$scan_out"
+-[ -n "$scan" ] || scan=$cmd
++if [ -z "$scan_out" ]; then
++  # The scan could not run (Phase 11 C01): scan the raw command and fail closed on globs.
++  scan=$cmd
++  [[ "$cmd" == *[*?[]* || "$cmd" == *\{*,*\}* ]] \
++    && block "a glob or brace word in a command whose secret-file scan could not run"
++else
++  { IFS= read -r -d $'\x1d' scan; IFS= read -r -d '' globs; } <<< "$scan_out"
++  [ -n "${scan//[[:space:];]/}" ] || scan=$cmd
++fi
+ b='[[:space:]/"'"'"'=]'          # characters that may precede a path
+ e='([[:space:]"'"'"';|&)]|$)'      # characters that may follow a file name
+ secret_hit() {
+@@ -1038,7 +1668,7 @@ secret_hit() {
+   elif [[ "$t" =~ (^|$b)(\.env[^[:space:]]*[*?]) ]]; then hit=${BASH_REMATCH[2]}
+   elif [[ "$t" =~ (^|$b)(secrets/) ]]; then hit=${BASH_REMATCH[2]}
+   elif [[ "$t" =~ (^|$b)(\.ssh)(/|$e) ]]; then hit=${BASH_REMATCH[2]}
+-  elif [[ "$t" =~ (\.aws/credentials|\.aws/sso|\.aws/cli/cache|credentials\.json|gh/hosts\.ya?ml|\.codex/auth\.json|\.netrc|\.tfstate) ]]; then hit=${BASH_REMATCH[1]}
++  elif [[ "$t" =~ (\.aws/credentials|\.aws/sso|\.aws/cli/cache|credentials\.json|gh/hosts\.ya?ml|\.codex/auth\.json|\.netrc|\.tfstate|/proc/[^[:space:]]*/environ) ]]; then hit=${BASH_REMATCH[1]}
+   fi
+ }
+ secret_hit "$scan"
+diff --git a/.claude/hooks/test_guard_dangerous.py b/.claude/hooks/test_guard_dangerous.py
+index 9c270be..5785618 100644
+--- a/.claude/hooks/test_guard_dangerous.py
++++ b/.claude/hooks/test_guard_dangerous.py
+@@ -582,6 +582,345 @@ class SecretEnvironmentTest(GuardCase):
+         ])
+ 
+ 
++class SbtArbitraryCodeTest(GuardCase):
++    """Phase 11 B-1: sbt forms that run arbitrary code are blocked; the forms the roles,
++    aliases and module notes use stay allowed."""
++
++    def test_reviewer_probes_blocked(self):
++        self.check([
++            ("sbt 'eval scala.sys.process.Process(Seq(\"terraform\",\"apply\")).!'", 2),
++            ("sbt 'eval scala.sys.process.Process(Seq(\"rm\",\"-rf\",\"datasets/gold\")).!'", 2),
++            ("sbt 'eval new java.io.File(\".claude/.last-\" + \"test-run\").setLastModified(0L)'", 2),
++            ("sbt 'eval scala.io.Source.fromFile(\".e\" + \"nv\").mkString'", 2),
++        ])
++
++    def test_code_running_commands_blocked(self):
++        self.check([
++            ("sbt console", 2),
++            ('sbt "core/consoleQuick"', 2),
++            ("sbt consoleProject", 2),
++            ("sbt 'core / Test / console'", 2),
++            ("sbt 'set ThisBuild/version := \"x\"'", 2),
++            ("sbt 'set every fork := false' test", 2),
++            ('sbt "reload plugins" compile', 2),
++            ("sbt 'alias x=eval 1' x", 2),
++            ("sbt 'addCommandAlias(\"x\", \"eval 1\")'", 2),
++            ('sbt "apply -cp /tmp/x Evil"', 2),
++            ("sbt '< /tmp/cmds.txt'", 2),
++            ('sbt "projects add file:/tmp/x"', 2),
++            ('sbt "session save"', 2),
++            ('sbt "onFailure eval 1" check', 2),
++            ('sbt "bgRun"', 2),
++            ('sbt "~test"', 2),
++            ("sbt '!!'", 2),
++            ('sbt "hadoop/Test/runMain org.apache.hadoop.fs.FsShell -rm -r datasets"', 2),
++            ('sbt "runMain"', 2),
++            ("sbtn eval 1", 2),
++            ("sbt --client 'eval 1'", 2),
++            ("java -jar ~/.sbt/launchers/1.10/sbt-launch.jar 'eval 1'", 2),
++            ("timeout -s KILL 45m sbt 'eval 1'", 2),
++            ("env -S 'sbt eval 1'", 2),
++            ("bash -c \"sbt 'eval 1'\"", 2),
++        ])
++
++    def test_stdin_shell_and_launcher_options_blocked(self):
++        self.check([
++            ("sbt", 2),
++            ("echo eval 1 | sbt", 2),
++            ("sbt -v", 2),
++            ("sbt <<EOF\neval 1\nEOF", 2),
++            ("sbt -sbt-dir /tmp/evil check", 2),
++            ("sbt -sbt-jar /tmp/x.jar check", 2),
++            ("sbt -java-home /tmp/jdk check", 2),
++            ("sbt -Dsbt.global.base=/tmp/evil check", 2),
++            ("sbt -J-javaagent:/tmp/a.jar check", 2),
++            ("sbt -J-XX:OnOutOfMemoryError=x check", 2),
++            ("sbt @/tmp/args check", 2),
++            ("SBT_OPTS=-J-javaagent:/tmp/a.jar sbt check", 2),
++            ("export JAVA_TOOL_OPTIONS=-javaagent:/tmp/a.jar; sbt check", 2),
++        ])
++
++    def test_legitimate_forms_allowed(self):
++        self.check([
++            ("sbt check", 0),
++            ("timeout 45m sbt check", 0),
++            ("timeout --foreground 45m sbt check", 0),
++            ("timeout 30m sbt storage/test", 0),
++            ('timeout 30m sbt "adversarialTests/testOnly *FilteredRankGateSuite *Workflow*Suite"', 0),
++            ('sbt "core/testOnly scholarchain.core.ConfigSuite -- -z set"', 0),
++            ("sbt fmt", 0),
++            ("sbt packageJobs", 0),
++            ("sbt dockerLocal", 0),
++            ("sbt compile Test/compile", 0),
++            ("sbt scalafmtCheck", 0),
++            ("sbt hadoop/scalafmtCheck hadoop/Test/scalafmtCheck", 0),
++            ("sbt rag/scalafmt rag/Test/scalafmt rag/test", 0),
++            ('sbt "compile; test"', 0),
++            ('sbt -no-colors "sparkAnalytics/Test/runMain scholarchain.spark.LocalPipelineRun --capture /tmp/c"', 0),
++            ('timeout 30m sbt "entityResolution/runMain scholarchain.er.eval.EvaluateMain'
++             ' --gold datasets/gold/er-gold-v1.csv --decisions /tmp/d --out /tmp/o"', 0),
++            ('sbt "hadoop/Test/run"', 0),
++            ("sbt --version", 0),
++            ("env -u FOO sbt compile", 0),
++            ("sbt reload", 0),
++            ("sbt projects", 0),
++        ])
++
++
++class ParseFailureTest(GuardCase):
++    """Phase 11 C01 (Phase 01 R3-CRITICAL-1): a command that cannot be parsed fails
++    closed; a comment with an apostrophe no longer hides a secret read."""
++
++    def test_reviewer_probes_blocked(self):
++        self.check([
++            ("cat .env #'", 2),
++            ("cat .env # don't print this", 2),
++            ("cat ~/.aws/credentials #'", 2),
++            ("cat ~/.ssh/id_rsa #'", 2),
++            ("cat .env\ncat <<EOF\nit's a note\nEOF", 2),
++            ("grep -vf /dev/null .env #'", 2),
++            ("cat infra/x.tfvars #'", 2),
++            ("head -100 config/prod.env # it's fine", 2),
++            ("cat .e* #'", 2),
++            ("cat ~/.aws/cred* #'", 2),
++            ('cat .en? "', 2),
++        ])
++
++    def test_harmless_comments_and_prose_allowed(self):
++        self.check([
++            ("git log --oneline -3 # it's fine", 0),
++            ("git status # don't worry", 0),
++            ("cat > /tmp/notes.md <<'EOF'\nsee cred* and .e* in prose, it's fine\nEOF", 0),
++            ("ls *.md # it's a listing", 0),
++        ])
++
++
++class NestedGlobTest(GuardCase):
++    """Phase 11 C02 (Phase 01 R3-MAJOR-1): glob words inside sh -c, bash -c, eval and
++    find patterns are analysed like top-level words."""
++
++    def test_reviewer_probes_blocked(self):
++        self.check([
++            ("bash -c 'cat .e*'", 2),
++            ('sh -c "cat ~/.aws/cred*"', 2),
++            ("eval 'cat .e*'", 2),
++            ("find . -maxdepth 1 -name '.e*' -exec cat {} +", 2),
++            ("find ~/.aws -name 'cred*' -exec cat {} +", 2),
++        ])
++
++    def test_other_nested_forms_blocked(self):
++        self.check([
++            ("find . -name '.e*' | xargs cat", 2),
++            ("bash -c \"eval 'cat .e*'\"", 2),
++            ("find . -iname '.ENV*' -exec cat {} +", 2),
++        ])
++
++    def test_ordinary_nested_globs_allowed(self):
++        self.check([
++            ("find . -name '*.scala'", 0),
++            ("find . -name '.e*'", 0),
++            ("find modules -name '*.scala' -exec grep -l Config {} +", 0),
++            ("bash -c 'ls *.md'", 0),
++            ("bash -c 'cat .e\\*'", 0),
++        ])
++
++
++class DisguisedTerraformAndPushTest(GuardCase):
++    """Phase 11 C03 (Phase 01 MAJOR-4): disguised terraform apply and force-push forms."""
++
++    def test_reviewer_probes_blocked(self):
++        self.check([
++            ("ter\\raform apply #'", 2),
++            ("git push --mirr origin #'", 2),
++            ("git -c remote.origin.push=+refs/heads/main:refs/heads/main push origin", 2),
++            ("t=terraform; $t apply", 2),
++            ("$(echo terraform) apply", 2),
++        ])
++
++    def test_other_disguises_blocked(self):
++        self.check([
++            ("echo #'\nter\\raform apply\n'", 2),
++            ("`echo terraform` destroy", 2),
++            ('"${TF}" -chdir=infra apply', 2),
++            ("echo apply | xargs terraform", 2),
++            ("terraform $(echo apply)", 2),
++            ("g=git; $g push --force", 2),
++            ("git -c remote.origin.mirror=true push origin", 2),
++            ("git --config-env=remote.origin.push=X push origin", 2),
++            ("git config remote.origin.mirror true && git push", 2),
++            ("GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=remote.origin.push"
++             " GIT_CONFIG_VALUE_0=+main git push", 2),
++            ('git push origin "$BRANCH"', 2),
++        ])
++
++    def test_ordinary_forms_allowed(self):
++        self.check([
++            ("terraform plan -out=p", 0),
++            ("terraform -chdir=$D validate", 0),
++            ("git config --get remote.origin.push", 0),
++            ("git log --oneline -3", 0),
++        ])
++
++
++class GoldAncestorTest(GuardCase):
++    """Phase 11 C04: writes to and deletions of datasets/gold through its ancestors, find
++    -delete and interpreter code."""
++
++    def test_reviewer_probes_blocked(self):
++        self.check([
++            ("rm -rf datasets", 2),
++            ("mv datasets /tmp/ds", 2),
++            ("find datasets -name '*.csv' -delete", 2),
++            ("python3 -c \"import shutil; shutil.rmtree('datasets/'+'gold')\"", 2),
++        ])
++
++    def test_other_ancestor_forms_blocked(self):
++        self.check([
++            ("python3 -c \"import shutil; shutil.rmtree('datasets')\"", 2),
++            ("rm -rf .", 2),
++            ("rm -rf ..", 2),
++            ("rm -rf *", 2),
++            ('rm -rf "$PWD/datasets"', 2),
++            ("chmod -R 000 datasets", 2),
++            ("cp -r /tmp/gold datasets/", 2),
++            ("rsync -a /tmp/x/ datasets/", 2),
++            ("git checkout -- datasets", 2),
++            ("git restore .", 2),
++            ("timeout -s KILL 10m rm -rf datasets/gold", 2),
++            ("find . -name '*.csv' -exec rm {} +", 2),
++            ("find datasets -path '*gold*' -delete", 2),
++            ("python3 - <<'EOF'\nimport shutil\nshutil.rmtree('datasets/' + 'gold')\nEOF", 2),
++            ("scala -e 'os.remove(\"datasets/gold/x\")'", 2),
++            ('sbt "entityResolution/runMain scholarchain.er.review.ReviewQueueMain'
++             ' --run-root /tmp/r --out datasets/gold/x.csv"', 2),
++        ])
++
++    def test_other_paths_allowed(self):
++        self.check([
++            ("rm -rf datasets/*.tmp", 0),
++            ("find datasets -name '*.tmp' -delete", 0),
++            ("find . -name '*.pyc' -delete", 0),
++            ("find . -type d -name target -exec rm -rf {} +", 0),
++            ("find datasets -name '*.json' -exec cat {} +", 0),
++            ("rm -rf target", 0),
++            ('rm -rf "$tmp"', 0),
++            ("mv a.txt b.txt", 0),
++            ("cp x.json datasets/", 0),
++            ("git checkout main", 0),
++            ("python3 datasets/scripts/fetch_samples.py > /tmp/log", 0),
++        ])
++
++
++class MarkerFalsePositiveTest(GuardCase):
++    """Phase 11 C05: harmless text naming the test marker or its sbt task is allowed;
++    every write onto the marker and every run of the task stays blocked."""
++
++    M = ".claude/.last-test-run"
++
++    def test_reviewer_false_positives_allowed(self):
++        m = self.M
++        self.check([
++            (f"cat > /tmp/r.md <<'EOF'\nmarker {m} is not refreshed\nEOF", 0),
++            ("cat > /tmp/r.md <<'EOF'\nmarkTestRun did not run; it's stale\nEOF", 0),
++            ("timeout 45m sbt check; grep -c markTestRun build.sbt", 0),
++            (f"bash x.sh; ls {m}", 0),
++            (f"sed -n 1,5p {m}", 0),
++            (f"cp {m} /tmp/m", 0),
++        ])
++
++    def test_other_harmless_text_allowed(self):
++        m = self.M
++        self.check([
++            ("grep -rn markTestRun build.sbt", 0),
++            ("git log --oneline --grep markTestRun", 0),
++            (f"echo 'the marker {m} is stale' > /tmp/r.md && bash -n x.sh", 0),
++            (f"tee /tmp/r.md <<'EOF'\nsee {m}\nEOF", 0),
++            (f"cat {m} # it's there", 0),
++        ])
++
++    def test_writes_and_task_runs_still_blocked(self):
++        m = self.M
++        self.check([
++            ("sbt markTestRun", 2),
++            ('sbt "check; markTestRun"', 2),
++            ('sbt "mark""TestRun"', 2),
++            ("sbtn markTestRun", 2),
++            ("x=markTestRun; sbt $x", 2),
++            (f"bash <<EOF\ntouch {m}\nEOF", 2),
++            ("bash <<EOF\nsbt markTestRun\nEOF", 2),
++            ("python3 - <<'EOF'\nimport os; os.system('sbt markTestRun')\nEOF", 2),
++            (f"cp /tmp/x {m}", 2),
++            ("cp /tmp/.last-test-run .claude/", 2),
++            (f"cp -l {m} /tmp/m", 2),
++            (f"ln {m} /tmp/m", 2),
++            (f"sed -i s/a/b/ {m}", 2),
++            (f"sed -n 'w {m}' /dev/null", 2),
++            (f"f={m}; touch $f", 2),
++            (f"for f in {m}; do touch $f; done", 2),
++            (f"while read f; do touch \"$f\"; done <<EOF\n{m}\nEOF", 2),
++            (f"touch $(echo {m})", 2),
++            (f"echo 'x > {m}", 2),
++        ])
++
++
++class PollingLoopTest(GuardCase):
++    """Phase 11 C06: self-matching polling loops are blocked; a bare pgrep is allowed."""
++
++    def test_reviewer_probes_blocked(self):
++        self.check([
++            ("while pgrep -f sbt; do sleep 5; done", 2),
++            ("until ! pgrep java >/dev/null; do sleep 10; done", 2),
++        ])
++
++    def test_other_loops_blocked(self):
++        self.check([
++            ("for i in 1 2 3; do sleep 2; done", 2),
++            ("while true; do ps aux | grep sbt; done", 2),
++            ("while :; do pidof java; done", 2),
++            ("watch -n 5 pgrep sbt", 2),
++            ("bash -c 'while pgrep sbt; do sleep 1; done'", 2),
++            ("timeout 600 bash -c 'until test -f done.txt; do sleep 5; done'", 2),
++        ])
++
++    def test_ordinary_commands_allowed(self):
++        self.check([
++            ("pgrep -f sbt", 0),
++            ("ps aux | grep sbt", 0),
++            ('while read -r f; do echo "$f"; done < list.txt', 0),
++            ("for f in a b; do echo $f; done; sleep 1", 0),
++        ])
++
++
++class WholeEnvironmentTest(GuardCase):
++    """Phase 11, B-18 and K02 folded in: every way to print the whole environment or a
++    password variable is blocked."""
++
++    def test_blocked(self):
++        self.check([
++            ("/usr/bin/env", 2),
++            ("busybox env", 2),
++            ("env -u PATH", 2),
++            ("export -p", 2),
++            ("export", 2),
++            ("declare -x", 2),
++            ("declare -p", 2),
++            ("set", 2),
++            ("printenv DB_PASSWORD", 2),
++            ('printenv "$NAME"', 2),
++            ("cat /proc/self/environ", 2),
++            ("strings /proc/$$/environ", 2),
++        ])
++
++    def test_allowed(self):
++        self.check([
++            ("export FOO=1", 0),
++            ("declare -f", 0),
++            ("set -euo pipefail", 0),
++            ("printenv PWD", 0),
++            ("env FOO=1 sbt check", 0),
++        ])
++
++
+ class PreCommitSecretFilterTest(unittest.TestCase):
+     """Repair round 3, MINOR-5: the pre-commit file-name filter matches the Read deny
+     list. The pattern is read from .agents/githooks/pre-commit and run with grep -E."""
+diff --git a/.claude/hooks/verify-tests-ran.sh b/.claude/hooks/verify-tests-ran.sh
+index 0a00a91..cf1427d 100755
+--- a/.claude/hooks/verify-tests-ran.sh
++++ b/.claude/hooks/verify-tests-ran.sh
+@@ -6,6 +6,15 @@
+ # If source files changed (staged, unstaged or untracked) and the test marker written by
+ # 'sbt check' (markTestRun) is older than the newest change, block the stop once and tell
+ # the agent to run the check. The stop_hook_active check prevents an endless loop.
++# A subagent's sbt run in progress (Phase 11 C08): the main session (hook_event_name
++# Stop, never SubagentStop) is let through only while a live sbt process works in this
++# repository: a java process whose command line names the sbt launcher (sbt-launch,
++# xsbt.boot.Boot, sbt.xMain) or a process named sbt or sbtn, whose /proc/<pid>/cwd is the
++# repository root, not a zombie, and younger than 45 minutes (the sbt check timeout).
++# Process text matching (pgrep -f) is never used, because it matches itself. Without such
++# a process, a stale or missing marker is refused exactly as before; a payload that is not
++# JSON has no event name and is refused as well.
++# SCHOLARCHAIN_STOP_SBT_MAX_AGE (seconds) can only lower the 45-minute bound (tests).
+ # Owner: factory-engineer. Floor invariant: never remove the stop_hook_active check.
+ set -euo pipefail
+ 
+@@ -15,6 +24,10 @@ import json, sys
+ print(json.load(sys.stdin).get("stop_hook_active", False))
+ ' 2>/dev/null || echo False)
+ [ "$already" = "True" ] && exit 0
++event=$(printf '%s' "$payload" | python3 -c '
++import json, sys
++print(json.load(sys.stdin).get("hook_event_name") or "")
++' 2>/dev/null || echo "")
+ 
+ root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+ cd "$root"
+@@ -37,6 +50,39 @@ if [ -f "$marker" ]; then
+   [ "$stale" -eq 0 ] && exit 0   # tests passed after the newest change
+ fi
+ 
++# sbt_live ROOT: prints "live" when a live sbt process works in ROOT (see the header).
++sbt_live() {
++  python3 - "$1" <<'PY' 2>/dev/null || true
++import os, re, sys
++root = os.path.realpath(sys.argv[1])
++limit = 2700
++try: limit = max(0, min(limit, int(os.environ.get("SCHOLARCHAIN_STOP_SBT_MAX_AGE", limit))))
++except ValueError: limit = 0
++tick = os.sysconf("SC_CLK_TCK")
++uptime = float(open("/proc/uptime").read().split()[0])
++for pid in os.listdir("/proc"):
++    if not pid.isdigit() or int(pid) == os.getpid(): continue
++    try:
++        if os.path.realpath(os.readlink("/proc/%s/cwd" % pid)) != root: continue
++        stat = open("/proc/%s/stat" % pid).read()
++        fields = stat[stat.rindex(")") + 2:].split()
++        if fields[0] in ("Z", "X", "x"): continue
++        comm = open("/proc/%s/comm" % pid).read().strip()
++        line = open("/proc/%s/cmdline" % pid, "rb").read().replace(b"\0", b" ").decode("utf-8", "replace")
++        if comm not in ("sbt", "sbtn") and not (
++                comm == "java" and re.search(r"sbt-launch|xsbt\.boot\.Boot|sbt\.xMain", line)):
++            continue
++        age = uptime - int(fields[19]) / tick
++        if 0 <= age < limit:
++            print("live"); break
++    except (OSError, ValueError, IndexError):
++        continue
++PY
++}
++if [ "$event" = "Stop" ] && [ "$(sbt_live "$root")" = "live" ]; then
++  exit 0   # a subagent's sbt run is in progress; its own Stop gate still applies
++fi
++
+ echo "Source files changed but the tests have not passed since the newest change" \
+      "(.claude/.last-test-run is missing or older). Run 'sbt check' and fix every" \
+      "failure before you finish; report BLOCKED-ON after 3 failed attempts." >&2
+diff --git a/.claude/settings.json b/.claude/settings.json
+index 26c2fb8..eb1e882 100644
+--- a/.claude/settings.json
++++ b/.claude/settings.json
+@@ -2,7 +2,102 @@
+   "model": "opus",
+   "permissions": {
+     "allow": [
+-      "Bash(sbt *)",
++      "Bash(sbt check)",
++      "Bash(timeout 45m sbt check)",
++      "Bash(sbt fmt)",
++      "Bash(sbt compile)",
++      "Bash(sbt Test/compile)",
++      "Bash(sbt compile Test/compile)",
++      "Bash(sbt scalafmtCheck)",
++      "Bash(sbt scalafmtCheckAll)",
++      "Bash(sbt packageJobs)",
++      "Bash(timeout 30m sbt packageJobs)",
++      "Bash(sbt dockerLocal)",
++      "Bash(timeout 30m sbt dockerLocal)",
++      "Bash(sbt core/test)",
++      "Bash(timeout 30m sbt core/test)",
++      "Bash(sbt \"core/testOnly *\")",
++      "Bash(timeout 30m sbt \"core/testOnly *\")",
++      "Bash(sbt core/scalafmt core/Test/scalafmt)",
++      "Bash(timeout 30m sbt core/scalafmt core/Test/scalafmt core/test)",
++      "Bash(sbt hadoop/test)",
++      "Bash(timeout 30m sbt hadoop/test)",
++      "Bash(sbt \"hadoop/testOnly *\")",
++      "Bash(timeout 30m sbt \"hadoop/testOnly *\")",
++      "Bash(sbt hadoop/scalafmt hadoop/Test/scalafmt)",
++      "Bash(timeout 30m sbt hadoop/scalafmt hadoop/Test/scalafmt hadoop/test)",
++      "Bash(sbt entityResolution/test)",
++      "Bash(timeout 30m sbt entityResolution/test)",
++      "Bash(sbt \"entityResolution/testOnly *\")",
++      "Bash(timeout 30m sbt \"entityResolution/testOnly *\")",
++      "Bash(sbt entityResolution/scalafmt entityResolution/Test/scalafmt)",
++      "Bash(timeout 30m sbt entityResolution/scalafmt entityResolution/Test/scalafmt entityResolution/test)",
++      "Bash(sbt sparkAnalytics/test)",
++      "Bash(timeout 30m sbt sparkAnalytics/test)",
++      "Bash(sbt \"sparkAnalytics/testOnly *\")",
++      "Bash(timeout 30m sbt \"sparkAnalytics/testOnly *\")",
++      "Bash(sbt sparkAnalytics/scalafmt sparkAnalytics/Test/scalafmt)",
++      "Bash(timeout 30m sbt sparkAnalytics/scalafmt sparkAnalytics/Test/scalafmt sparkAnalytics/test)",
++      "Bash(sbt storage/test)",
++      "Bash(timeout 30m sbt storage/test)",
++      "Bash(sbt \"storage/testOnly *\")",
++      "Bash(timeout 30m sbt \"storage/testOnly *\")",
++      "Bash(sbt storage/scalafmt storage/Test/scalafmt)",
++      "Bash(timeout 30m sbt storage/scalafmt storage/Test/scalafmt storage/test)",
++      "Bash(sbt rag/test)",
++      "Bash(timeout 30m sbt rag/test)",
++      "Bash(sbt \"rag/testOnly *\")",
++      "Bash(timeout 30m sbt \"rag/testOnly *\")",
++      "Bash(sbt rag/scalafmt rag/Test/scalafmt)",
++      "Bash(timeout 30m sbt rag/scalafmt rag/Test/scalafmt rag/test)",
++      "Bash(sbt servicesCommon/test)",
++      "Bash(timeout 30m sbt servicesCommon/test)",
++      "Bash(sbt \"servicesCommon/testOnly *\")",
++      "Bash(timeout 30m sbt \"servicesCommon/testOnly *\")",
++      "Bash(sbt servicesCommon/scalafmt servicesCommon/Test/scalafmt)",
++      "Bash(timeout 30m sbt servicesCommon/scalafmt servicesCommon/Test/scalafmt servicesCommon/test)",
++      "Bash(sbt queryService/test)",
++      "Bash(timeout 30m sbt queryService/test)",
++      "Bash(sbt \"queryService/testOnly *\")",
++      "Bash(timeout 30m sbt \"queryService/testOnly *\")",
++      "Bash(sbt queryService/scalafmt queryService/Test/scalafmt)",
++      "Bash(timeout 30m sbt queryService/scalafmt queryService/Test/scalafmt queryService/test)",
++      "Bash(sbt graphService/test)",
++      "Bash(timeout 30m sbt graphService/test)",
++      "Bash(sbt \"graphService/testOnly *\")",
++      "Bash(timeout 30m sbt \"graphService/testOnly *\")",
++      "Bash(sbt graphService/scalafmt graphService/Test/scalafmt)",
++      "Bash(timeout 30m sbt graphService/scalafmt graphService/Test/scalafmt graphService/test)",
++      "Bash(sbt embeddingWorker/test)",
++      "Bash(timeout 30m sbt embeddingWorker/test)",
++      "Bash(sbt \"embeddingWorker/testOnly *\")",
++      "Bash(timeout 30m sbt \"embeddingWorker/testOnly *\")",
++      "Bash(sbt embeddingWorker/scalafmt embeddingWorker/Test/scalafmt)",
++      "Bash(timeout 30m sbt embeddingWorker/scalafmt embeddingWorker/Test/scalafmt embeddingWorker/test)",
++      "Bash(sbt services/test)",
++      "Bash(timeout 30m sbt services/test)",
++      "Bash(sbt \"services/testOnly *\")",
++      "Bash(timeout 30m sbt \"services/testOnly *\")",
++      "Bash(sbt services/scalafmt services/Test/scalafmt)",
++      "Bash(timeout 30m sbt services/scalafmt services/Test/scalafmt services/test)",
++      "Bash(sbt contractTests/test)",
++      "Bash(timeout 30m sbt contractTests/test)",
++      "Bash(sbt \"contractTests/testOnly *\")",
++      "Bash(timeout 30m sbt \"contractTests/testOnly *\")",
++      "Bash(sbt contractTests/scalafmt contractTests/Test/scalafmt)",
++      "Bash(timeout 30m sbt contractTests/scalafmt contractTests/Test/scalafmt contractTests/test)",
++      "Bash(sbt adversarialTests/test)",
++      "Bash(timeout 30m sbt adversarialTests/test)",
++      "Bash(sbt \"adversarialTests/testOnly *\")",
++      "Bash(timeout 30m sbt \"adversarialTests/testOnly *\")",
++      "Bash(sbt adversarialTests/scalafmt adversarialTests/Test/scalafmt)",
++      "Bash(timeout 30m sbt adversarialTests/scalafmt adversarialTests/Test/scalafmt adversarialTests/test)",
++      "Bash(timeout 30m sbt \"hadoop/Test/runMain scholarchain.*\")",
++      "Bash(timeout 30m sbt \"hadoop/runMain scholarchain.*\")",
++      "Bash(timeout 30m sbt \"entityResolution/Test/runMain scholarchain.*\")",
++      "Bash(timeout 30m sbt \"entityResolution/runMain scholarchain.*\")",
++      "Bash(timeout 30m sbt \"sparkAnalytics/Test/runMain scholarchain.*\")",
++      "Bash(timeout 30m sbt \"sparkAnalytics/runMain scholarchain.*\")",
+       "Bash(git status*)",
+       "Bash(git diff*)",
+       "Bash(git log*)",
+diff --git a/AGENTS.md b/AGENTS.md
+index 77ee3c9..c75eb82 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -54,6 +54,12 @@ The build is an sbt multi-project build; uPickle is the only JSON library.
+   images.
+ - `.claude/hooks/validate-agent-files.sh`, `.agents/render.sh --check` and
+   `.agents/routing-suite.sh`: control-plane checks (factory-engineer).
++- Long commands run in the foreground under `timeout`, one sbt at a time:
++  `timeout 45m sbt check` for the full check, `timeout 30m sbt <project>/test` (or
++  `testOnly`) for project tests, and `timeout 30m` for a local pipeline run (`runMain`).
++  Every work order writes its long sbt and pipeline commands with that `timeout`.
++  Never background, poll or wait-loop on a run (the guard blocks polling loops); if the
++  harness moves a command to the background, start nothing else and wait for it.
+ 
+ ## Hard rules
+ 
+diff --git a/docs/agents.md b/docs/agents.md
+index ebce0ba..ccc2ec0 100644
+--- a/docs/agents.md
++++ b/docs/agents.md
+@@ -99,8 +99,16 @@ Gold-set labels: the entity-resolution gold set (at least 200 manually reviewed
+ The spec names no path for it, so the matrix chooses `datasets/gold/**`.
+ dataset-engineer's `datasets/**` grant excludes it (territory `except` row); agents may
+ read it, and entity-resolution-engineer never reads it into matching logic (section 4).
+-guard-ownership blocks file-tool writes to it for every agent, and guard-dangerous blocks
+-shell writes.
++guard-ownership blocks file-tool writes to it for every agent.
++guard-dangerous blocks the shell writes it can resolve: a write, move or deletion whose
++target resolves under `datasets/gold/` or is an ancestor of it (`datasets`, the
++repository root or above), through cd, globs, braces, find -delete or a writing -exec,
++git checkout or restore, and an sbt run's output option, plus interpreter code that names
++datasets with gold or with a directory operation (Phase 11 C04).
++It does not block a target built at run time (a bare variable, a path an interpreter
++computes) or a glob directly under `datasets/` such as `datasets/*` (human decision,
++repair round 2); git history (the labels are tracked), git diff and the human gate are
++the backstop.
+ 
+ Hadoop integration tests: the spec gives "Hadoop integration tests" to hadoop-engineer
+ (`docs/spec/assignment.md` line 334; local or mini-cluster runs of representative jobs,
+@@ -292,6 +300,9 @@ Phase execution (small tasks, no mid-phase interruptions):
+ 1. At the start of a phase the orchestrator splits the phase work order into small
+    tasks; each is complete and testable on its own and names one owner, its inputs,
+    what done means and the check that proves it.
++   A long sbt or pipeline command in a work order is written to run in the foreground
++   under `timeout` (`timeout 45m sbt check`, `timeout 30m` for project tests and local
++   pipeline runs; `AGENTS.md`, Commands).
+ 2. documentation-engineer writes the task list into `STATUS.md` before the first task.
+ 3. The orchestrator runs the tasks one by one, routing each to its owner; the repair,
+    unit-test and black-box test loops (section 7) run inside the phase.
+
+===== NEW FILE: .claude/hooks/test_verify_tests_ran.py =====
+"""Exercise verify-tests-ran.sh (the Stop and SubagentStop gate) in throwaway git repos.
+
+Run: PYTHONDONTWRITEBYTECODE=1 python3 -I .claude/hooks/test_verify_tests_ran.py
+Phase 11 C08: the main session (Stop) may finish while a live sbt process works in this
+repository; everything else keeps the stale-marker refusal. The "live sbt" process is a
+short sleep run through a symlink named java with an sbt launcher argument; each test
+starts it in the foreground of the test and kills it before returning.
+"""
+
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+
+
+HOOK = Path(__file__).with_name("verify-tests-ran.sh")
+SLEEP = "import time; time.sleep(60)"
+
+
+class StopHookCase(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.repo = Path(self.tmp.name, "repo")
+        self.repo.mkdir()
+        git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid"]
+        subprocess.run(["git", "init", "-q"], cwd=self.repo, check=True)
+        (self.repo / "README.md").write_text("x\n")
+        subprocess.run(git + ["add", "README.md"], cwd=self.repo, check=True)
+        subprocess.run(git + ["commit", "-qm", "init"], cwd=self.repo, check=True)
+        (self.repo / ".claude").mkdir()
+        self.procs = []
+
+    def tearDown(self):
+        for p in self.procs:
+            p.kill()
+            p.wait()
+        self.tmp.cleanup()
+
+    def change_source(self):
+        (self.repo / "A.scala").write_text("object A\n")
+
+    def marker(self, age):
+        m = self.repo / ".claude" / ".last-test-run"
+        m.write_text("")
+        t = time.time() - age
+        os.utime(m, (t, t))
+
+    def fake(self, name, args, cwd):
+        # A process whose /proc comm is `name`: a symlink to the Python interpreter.
+        link = Path(self.tmp.name, name)
+        if not link.exists():
+            link.symlink_to(os.path.realpath(sys.executable))
+        p = subprocess.Popen([str(link), "-c", SLEEP] + args, cwd=cwd,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.procs.append(p)
+        # Popen returns after exec, so /proc already shows the new name and cwd.
+        self.assertEqual(Path(f"/proc/{p.pid}/comm").read_text().strip(), name)
+        return p
+
+    def hook(self, payload, env=None):
+        e = dict(os.environ)
+        e.pop("SCHOLARCHAIN_STOP_SBT_MAX_AGE", None)
+        e.update(env or {})
+        data = payload if isinstance(payload, str) else json.dumps(payload)
+        return subprocess.run([str(HOOK)], input=data, capture_output=True, text=True,
+                              cwd=self.repo, env=e, check=False)
+
+    def assertRc(self, result, rc):
+        self.assertEqual(result.returncode, rc, result.stderr)
+
+
+class RefusalUnchangedTest(StopHookCase):
+    def test_no_source_change_passes(self):
+        self.assertRc(self.hook({"hook_event_name": "Stop"}), 0)
+
+    def test_stale_marker_refused_without_sbt(self):
+        self.change_source()
+        self.marker(age=3600)
+        self.assertRc(self.hook({"hook_event_name": "Stop"}), 2)
+        self.assertRc(self.hook({"hook_event_name": "SubagentStop"}), 2)
+
+    def test_missing_marker_refused_without_sbt(self):
+        self.change_source()
+        self.assertRc(self.hook({"hook_event_name": "Stop"}), 2)
+
+    def test_fresh_marker_passes(self):
+        self.change_source()
+        os.utime(self.repo / "A.scala", (time.time() - 60, time.time() - 60))
+        self.marker(age=0)
+        self.assertRc(self.hook({"hook_event_name": "SubagentStop"}), 0)
+
+    def test_stop_hook_active_passes(self):
+        self.change_source()
+        self.assertRc(self.hook({"hook_event_name": "Stop", "stop_hook_active": True}), 0)
+
+    def test_non_json_payload_refused(self):
+        self.change_source()
+        self.assertRc(self.hook("not json"), 2)
+
+
+class LiveSbtTest(StopHookCase):
+    def setUp(self):
+        super().setUp()
+        self.change_source()
+        self.marker(age=3600)
+
+    def test_main_session_passes_while_sbt_runs_here(self):
+        self.fake("java", ["-jar", "/x/sbt-launch.jar", "check"], self.repo)
+        self.assertRc(self.hook({"hook_event_name": "Stop"}), 0)
+
+    def test_process_named_sbt_counts(self):
+        self.fake("sbt", ["check"], self.repo)
+        self.assertRc(self.hook({"hook_event_name": "Stop"}), 0)
+
+    def test_subagent_stop_still_refused(self):
+        self.fake("java", ["xsbt.boot.Boot", "check"], self.repo)
+        self.assertRc(self.hook({"hook_event_name": "SubagentStop"}), 2)
+
+    def test_sbt_in_another_directory_refused(self):
+        other = Path(self.tmp.name, "other")
+        other.mkdir()
+        self.fake("java", ["xsbt.boot.Boot", "check"], other)
+        self.assertRc(self.hook({"hook_event_name": "Stop"}), 2)
+
+    def test_java_without_sbt_launcher_refused(self):
+        self.fake("java", ["-jar", "/x/metals.jar"], self.repo)
+        self.assertRc(self.hook({"hook_event_name": "Stop"}), 2)
+
+    def test_text_match_is_not_a_process(self):
+        # pgrep -f sbt would match this; the hook needs the process name, not its text.
+        self.fake("python3", ["sbt", "xsbt.boot.Boot", "sbt-launch"], self.repo)
+        self.assertRc(self.hook({"hook_event_name": "Stop"}), 2)
+
+    def test_too_old_refused(self):
+        self.fake("java", ["xsbt.boot.Boot", "check"], self.repo)
+        self.assertRc(self.hook({"hook_event_name": "Stop"},
+                                env={"SCHOLARCHAIN_STOP_SBT_MAX_AGE": "0"}), 2)
+
+    def test_age_bound_cannot_be_raised(self):
+        # The variable only lowers the 45-minute bound; a huge value is clamped to it.
+        self.fake("java", ["xsbt.boot.Boot", "check"], self.repo)
+        self.assertRc(self.hook({"hook_event_name": "Stop"},
+                                env={"SCHOLARCHAIN_STOP_SBT_MAX_AGE": "999999"}), 0)
+        self.assertRc(self.hook({"hook_event_name": "Stop"},
+                                env={"SCHOLARCHAIN_STOP_SBT_MAX_AGE": "junk"}), 2)
+
+    def test_non_json_payload_refused_while_sbt_runs(self):
+        self.fake("java", ["xsbt.boot.Boot", "check"], self.repo)
+        self.assertRc(self.hook("not json"), 2)
+
+    def test_no_event_name_refused(self):
+        self.fake("java", ["xsbt.boot.Boot", "check"], self.repo)
+        self.assertRc(self.hook({}), 2)
+
+    def test_stopped_process_no_longer_counts(self):
+        p = self.fake("java", ["xsbt.boot.Boot", "check"], self.repo)
+        p.kill()
+        p.wait()
+        self.assertRc(self.hook({"hook_event_name": "Stop"}), 2)
+
+
+if __name__ == "__main__":
+    unittest.main()

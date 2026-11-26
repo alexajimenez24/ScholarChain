@@ -56,6 +56,9 @@ final case class RuntimeContext(
     )
 
 /** The stores the stages read. Every one is a port: in-memory locally, AWS adapters in the cloud.
+  * `communities` is storage's community-size read port (`CommunityCache` over DynamoDB, or
+  * `InMemoryCommunityReader`); None means the runtime reads no community store, so every community
+  * size is reported as missing evidence.
   */
 final case class RuntimeStores(
     kv: KeyValueStore,
@@ -64,7 +67,8 @@ final case class RuntimeStores(
     objects: ObjectStore,
     embedder: Embedder,
     directory: ResearcherDirectory,
-    ranking: MetricRanking
+    ranking: MetricRanking,
+    communities: Option[CommunityReader] = None
 )
 
 /** One executed graph query, for the audit (template ID and window only, never query text). */
@@ -835,7 +839,7 @@ final case class CommunityView(
     notes: Vector[String]
 )
 
-/** CommunityAnalystAgent (`community-agent-v1`).
+/** CommunityAnalystAgent (`community-agent-v2`).
   *
   * For one researcher's metrics row it returns a COMMUNITY_RECORD that keeps the two kinds of
   * measure apart: `degree.*` (distinct coauthors, weighted degree: direct collaboration) and
@@ -843,15 +847,54 @@ final case class CommunityView(
   * connected: structural position between communities). It then reads the researcher's strongest
   * coauthor edges in the window and each coauthor's community from the metric store; every edge to
   * another community becomes a cross-community link item. Neighbouring communities are those seen
-  * on the retrieved edges only. Community size is not in any store the runtime reads (the Spark
-  * community table is not exported as JSON lines or loaded), so it is listed as missing.
+  * on the retrieved edges only.
+  *
+  * Community size (v2, Phase 11 C14) is read through storage's [[CommunityReader]] for the served
+  * run, the researcher's community and the window. When the reader holds it, the record carries
+  * `communitySize` and `communitySizeEvidenceId`, and the exported community row joins the view as
+  * its provenance. Otherwise `communitySize` stays in `missingFields`, never 0, and a note says
+  * why: no community store (`communities` None), no stored record (None), a failed or mismatched
+  * read (a fixed note; the store's message is not shown), or no community. `communitySizeStatus` is
+  * one of [[SizeStatus]].
   */
 final class CommunityAnalystAgent(
     ctx: RuntimeContext,
     metrics: CollaborationMetricsAgent,
-    paths: PathFinderAgent
+    paths: PathFinderAgent,
+    communities: Option[CommunityReader] = None
 ):
   import CommunityAnalystAgent.*
+
+  /** The size of `m`'s community, or its status and the note saying why it is missing. */
+  private def size(m: ResearcherMetrics): Either[(String, String), CommunitySize] =
+    def missing(status: String, why: String) =
+      Left(
+        status -> s"community size of ${m.communityId.getOrElse("(none)")} is not available: $why"
+      )
+    (communities, m.communityId) match
+      case (None, _) =>
+        missing(
+          SizeStatus.NoStore,
+          "the Spark community table is not in any store the runtime reads"
+        )
+      case (_, None) => missing(SizeStatus.NoCommunity, s"${m.researcherId} has no community")
+      case (Some(reader), Some(cid)) =>
+        reader.community(ctx.graphRunId, cid, m.window) match
+          case Right(Some(c))
+              if c.communityId == cid && c.window == m.window && c.runId == ctx.graphRunId &&
+                c.size >= 1 && c.evidence.provenance.runId == ctx.graphRunId =>
+            Right(c)
+          case Right(Some(_)) =>
+            missing(
+              SizeStatus.ReadFailed,
+              "the community store returned a record of another run, community or window"
+            )
+          case Right(None) =>
+            missing(
+              SizeStatus.NotStored,
+              s"no community record is stored for run ${ctx.graphRunId} in window ${m.window.label}"
+            )
+          case Left(_) => missing(SizeStatus.ReadFailed, "the community store read failed")
 
   def analyse(
       rec: MetricRecord,
@@ -859,6 +902,7 @@ final class CommunityAnalystAgent(
       graph: GraphRunner
   ): Either[WorkflowError, CommunityView] =
     val m = rec.metrics
+    val sized = size(m)
     for
       edges <- paths.directCoauthors(m.researcherId, m.window, edgeLimit, graph)
       others <- seq(edges.map { e =>
@@ -913,7 +957,9 @@ final class CommunityAnalystAgent(
           "neighbouringCommunitiesOnRetrievedEdges" -> neighbours.mkString(";"),
           "retrievedCoauthorEdges" -> edges.size.toString,
           "edgeLimit" -> edgeLimit.toString,
-          "missingFields" -> ("communitySize" +: Vector(
+          "communitySizeStatus" -> sized.fold(_._1, _ => SizeStatus.Present),
+          "missingFields" -> (Vector(
+            "communitySize" -> sized.toOption,
             "communityId" -> m.communityId,
             "bridge.bridgeScore" -> m.bridgeScore,
             "bridge.participationCoefficient" -> m.participationCoefficient,
@@ -927,23 +973,34 @@ final class CommunityAnalystAgent(
             "bridge.participationCoefficient" -> MetricValues.plain(d)
           ),
           m.crossCommunityDegree.map(d => "bridge.crossCommunityDegree" -> d.toString),
-          m.communitiesConnected.map(d => "bridge.communitiesConnected" -> d.toString)
+          m.communitiesConnected.map(d => "bridge.communitiesConnected" -> d.toString),
+          sized.toOption.map(c => "communitySize" -> c.size.toString),
+          sized.toOption.map(c => "communitySizeEvidenceId" -> c.evidence.evidenceId)
         ).flatten,
         Version
       )
       CommunityView(
         m.researcherId,
         m.communityId,
-        (record +: edges.filter(e => cross.exists(_._1 == e))) ++ links,
-        Vector(
-          s"community size of ${m.communityId.getOrElse("(none)")} is not available: the Spark community table is not in any store the runtime reads"
-        ) ++ Option.when(m.communityId.isEmpty)(
+        // The record first; the exported community row it read the size from is its provenance.
+        (record +: sized.toOption.map(_.evidence).toVector) ++
+          edges.filter(e => cross.exists(_._1 == e)) ++ links,
+        sized.left.toOption.map(_._2).toVector ++ Option.when(m.communityId.isEmpty)(
           s"${m.researcherId} has no community in ${m.window.label}"
         )
       )
 
 object CommunityAnalystAgent:
-  val Version = "community-agent-v1"
+  /** v2 (Phase 11, C14): reads community sizes through storage's CommunityReader. */
+  val Version = "community-agent-v2"
+
+  /** Values of the record's `communitySizeStatus`. */
+  object SizeStatus:
+    val Present = "present"
+    val NotStored = "not-stored"
+    val ReadFailed = "read-failed"
+    val NoStore = "no-store"
+    val NoCommunity = "no-community"
   val MeasureKinds =
     "degree.* count direct collaboration (breadth and repetition); bridge.* measure structural position between communities; a high degree does not imply a high bridge score"
 

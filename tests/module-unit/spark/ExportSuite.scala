@@ -211,3 +211,100 @@ class ExportSuite extends munit.FunSuite:
     assertEquals(odd.listed, configured :+ "1990-1999")
     assertEquals(odd.mismatched, Seq("1950-2026"))
   }
+
+  // C14: the communities table as JSON lines ---------------------------------------------------------
+
+  test("communities JSON lines: known graph G, community sizes, both record kinds, strict core") {
+    import java.nio.file.{Files, Path}
+    import scala.jdk.CollectionConverters.*
+    import scholarchain.core.{EvidenceItem, EvidenceType, JsonLines, SchemaVersions, Validate}
+    // Graph G of GraphAlgorithmsSuite as two-author works (year 2020) and n10 alone: communities
+    // {n1..n4} 4, {n5,n6,n7} 3, {n8,n9} 2, {n10} 1, and one cross-community edge n4-n5.
+    val gEdges = Seq(
+      "n1" -> "n2",
+      "n1" -> "n3",
+      "n2" -> "n3",
+      "n3" -> "n4",
+      "n4" -> "n5",
+      "n5" -> "n6",
+      "n5" -> "n7",
+      "n6" -> "n7",
+      "n8" -> "n9"
+    )
+    val works = gEdges.map((a, b) => (s"w-$a-$b", Seq(a, b))) :+ ("w-n10" -> Seq("n10"))
+    val authored = frame(
+      StructType(
+        Seq("researcherId", "workId").map(StructField(_, StringType)) ++
+          Seq("year", "teamSize").map(StructField(_, IntegerType))
+      ),
+      works.flatMap((w, rs) => rs.map(r => Row(r, w, 2020, rs.size)))
+    )
+    val pairWorks = frame(
+      StructType(
+        Seq("a", "b", "workId").map(StructField(_, StringType)) :+ StructField("year", IntegerType)
+      ),
+      gEdges.map((a, b) => Row(a, b, s"w-$a-$b", 2020))
+    )
+    val r = WindowAnalytics.run(authored, pairWorks, All, run)
+    val base = Files.createTempDirectory("scholarchain-communities").toString
+    val table = Export.write(
+      Export.communities(r, run, "s3://graph/communities"),
+      base,
+      "communities",
+      SchemaVersions.Evidence,
+      Seq("windowLabel", "recordKind"),
+      Some(Export.CommunitiesJson)
+    )
+    val j = table.jsonLines.getOrElse(fail("no JSON-lines copy"))
+    val community = "windowLabel=1950-2026/recordKind=community"
+    val cross = "windowLabel=1950-2026/recordKind=cross_community_edge"
+    assertEquals(
+      (j.rows, j.byPartition, j.idMismatches),
+      (5L, Map(community -> 4L, cross -> 1L), 0L)
+    )
+    assertEquals(j.byPartition, table.byPartition)
+    val dir = Path.of(s"$base/jsonl/communities")
+    assert(Files.isDirectory(dir.resolve(community)) && Files.isDirectory(dir.resolve(cross)))
+    val ls = Files
+      .walk(dir)
+      .iterator
+      .asScala
+      .filter(p => Files.isRegularFile(p) && p.getFileName.toString.endsWith(".json"))
+      .toVector
+      .flatMap(p => Files.readAllLines(p).asScala.filter(_.nonEmpty))
+    assertEquals(ls.size, 5)
+    // Dropping the extra fields leaves exactly the core record, decoded strictly and validated.
+    val items = ls.map { l =>
+      val o = ujson.read(l).obj
+      assertEquals(o("windowLabel").str, "1950-2026")
+      assertEquals(o("recordKind").str, o("values")("recordKind").str, "column = value")
+      Export.CommunitiesJson.extraFields.foreach(o.remove)
+      JsonLines
+        .decodeValid[EvidenceItem](ujson.write(o), Validate.evidence)
+        .fold(e => fail(s"$e\n$l"), identity)
+    }
+    assert(items.forall(_.evidenceType == EvidenceType.COMMUNITY_RECORD))
+    assertEquals(items.map(_.evidenceId).distinct.size, 5)
+    val (cms, xs) = items.partition(_.values("recordKind") == "community")
+    // Community sizes by member: the community ID of each researcher comes from the metrics rows.
+    val cmOf = r.metrics
+      .select("researcherId", "communityId")
+      .collect()
+      .map(x => x.getString(0) -> x.getString(1))
+      .toMap
+    val size = cms.map(c => c.values("communityId") -> c.values("communitySize")).toMap
+    assertEquals(
+      Seq("n1", "n5", "n8", "n10").map(n => size(cmOf(n))),
+      Seq("4", "3", "2", "1")
+    )
+    assert(cms.forall(c => c.values("window") == "1950-2026" && c.researcherIds.isEmpty))
+    assertEquals(xs.size, 1)
+    val x = xs.head
+    assertEquals(x.researcherIds, Vector("n4", "n5"))
+    assertEquals(
+      Set(x.values("communityA"), x.values("communityB")),
+      Set(cmOf("n4"), cmOf("n5"))
+    )
+    assertEquals((x.values("jointPublicationCount"), x.values("window")), ("1", "1950-2026"))
+    assert(!x.values.contains("communitySize"), "cross rows carry no community size")
+  }

@@ -10,9 +10,12 @@ import upickle.default.ReadWriter
   * title, year, venue, affiliation and source context the features need, so the reducer never reads
   * another file.
   *
-  * Bounds: a block with more than `maxBlock` clusters is split by full normalized name; a part that
-  * is still too large is refused (counted and rejected) and keeps only its linear within-cluster
-  * links. A block with more than `hardCap(maxBlock)` members is not expanded at all.
+  * Bounds: a block with more than `maxBlock` clusters is not compared whole. A researcher block is
+  * split by full normalized name; a part that is still too large is refused and keeps only its
+  * linear within-cluster links. Each researcher or work block above `maxBlock` is counted
+  * OVERSIZE_BLOCKS exactly once, with exactly one reject line; the refused parts of a researcher
+  * block are named in that line and not counted again (see `primaryRefusal`). A block with more
+  * than `hardCap(maxBlock)` members is not expanded at all.
   *
   * Fallback keys (policy for oversize blocks): when a block is oversize, its clusters (works) are
   * re-blocked, inside the buffered block, by `<key>|co:<coauthor key>`, `<key>|v:<venue>` and
@@ -166,6 +169,23 @@ object BlockLogic:
             )
         }
       primary ++ fallbackBlocks(key, cs, primary, maxBlock, run)
+
+  /** The single refusal of a researcher block with more than `maxBlock` clusters, from the results
+    * of `block`; None when the block was compared whole. The full-name parts partition the
+    * clusters, so their sizes add up to the size of the block. The reason names the block first and
+    * then every part that was refused too. The number of refused parts comes before their list, so
+    * it survives the length bound of a reject reason.
+    */
+  def primaryRefusal(key: String, results: Vector[BlockResult], maxBlock: Int): Option[String] =
+    val primary = results.filterNot(_.fallback)
+    val size = primary.map(_.clusters).sum
+    Option.when(size > maxBlock) {
+      val refused = primary.flatMap(_.oversize)
+      val parts =
+        if refused.isEmpty then ""
+        else refused.mkString(s"; ${refused.size} parts refused: ", "; ", "")
+      s"block $key has $size clusters > $maxBlock; not compared whole, split by full name$parts"
+    }
 
   private def pairId(c: MatchCandidate): (String, String) =
     if c.sourceId <= c.targetId then (c.sourceId, c.targetId) else (c.targetId, c.sourceId)

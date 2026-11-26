@@ -54,11 +54,30 @@ Summary by project:
 ## Done
 
 - The four sbt projects and the `services` aggregate (phase 2).
-- Phase 10 (nothing committed yet): all routes above, the typed error model, JWT and
+- Phase 10 (committed as e5546cb): all routes above, the typed error model, JWT and
   scope checks, request and trace IDs, size limits, timeouts, bounded retries and a
   circuit breaker, Idempotency-Key, sync and async queries, jobs, explain without
   chain-of-thought, cursor-paginated neighbours, EMF metrics, and the worker drain.
-- Unit tests under `tests/module-unit/services/`, run by `sbt services/test`:
+- Phase 11 (sources in `docs/agent-runs/phase-11/`: `repair-01-service-engineer.md`,
+  `repair-02-service-engineer.md`, `test-report-03.md`; not committed):
+  - C15: `token_use` binds the audience claim: `access` needs `client_id` equal to the
+    app client, `id` needs `aud` to contain it.
+    A refresh, unknown, wrong-case, non-string or missing value is
+    `AuthFailure.WrongTokenUse` (the client sees the same generic 401).
+    ID tokens carry no scope, so every protected route answers them 403.
+  - C16: explain returns `synthesisAttempts` as `{attempt, status}` only, and
+    `synthesisFallback` as a fixed category: `evidence-abstained`, `model-call-failed`,
+    `model-output-refused`, `token-budget-exhausted`, `model-abstained` or `other`
+    (new public `QueryService.fallbackCategory`); the audit record is unchanged.
+    Only call-failed and refused are tested end to end; a changed rag wording would map
+    to `other`.
+  - R-4: `DownstreamMappingSuite` (test only) pins that rag's
+    `Downstream("evidence")` and `Downstream("answer")` give 502 `dependency_failed`
+    with no internal text; evidence is covered by a fake engine only.
+  - Full `sbt check` test counts: servicesCommon 31, graphService 16,
+    embeddingWorker 10, queryService 31 (88 in all).
+- Unit tests under `tests/module-unit/services/`, run by `sbt services/test`
+  (the table and repair note below are the Phase 10 record):
 
 | Project | Tests |
 |---|---|
@@ -86,7 +105,10 @@ Summary by project:
   Vectors), no image; `Jwks.httpFetch` (HTTPS JWKS fetch) is untested for lack of network.
 - The production `ResiliencePolicy` per port is a wiring choice, not built.
 - No cloud, server or Docker run; nothing measured against a live API.
-- The model-written answer path stays off (`LLM_ENABLED=false`) until R6-1 is closed.
+- The model-written answer path stays off (`LLM_ENABLED=false` by default).
+  R6-1, the earlier reason, was closed in rag in Phase 11.
+- queryService builds no `RuntimeStores`; the cloud wiring must pass
+  `RuntimeStores.communities`, or community size reads `no-store`.
 
 ## Known issues
 
@@ -107,11 +129,8 @@ Summary by project:
   are separate per project.
 - infra must create the three Cognito scopes above.
 - Carried forward from the review (`docs/agent-runs/phase-10/review-report.md`):
-  - MINOR-1: `token_use` is not checked; no tests for missing `exp`, `nbf`, `sub` or the
-    30 s leeway.
-  - MINOR-2: `explain` returns `synthesisAttempts[].reason` and `synthesisFallback`, which
-    on the model path carry up to 200 characters of LLM client error text (latent while
-    `LLM_ENABLED=false`).
+  - MINOR-1 and MINOR-2 are closed in Phase 11 (C15, C16; `JwtClaimsSuite` covers
+    missing `exp`, `nbf`, `sub` and the leeway).
   - MINOR-3: the timeout needs an interruptible port; the default policy (2 attempts)
     would re-run a non-idempotent workflow if wired in.
   - MINOR-4: a sync request cancelled mid-workflow leaves the record Running and its key
@@ -119,6 +138,14 @@ Summary by project:
   - MINOR-5: an exception from the worker's `receive` or `acknowledge` ends its loop while
     `/healthz` stays 200; a transient PutVectors `Left` counts as `rejected`.
   - Store capacity is not in `/readyz`; replaying an evicted key re-runs the query.
+- Open after Phase 11:
+  - K14 (MINOR-3 to MINOR-5 above) and K15 (Phase 10 review 2 MINOR-A to E).
+  - B-17: a JWKS fetch failure gives 401 instead of 503.
+  - 502 versus 500: rag's deterministic invariant failures are treated as dependency
+    failures, so they are retryable, release the sync idempotency key and count toward
+    the query breaker (repeats can open it for every caller).
+  - `runEngine` turns `Downstream` into a breaker failure, so the `Downstream` branch of
+    `QueryService.workflowError` (`details.stage`) is not reached on that path.
 - S1 fixed two bugs: ujson writes a Long as a JSON string (EMF `Timestamp`, JWT `exp`),
   and a Long.MinValue overflow in the JWKS refresh timer.
   S2 fixed `/readyz` building a second request ID, so the error body `requestId` differed

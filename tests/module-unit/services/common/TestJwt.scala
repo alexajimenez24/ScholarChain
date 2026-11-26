@@ -35,7 +35,8 @@ object TestJwt:
       alg: String = "RS256",
       kid: String = "kid-1",
       signWith: KeyPair = pair,
-      extra: Map[String, ujson.Value] = Map.empty
+      extra: Map[String, ujson.Value] = Map.empty,
+      drop: Set[String] = Set.empty
   ): String =
     val header = ujson.Obj("alg" -> alg, "kid" -> kid, "typ" -> "JWT")
     val body = ujson.Obj(
@@ -47,6 +48,7 @@ object TestJwt:
     )
     clientId.foreach(c => body("client_id") = c)
     extra.foreach((k, v) => body(k) = v)
+    drop.foreach(body.value.remove(_))
     val signed =
       s"${b64(ujson.write(header).getBytes(UTF_8))}.${b64(ujson.write(body).getBytes(UTF_8))}"
     val s = Signature.getInstance("SHA256withRSA")

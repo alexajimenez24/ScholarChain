@@ -25,7 +25,7 @@ final case class AuthConfig(issuer: String, audience: String, leewaySeconds: Lon
   */
 enum AuthFailure:
   case Missing, Malformed, UnsupportedAlgorithm, UnknownKey, BadSignature, WrongIssuer,
-    WrongAudience, Expired, NotYetValid
+    WrongTokenUse, WrongAudience, Expired, NotYetValid
 
 /** Public signing keys by `kid`. */
 trait KeyProvider:
@@ -110,9 +110,12 @@ final class JwksKeyProvider(
         else IO.pure(keys.get(kid))
     yield found
 
-/** Cognito JWT verification: RS256 signature against the JWKS key named by `kid`, issuer, audience
-  * (`client_id` of an access token or `aud` of an ID token) and expiry. Only RS256 is accepted, so
-  * `none` and HMAC-with-the-public-key tokens are refused.
+/** Cognito JWT verification: RS256 signature against the JWKS key named by `kid`, issuer,
+  * `token_use`, audience and expiry. `token_use` picks the one claim that may hold the app client
+  * ID: `client_id` for `access`, `aud` for `id`. Any other or a missing `token_use` is refused, so
+  * the claim of one token kind never satisfies the other. An ID token carries no `scope` in
+  * Cognito, so it passes no scoped route. Only RS256 is accepted, so `none` and
+  * HMAC-with-the-public-key tokens are refused.
   */
 final class JwtVerifier(cfg: AuthConfig, keys: KeyProvider, clock: Clock = Clock.systemUTC()):
   private val MaxTokenChars = 8192
@@ -158,13 +161,18 @@ final class JwtVerifier(cfg: AuthConfig, keys: KeyProvider, clock: Clock = Clock
     def str(k: String) = p.value.get(k).flatMap(_.strOpt)
     def num(k: String) = p.value.get(k).flatMap(_.numOpt)
     val now = clock.instant.getEpochSecond
-    val aud = p.value.get("aud") match
+    def aud: Set[String] = p.value.get("aud") match
       case Some(ujson.Str(a))  => Set(a)
       case Some(ujson.Arr(xs)) => xs.flatMap(_.strOpt).toSet
       case _                   => Set.empty[String]
-    val audiences = aud ++ str("client_id")
+    // None: not an access or ID token. Otherwise the audiences of that token kind only.
+    val audiences: Option[Set[String]] = str("token_use").collect {
+      case "access" => str("client_id").toSet
+      case "id"     => aud
+    }
     if !str("iss").contains(cfg.issuer) then Left(AuthFailure.WrongIssuer)
-    else if !audiences.contains(cfg.audience) then Left(AuthFailure.WrongAudience)
+    else if audiences.isEmpty then Left(AuthFailure.WrongTokenUse)
+    else if !audiences.exists(_.contains(cfg.audience)) then Left(AuthFailure.WrongAudience)
     else
       num("exp") match
         case None                                       => Left(AuthFailure.Expired)
@@ -177,7 +185,7 @@ final class JwtVerifier(cfg: AuthConfig, keys: KeyProvider, clock: Clock = Clock
               case Some(sub) =>
                 val scopes =
                   str("scope").map(_.split(' ').filter(_.nonEmpty).toSet).getOrElse(Set.empty)
-                Right(Principal(sub, scopes, str("client_id").orElse(str("aud"))))
+                Right(Principal(sub, scopes, Some(cfg.audience)))
 
 /** Scope names used by the services (Cognito resource server `scholarchain`). */
 object Scopes:

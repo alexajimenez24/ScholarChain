@@ -5,6 +5,347 @@ resume. -->
 
 ## Where things stand
 
+### Resume here: Phase 11 (adversarial testing), waiting on the human
+
+Sources: `docs/agent-runs/phase-11/` (`run-log.md`, `carried-items.md`,
+`repair-plan.md`, repair, test and review reports).
+
+- Done: the steps through review 3, guard repair rounds 3 and 4, reviews 4 and 5, and
+  this documentation step.
+  Task running: none.
+  Next task: the human gate.
+  Half done: nothing in the repository.
+  No further guard repair: round 4 was the last guard round in Phase 11.
+  Open BLOCKED-ON: none (`repair-04-factory-engineer.md`, `review-report-05.md`).
+- Last full `sbt check`: exit 0, 1103 passed, 0 failed, 1 ignored (the gated AWS suite),
+  from `test-report-03.md`.
+  Rounds 3 and 4 ran no sbt because no Scala changed, and neither did this step.
+- AWS integration suites: NOT RUN (no approved profile).
+  No cloud was used.
+- Nothing from Phase 11 is committed.
+- **Gate: NOT fully met.**
+  `review-report-05.md` is REQUEST_CHANGES with R5-1, R5-2 and R5-3 CRITICAL open, so
+  "no open critical or major finding" is NOT MET.
+  `review-report-03.md` marked the other four gate items MET: every production behavior
+  has a relevant test, all tests pass under their declared profiles, no reviewer wrote
+  production code, and the repair records name owners and rerun evidence.
+  Review 5 did not restate the five gate items.
+- **The hook files are live now, before ratification.**
+  The earlier note was to keep auto mode off until the guard finding was resolved and the
+  diff ratified; the diff is not ratified and critical guard findings are open.
+
+### Guard repair round 3 (disclosed exception)
+
+Sources: `run-log.md`, `repair-03-factory-engineer.md`, `review-report-04.md`.
+
+- After review 3 left S-1 CRITICAL open, the human chose a third guard repair round, then
+  called final, as a disclosed exception to the two-round limit.
+- The first factory-engineer run (step 11a) was INTERRUPTED by an API 429 ("usage credits
+  ran out") while editing its scratch copy; it left no report.
+  The orchestrator's read-only check found that installation had not started, and a
+  fresh agent resumed the step.
+- Done: a conservative heredoc rule (a body was data only in narrow quoted-marker cases),
+  and a block on shell writes to `project/`, `~/.sbt` and `~/.ivy2`.
+- Added by the human: code-reviewer moves to the standard tier for Phases 12 to 16.
+  factory-engineer recorded an objection to lowering the review tier.
+- factory-engineer reported guard 86, ownership 4 and stop hook 17 tests OK,
+  render check and validator OK, and routing 153/153.
+  It reported 13 HEAD-blocked inputs that then passed, as C05 harmless-text cases.
+  The harness raised a Self-Modification warning; the orchestrator's read-only check
+  found the changed control-plane files match the two human decisions.
+- Review 4: REQUEST_CHANGES.
+  The 7 listed S-1 inputs were closed, but the rule was not.
+  It left T-1 and T-3 CRITICAL, T-2 MAJOR, and T-4 and T-5 MINOR open.
+  T-5 (the review's effort level was not verified) is corrected in `run-log.md`.
+- The orchestrator STOPPED on the human's instruction because criticals were open.
+  The STATUS.md step was not run then, so this update covers rounds 3 and 4 together.
+
+### Guard repair round 4 (last guard round in Phase 11)
+
+Sources: `run-log.md`, `repair-04-factory-engineer.md`, `review-report-05.md`.
+
+- The human's decision on T-1 to T-3 (verbatim in `run-log.md`, 2026-11-26): one final
+  guard round that makes the guard fail closed; anything still open goes to the gate.
+- Changed (factory-engineer):
+  - every heredoc body and here-string word is read as commands (the data rule is gone);
+  - the scan runs under a 6 s deadline; a timeout, a crash, another exit status,
+    oversize input or bad JSON blocks (bad JSON was an allow before);
+  - parser doubt blocks, including `<<` inside `${...}`, `$[...]` or `$((...))`;
+  - more evaluation sites are treated as code, such as `test -v`;
+  - `AGENTS.md` now says to write report text with the Write tool, never a heredoc.
+- The new false blocks are accepted by the human's rule and listed in
+  `repair-04-factory-engineer.md` (for example `case`, `$'...'` and the
+  `$(cat <<'EOF' ...)` commit-message form).
+- T-1 to T-3: review 5 found every listed input and variant closed, each with a test.
+  It adds that the class is not closed: an R5-1 prefix lets the T-3 input through.
+- factory-engineer also reports the review 3 items S-2 and S-3 closed; review 5 does not
+  rule on them by name.
+
+Test and check results, by who observed them:
+
+| Check | factory-engineer | Review 5 | This step (replayed) |
+|---|---|---|---|
+| `test_guard_dangerous.py` | 95 of 95 | 95 of 95 | 95 of 95, per class |
+| `test_guard_ownership.py` | 4 OK | 4 OK | 4 OK |
+| `test_verify_tests_ran.py` | 17 OK | 17 OK | 17 OK |
+| `validate-agent-files.sh` | OK, 740 files | OK, 742 files | OK, 743 files |
+| `render.sh --check` | OK, 44 | OK, 44 | OK, 44 |
+| Routing suite (claude, haiku) | 153/153 | not rerun | not run |
+
+- `sbt` was not run in round 3 or 4 (no Scala changed).
+- Differential against HEAD: both factory-engineer and review 5 found 5 HEAD-blocked
+  inputs that now pass, all harmless C05 marker-text cases.
+  Neither found a round-3-blocked input that passes.
+
+Hook timeout finding (Claude Code 2.1.332, factory-engineer's inert scratch probes;
+review 5 reports the same limits):
+
+- Observed, in a `-p` main session with a 2 s hook timeout (review 5 notes
+  `Bash(touch:*)` was pre-allowed): a timed-out hook was cancelled and the tool call
+  RAN; a hook that exited 1 or was killed (137) also let it run; exit 2 blocked.
+  So a hook timeout, crash or kill fails OPEN in the harness.
+- Assumed, not observed: the same at the production 10 s timeout, in interactive mode and
+  for subagent calls.
+  factory-engineer also did not observe which signal the harness sends.
+- Guard side: factory-engineer observed that a lowered deadline, missing `python3` or
+  `timeout`, bad JSON and SIGTERM during a scan all block.
+  Review 5 measured a slowest scan of 2.1 s among the inputs it could build under the
+  command size cap, and puts the worst case at 7 s against the 10 s timeout.
+  The exception is R5-4 below.
+
+### Open findings after review 5 (for the human gate)
+
+Full inputs and fix briefs are in `docs/agent-runs/phase-11/review-report-05.md`.
+The owner of all five is factory-engineer.
+
+| Finding | Severity | In one line (owner: factory-engineer) |
+|---|---|---|
+| R5-1 | CRITICAL | line continuations and CR are misread, which bypasses every pass |
+| R5-2 | CRITICAL | a command word from braces, a glob or a variable is read literally |
+| R5-3 | CRITICAL | `compgen -W` runs code unblocked; evaluating-options clause not met |
+| R5-4 | MINOR | deadline `0.0` or `.0` turns it off; an agent cannot set it |
+| T-4 | MINOR | `~ajcreator/.sbt` writes and `git apply` pass the build-input block |
+
+- The reviewer says R5-1 to R5-3 are not regressions against HEAD or round 3, and that
+  such commands would still prompt (for R5-1: none matches an allow or deny rule as
+  written).
+- It did not probe how Claude Code itself splits these forms, and it assumed that Claude
+  Code passes a CR and backslash-newline to bash unchanged.
+- It says the guard is **not fail-closed against a deliberate bypass**.
+- Its verdict line calls all five old behaviour, but its R5-4 text says R5-4 is new in
+  round 4 (see the `run-log.md` note): the setting did not exist at HEAD or in round 3.
+- No further repair; these go to the human gate.
+
+### Ratification (the human's next step)
+
+- The human decides the gate: ratify or reject the control-plane changes, then restart
+  Claude Code.
+- **The hook files are already live, so a rejected hook change must be reverted** in the
+  working tree; not ratifying it does not switch it off (`run-log.md`).
+  For round 4, `repair-04-factory-engineer.md` says to restore both hook files
+  (`guard-dangerous.sh` and `test_guard_dangerous.py`) together.
+  Its round-3 copy is only in a session scratchpad (`fe4/r3`), which may be cleared, and
+  review 4 left T-1 to T-3 open on that version.
+  `review-report-03.md` said that reverting the guard to HEAD reopens B-1, R-1, R-2 and
+  C01.
+- The control-plane diff to ratify is
+  `docs/agent-runs/phase-11/output-factory-diff-04.txt`.
+  It does not list the new untracked file `.claude/hooks/test_verify_tests_ran.py`,
+  which is also part of the factory-engineer work (`repair-01-factory-engineer.md`).
+- The code-reviewer tier change is to be ratified separately
+  (`repair-03-factory-engineer.md`).
+  If ratified, someone must act after Phase 16: before Phase 17, factory-engineer returns
+  the role to `tier: high` and re-renders, or the Phase 17 work order raises it to
+  `opus`.
+  The model override keeps the agent file's effort (medium), so only the revert restores
+  the full high tier.
+- After ratification, restart Claude Code and run the probes factory-engineer listed in
+  the earlier rounds (`repair-02-factory-engineer.md`):
+  `timeout 45m sbt check` and `timeout 30m sbt storage/test` run without a prompt, and
+  `sbt "--addPluginSbtFile=/tmp/p.sbt" check` is blocked.
+  Round 1 also listed that `sbt 'eval 1'` is blocked
+  (`repair-01-factory-engineer.md`).
+
+Human decisions waiting:
+
+1. The open findings R5-1 to R5-4 and T-4 above (and the unmet gate item).
+2. Ratification or rejection of the control-plane diff, and of the tier change.
+3. The claim verifier stays `claim-verifier-v3`; a bump to v4 is optional
+   (`repair-01-rag-engineer.md`).
+   rag-engineer also left `evidence-pipeline-v1` unbumped and says the human may decide
+   (`repair-01-rag-engineer-c19.md`).
+4. The 25,000-work export reading recorded in `run-log.md`: "tests never use the export"
+   binds the tests written in Phase 11, which use hand-built fixtures; the earlier
+   declared suites still read it when it is present, and nothing writes to it.
+5. The deviations listed in `run-log.md` ("Deviations to review at the gate"):
+   test-engineer continued for the step 8 rerun (S-5); code-reviewer A, rag-engineer and
+   spark-engineer continued for follow-ups; the orchestrator ran on `claude-sonnet-5-5`,
+   not the high tier; `review-report-a.md` is two hand-backs, 146 lines (cap 120);
+   reviewer reports were saved by extracting hand-back text from the transcripts.
+6. The deviations from rounds 3 and 4 (`run-log.md` and the reports):
+   two guard rounds past the two-round limit, both disclosed human decisions;
+   `review-report-05.md` is 96 lines (cap 80), kept verbatim;
+   neither review 4 nor review 5 could see the effort actually applied;
+   factory-engineer (round 4) and this step wrote reports in the session scratchpad for
+   the orchestrator to copy, because only the orchestrator may write
+   `docs/agent-runs/**` with file tools.
+
+The earlier question on a guard rule for the `~/.sbt` plugin residual was answered by the
+round 3 block on shell writes to `project/`, `~/.sbt` and `~/.ivy2` (T-4 is the gap).
+
+Exact next step: the human reads `review-report-05.md`, writes the decision in
+`docs/agent-runs/phase-11/human-gate.md`, ratifies or rejects (reverting any rejected
+hook change), restarts Claude Code, runs the probes and commits.
+Continue in a fresh session with:
+
+```text
+cd ~/scholarchain && claude "Read STATUS.md and continue with its next step."
+```
+
+Verify first, from the repository root (replayed in this step; each exited 0, except
+that `git status` was only used to read the tree, and see the note on the last command):
+
+```text
+git status --short
+.agents/render.sh --check
+.claude/hooks/validate-agent-files.sh
+timeout 9m python3 .claude/hooks/test_verify_tests_ran.py
+timeout 9m python3 .claude/hooks/test_guard_ownership.py
+timeout 10m python3 -B -m unittest discover -s tests/module-unit/datasets -p 'test_*.py'
+```
+
+The dataset tests gave 19 passed.
+A serial run of the whole guard suite takes over 180 s, and the harness backgrounds it,
+so run one class per process (the command starts with a `cd`):
+
+```text
+cd .claude/hooks &&
+grep -E '^class [A-Za-z0-9_]+' test_guard_dangerous.py |
+sed -E 's/^class ([A-Za-z0-9_]+).*/\1/' |
+timeout 170s xargs -P 8 -I{} sh -c '
+  out=$(python3 -B test_guard_dangerous.py "$1" 2>&1); rc=$?
+  echo "$1 rc=$rc $(echo "$out" | grep -E "^(Ran|OK|FAILED)" | tr "\n" " ")"
+' _ {}
+```
+
+Expect 26 classes with rc=0 whose counts total 95.
+The extra line `GuardCase rc=5 Ran 0 tests` is the base class with no tests, so the
+pipeline as a whole exits nonzero.
+
+After any source change, `timeout 45m sbt check` is required again.
+
+Uncommitted file state (`git status` at this step): changed control-plane files
+(`AGENTS.md`, `docs/agents.md`, `.agents/models.json`, the code-reviewer role and its two
+rendered adapters, two skills and their two rendered commands, `.claude/settings.json`,
+three hook files) and the new hook test file; changed `STATUS.md` and
+`PROJECT_MEMORY.md`;
+changed main sources in core, hadoop, spark, storage, rag and services, with the new
+`modules/storage/src/main/scala/scholarchain/storage/Communities.scala`; changed and new
+suites under `tests/module-unit/` and `tests/adversarial/`; the new folder
+`docs/agent-runs/phase-11/`.
+The earlier step 5 changed `STATUS.md`, one row pair in `PROJECT_MEMORY.md` and the
+`MODULE.md` of core, hadoop, spark, storage, rag and services.
+This step changed only `STATUS.md`.
+Harness: Claude Code only (2.1.332, `versions.md`).
+
+Phase 11 MUST items (all closed by `review-report-02.md` or `review-report-03.md`;
+the guard findings from S-1 onward are separate, see above):
+
+| Item | What was closed | By (`-engineer`) |
+|---|---|---|
+| C01-C03 | parse fallback, nested globs, hidden apply, push | factory |
+| C04 | gold-set writes and deletes (with R-3) | factory |
+| C05-C08 | false blocks, polling, `timeout`, stop hook | factory |
+| C09 | filtered rank texts name the filter | rag, test |
+| C10 | not restored; justification accepted (review B) | test |
+| C11 | `llm-synthesis-v2`, stale scaladoc | rag, test |
+| C12 | bound on a contradicted identity cluster | domain, spark |
+| C13 | JSON-lines loader contract test (fixture) | storage |
+| C14 | community size end to end (fixture level) | spark, storage, rag |
+| C15, C16 | `token_use`; explain error text | service |
+| C17 | replay report in ledger; missing folder fails | storage |
+| C18 | J03 and J04 job-level and unit cases | hadoop, test |
+| C19 (added) | error text in notes and summaries (R-4 tests) | rag |
+| C20 (added) | Spark reads `hadoop-v2` and `hadoop-v3` | spark |
+| A-1 | oversize researcher block counted once | hadoop |
+| B-1 | sbt allow rule narrowed (with R-2) | factory |
+| R-1 to R-3 | piped heredoc, sbt options, gold globs | factory |
+| R-4 | tests for the note and Downstream mapping | rag, service |
+
+Open CARRY list (for the limitations section of Phase 17):
+
+- K01 (factory-engineer): quote splitting and unlisted writers pass the
+  `human-gate.md` check; the docs overclaim.
+- K04 (factory-engineer): guard false positives, such as `python3 -c` naming a settings
+  file and `sed` without `-i` naming the gold path.
+- K05 (build-engineer, test-engineer): two SLF4J providers in black-box test projects;
+  no test of the Spark jar exclusion or the black-box classpath.
+- K06 (build-engineer): dataset Python tests are not part of `sbt check`.
+- K07 (hadoop-engineer): J01 reject reasons print Scala `Option` text.
+- K08 (hadoop-engineer): a decode-only charset fails J01 instead of a counted refusal.
+- K09 (hadoop-engineer): fallback-block work is bounded only by the hard pair cap.
+- K10 (entity-resolution-engineer): two refusal checks in one test are not isolated.
+- K11 NIT-1 (storage-engineer): the stale variable name stays.
+- K12 (domain-engineer): optional extra SigV4 vectors.
+- K13 (rag-engineer): m1 swapped name order, m2 substring name check, m4 topic phrase
+  filter.
+- K14 (service-engineer): timeout needs an interruptible port; a cancelled request keeps
+  its Idempotency-Key; the worker loop can end silently.
+- K15 (service-engineer): Phase 10 review 2 MINOR-A to E (eviction race, untrimmed
+  evidence index, cancelled requests refill the store, unbounded method dimension, test
+  gaps).
+- B-17 (service-engineer): a JWKS fetch failure gives 401 instead of 503.
+- B-20 (test-engineer): the Neptune-timeout test passes on any `Left`.
+- B-21 (factory-engineer and infra-engineer, Phase 12): auto-allowed `terraform plan`
+  can run a Terraform `data "external"` program.
+- R-4 mapping (service-engineer): the deterministic invariant failures give 502, not
+  500; they are retryable, release the sync idempotency key and count toward the query
+  breaker.
+- S-4 (factory-engineer): guard false blocks, such as a `grep` for the marker task
+  piped to `sort` or `cut`, and `command -v sbt`; rounds 3 and 4 added more accepted
+  false blocks (their repair reports list them).
+  (S-2 and S-3 left this list: factory-engineer reports them closed in round 4.)
+- R5-1 to R5-4 and T-4 (factory-engineer): open, see the table above.
+- Guard residuals from `repair-04-factory-engineer.md` (factory-engineer): a file
+  written earlier and then run is unseen, paths built at run time are not resolved, and
+  `xargs -I{} sh -c` puts file names into code.
+- S-5 (orchestrator): test-engineer was continued, not freshly spawned, for the step 8
+  rerun.
+
+Closed carry items: K02 and K03 (repair round 1, factory-engineer), K11 NIT-2 (with
+C17, storage-engineer), B-18 and B-19 (repair round 1), R-5 and R-6 (repair round 2),
+and A-2 and A-3 (test-engineer tightened the assertions to exact counts,
+`test-report-02.md`; `MISSING_KEY` is deliberately the range 2 to 3).
+
+Residuals that later phases must handle (from the repair, test and review reports):
+
+- service-engineer (cloud wiring): queryService builds no `RuntimeStores` yet and must
+  pass `RuntimeStores.communities`, or community size reads as `no-store`.
+- storage-engineer: no loader reads the `communities` block of `dynamodb.json` (the
+  caller gives the directory and expected rows), and `LocalIngestion` does not load
+  communities (rag's `LocalRuntime` does).
+- storage-engineer or the later caller: whatever reads Neptune tables for
+  `NeptuneLoadJob` must fail on `RowSource.problem` or any `Left` row.
+- EMR run (spark-engineer, deploy-engineer): count over-bound clusters; check
+  `researcherClustersOverCutBound` and the work counterpart for a nonzero value.
+- Run IDs: `hadoop-v3`, `spark-v5` and the new `graph.identityCutMaxClusterLinks` field
+  change new run IDs, so downstream runs must point at the new manifests.
+  No Hadoop v3 to Spark run has been made.
+- No cross-stage test runs real Spark communities output through the storage loader and
+  the rag reader; each hop has module-unit tests only.
+- factory-engineer residual: code planted by an earlier command in
+  `~/.sbt/1.0/plugins`, `.sbtopts`, `.jvmopts` or `project/` is loaded by sbt;
+  `repair-02-factory-engineer.md` called it the highest remaining gap.
+  Round 3 then blocked shell writes to `project/`, `~/.sbt` and `~/.ivy2`, with the gaps
+  above; its reports do not claim such a block for `.sbtopts` or `.jvmopts`.
+
+### Earlier phases
+
+The Phase 08b, 09 and 10 bullets below said "nothing committed"; `git log` now shows
+1fd7c6c and 7520117 (phase 08b), 3703a91 and 0a4de18 (phase 09), and e5546cb and f11010b
+(phase 10).
+Their older task sections and "next step" text below are history.
+
 - Phase 00: seed `factory-engineer` committed.
 - Phase 01: agent system committed after a factory-engineer audit, three repair rounds
   and two code-reviewer passes. Evidence and the accepted known gaps are in
@@ -64,7 +405,7 @@ resume. -->
   See "Carried forward from Phase 08".
 - Phase 09: runtime collaboration workflow (Graph-RAG stages 1 to 10) in module `rag`;
   steps 1 to 4, reviews 1 to 4 and repair rounds 1 to 3 were done, then Phase 08b ran
-  repair rounds 4 and 5 and reviews 5 and 5b; nothing is committed.
+  repair rounds 4 and 5 and reviews 5 and 5b; since committed (see above).
   See "Phase 08b and Phase 09 repair rounds 4 and 5" below, "Phase 09 task list",
   "Carried forward from Phase 09" and
   [docs/runtime-workflow.md](docs/runtime-workflow.md).
@@ -73,12 +414,12 @@ resume. -->
   No cloud or Bedrock call was made.
 - Phase 08b (2026-11-25, unattended): Spark at 100,000 works FAILED locally, the
   verifier was rebuilt on figure tuples, and review 5 and 5b stayed REQUEST_CHANGES.
-  Nothing is committed; the human commits.
+  Since committed (see above).
 - Phase 08b follow-up (2026-11-25, 4 tasks): DONE, review 6 REQUEST_CHANGES.
   See "Phase 08b follow-up" below.
 - Phase 10: REST services, steps 1 to 5 done, re-check approved
   (`review-report-02.md`: APPROVE, 0 CRITICAL, 0 MAJOR, 7 MINOR carried forward),
-  nothing committed.
+  since committed (see above).
   Services tests are 77 (query 22, common 29, graph 16, worker 10); the 77 is the
   reviewer's count from reading the suites, not a test run.
   The full `sbt check` exited 0 after the repair (`repair-01-service-engineer.md`).
@@ -207,6 +548,7 @@ Phase 09 repair round 4 and the V5-1 repair:
 - Round 4 (rag-engineer): figure tuples (researcherId, metric, value, evidenceIds) with
   `{figure-N}` placeholders replace the sentence rule; versions answer-synthesis-v2,
   `synthesis-rules-v2`, claim-verifier-v2 (details in `docs/runtime-workflow.md`).
+  (Superseded: the verifier is `claim-verifier-v3` since the Phase 08b follow-up.)
   `rag/test` 134 of 134.
 - Step 4 (test-engineer): WorkflowRepairR4GateSuite 8 of 8; benchmark 33 of 33 unchanged
   on the 25,000-work answers.
@@ -450,6 +792,9 @@ State at the end of repair round 3 (second human-authorized exception):
    The human decides whether to bump them.
 
 ### Continue in a fresh session
+
+(Superseded history from Phase 09; the current next step is under "Resume here: Phase
+11" at the top of this file.)
 
 ```text
 cd ~/scholarchain && claude "Read STATUS.md and continue with its next step."

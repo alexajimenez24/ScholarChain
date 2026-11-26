@@ -15,12 +15,15 @@ Optional OpenSearch was not implemented (the human addendum excluded it).
 
 - Owner: storage-engineer (documentation-engineer owns only this file).
 - sbt project: `storage`; folder: `modules/storage`.
-- Sources: `modules/storage/src/main/scala/scholarchain/storage/` (13 files:
+- Sources: `modules/storage/src/main/scala/scholarchain/storage/` (17 files since
+  Phase 11:
   `Ports`, `Fakes`, `S3Layout`, `S3ObjectStore`, `DynamoDbStore`, `Tables`,
   `GraphTemplates`, `NeptuneExport`, `NeptuneAdapters`, `VectorStore`, `Embedder`,
-  `VectorLoader`, `Loaders`).
-- Unit-test root: `tests/module-unit/storage/` (never `src/test`): `StorageSuite`,
-  `NeptuneSuite`, `VectorSuite`, `LoaderSuite`, `AwsIntegrationSuite`.
+  `VectorLoader`, `Loaders`, `DocumentRenderer`, `WorkQueue`, `LocalIngestion`,
+  `Communities`).
+- Unit-test root: `tests/module-unit/storage/` (never `src/test`), among others
+  `StorageSuite`, `NeptuneSuite`, `VectorSuite`, `LoaderSuite`, `AwsIntegrationSuite` and
+  `SparkExportContractSuite.scala` (which also holds `CommunityLoaderSuite`).
 
 ## Public API
 
@@ -116,6 +119,39 @@ The module now has 16 source files; `DocumentRenderer`, `WorkQueue` and
   `IngestionSettings` defaults: batch 100, queue capacity 1,000, 4 attempts, 25 query
   samples per index, topK 10, and an optional deterministic `maxUnitsPerIndex`.
 - Filterable metadata gained `template`, `chunkOrdinal` and `chunkCount`.
+
+### Phase 11 additions
+
+Source: `docs/agent-runs/phase-11/repair-01-storage-engineer.md`.
+
+- `RowSource.problem: Option[String]` (default `None`; kept by `mapE`, `filter` and
+  `concat`; set by `jsonLinesDir` on a missing directory).
+  The metrics, vector (`load`, `loadRendered`) and community loaders return a `Left` on
+  it before any read or write, and the ledger records Failed, whatever `expectedRows`
+  is.
+  An existing directory with no rows still succeeds with 0 read.
+- `RunLedger.recordReport(cur, uri, sha)`: a version-guarded update when a replay's
+  report SHA differs.
+  The stage stays Succeeded, the attempt goes up by 1, and the replaced report is kept in
+  `LedgerEntry.priorOutputs` (`PriorOutput(attempt, uri, sha256, recordedAt)`).
+  The same SHA or a failing replay changes nothing.
+  The field defaults to empty and is then absent from stored JSON.
+- Community sizes (`Communities.scala`): `CommunityReader.community(runId, communityId,
+  window): Either[KvError, Option[CommunitySize]]`, `CommunitySize`,
+  `CommunityCache(kv, table)`, `CommunityLoader(cache, ledger, writer)`,
+  `CommunityLoadResult`, and the fake `InMemoryCommunityReader`.
+  Items live in `dynamo.researcherMetricTable` (no new table or config field): pk
+  `community#{communityId}`, sk `run#{runId}#window#{startYear-endYear}`, no TTL.
+  The payload is the exported core `EvidenceItem`.
+  Writes are conditional; a different row under one key is rejected.
+  The loader stage is `load-communities` (`communities-load-v1`);
+  `cross_community_edge` rows are counted as `otherKindRows` and not stored.
+  `None` means not stored, never size 0.
+- C13: a hand-written JSON-lines fixture in the Spark layout runs through the metrics
+  loader, `NeptuneExport.build` and `NeptuneLoadJob`.
+  It is not a real Spark run.
+- Storage tests in the full `sbt check`: 199 passed, 1 ignored (gated AWS suite, NOT
+  RUN).
 
 ## Done
 
@@ -225,13 +261,17 @@ The module now has 16 source files; `DocumentRenderer`, `WorkQueue` and
 - Cleanup (Review 1 MINOR-2): a run's semantic-context prefix may be deleted only
   together with the vectors whose `textUri` points into it.
   The load report holds counts and rejections only, not the vector keys.
-- A replay that repairs earlier rejections writes a new report, but the Succeeded ledger
-  stage still names the first report (Review 1 MINOR-6, carried forward; the code fix
-  is not made).
-- A missing input directory now gives one visible malformed-row rejection
-  (`RowSource.jsonLinesDir` yields one `Left`), not an empty load.
-  The stage still records Succeeded; `expectedRows` makes it fail.
+- Closed in Phase 11 (C17): a repairing replay's report is now named by the ledger, and
+  a missing input directory now fails the stage (see "Phase 11 additions").
+  A replay that is worse than the first also becomes the latest report; earlier ones stay
+  in `priorOutputs`, whose length is limited only by the 400 KB item limit.
   The `_SUCCESS` rule of NIT-4 of Phase 05 is not implemented.
+- `NeptuneLoadJob` takes a built plan, not a `RowSource`, so whatever reads the Neptune
+  tables must fail on `problem` or any `Left` row.
+- Not done after Phase 11: no loader reads the `communities` block of `dynamodb.json`
+  (the caller gives the directory and expected rows), `DynamoTables` has no community
+  member, and `LocalIngestion` does not load communities.
+- K11 NIT-1 (stale variable name) stays open.
 - Gated AWS suite: the bound is 25 HTTP attempts including retries, enforced by a
   counting transport; the opt-in variable for the test index is
   `SCHOLARCHAIN_IT_TEST_VECTOR_INDEX` (a dedicated test index; a production index name is
@@ -282,8 +322,10 @@ The module now has 16 source files; `DocumentRenderer`, `WorkQueue` and
 - The `System.gc()` heap figure is rough.
 - The Phase 07 Parquet reader gap is closed by the Phase 08 JSON-lines export for the
   vector loader only.
-  The Neptune and DynamoDB loaders have not yet been run on the JSON-lines export.
-  A contract test for them is carried forward to storage-engineer.
+  In Phase 08 the Neptune and DynamoDB loaders had not been run on the JSON-lines
+  export.
+  Phase 11 added the contract test (C13) on a hand-written fixture; they have still not
+  run on a real export.
 - S3 Vectors limits were not re-read in Phase 08.
 
 ## Dependencies

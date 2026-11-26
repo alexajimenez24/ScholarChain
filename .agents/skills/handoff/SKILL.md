@@ -23,7 +23,8 @@ Run it when the human asks, or as soon as the orchestrator knows a cut-off is co
    - the state of every changed file (finished, partial, or must be discarded);
    - the exact next step, written as the next work order line;
    - the commands that verify the state (`git status --short`,
-     `.agents/render.sh --check`, `sbt check` when sources changed);
+     `.agents/render.sh --check`, `timeout 45m sbt check` when sources changed, run in
+     the foreground);
    - when a session hit its usage limit: the exact command to continue in a fresh
      Claude Code session (the only harness in use, `docs/agents.md` harness scope), for
      example

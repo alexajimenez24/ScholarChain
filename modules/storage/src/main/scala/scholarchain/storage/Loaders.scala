@@ -17,10 +17,18 @@ import scala.util.Try
   */
 trait RowSource[A]:
   def rows: Iterator[Either[String, A]]
+
+  /** Why the input as a whole cannot be read (a missing directory), as opposed to a bad row. Every
+    * loader fails its stage on it before anything is written or marked Succeeded, whatever the
+    * expected row count says. `None` with no rows is a legitimately empty input.
+    */
+  def problem: Option[String] = None
+
   def mapE[B](f: A => Either[String, B]): RowSource[B] =
     val self = this
     new RowSource[B]:
       def rows: Iterator[Either[String, B]] = self.rows.map(_.flatMap(f))
+      override def problem: Option[String] = self.problem
 
 object RowSource:
   def of[A](xs: Iterable[A]): RowSource[A] =
@@ -32,6 +40,7 @@ object RowSource:
     new RowSource[C]:
       def rows: Iterator[Either[String, C]] =
         a.rows.map(_.map(fa)) ++ b.rows.map(_.map(fb))
+      override def problem: Option[String] = a.problem.orElse(b.problem)
 
   /** Keeps the rows `keep` accepts; a row that failed to decode is always kept (it is a rejection
     * to report, not data to select).
@@ -39,6 +48,7 @@ object RowSource:
   def filter[A](src: RowSource[A])(keep: A => Boolean): RowSource[A] =
     new RowSource[A]:
       def rows: Iterator[Either[String, A]] = src.rows.filter(_.fold(_ => true, keep))
+      override def problem: Option[String] = src.problem
 
   /** Strict JSON lines (blank lines skipped); `validate` is the core validator of the record.
     * `dropFields` names top-level fields of the line that are not part of the core record (the
@@ -93,10 +103,12 @@ object RowSource:
         }
     val jl = jsonLines[A](lines, validate, dropFields)
     new RowSource[A]:
-      // A missing directory is a visible error row, never zero rows (a typo must not load as empty).
+      // A missing directory is an input problem, which fails a load stage. It also stays a visible
+      // error row for a consumer that only reads rows: a typo must never read as empty.
+      override def problem: Option[String] =
+        Option.when(!Files.isDirectory(dir))(s"input directory $dir is missing")
       def rows: Iterator[Either[String, A]] =
-        if !Files.isDirectory(dir) then Iterator.single(Left(s"input directory $dir is missing"))
-        else jl.rows
+        problem.fold(jl.rows)(p => Iterator.single(Left(p)))
 
 // ------------------------------------------------------------------ ledger and reports
 
@@ -138,9 +150,12 @@ object LoadReport:
 /** Runs a loader as a [[RunLedger]] stage and stores its report.
   *
   * `start` is idempotent per (run, stage, logic version). A stage in `Failed` is retried (attempt +
-  * 1). A stage already `Succeeded` is not moved again, but the loader body still runs: every loader
+  * 1). A stage already `Succeeded` stays `Succeeded`, but the loader body still runs: every loader
   * is idempotent, so a replay reads, finds nothing to change and writes nothing. The report is
-  * stored under a content-hashed name, so an identical replay is `Unchanged`.
+  * stored under a content-hashed name, so an identical replay is `Unchanged` and leaves the ledger
+  * as it is. A replay with a different report (it completed rows rejected before, say) records the
+  * new report on the ledger ([[RunLedger.recordReport]]); the earlier report stays in
+  * `priorOutputs`. A replay whose body fails changes nothing on a `Succeeded` stage.
   */
 final class LoadStage(ledger: RunLedger, writer: ArtifactWriter):
   final case class Outcome[A](
@@ -173,13 +188,14 @@ final class LoadStage(ledger: RunLedger, writer: ArtifactWriter):
               if cur.value.status == LedgerStatus.Started then ledger.fail(cur, msg)
               Left(msg)
             case Right((obj, wrote)) =>
-              if cur.value.status == LedgerStatus.Started then
-                ledger
-                  .succeed(cur, obj.uri, obj.sha256)
-                  .left
-                  .map(e => s"ledger: $e")
-                  .map(v => Outcome(value, obj, wrote, v.value, replay = false))
-              else Right(Outcome(value, obj, wrote, cur.value, replay = true))
+              val replay = cur.value.status != LedgerStatus.Started
+              val recorded =
+                if !replay then ledger.succeed(cur, obj.uri, obj.sha256)
+                else if cur.value.outputSha256.contains(obj.sha256) then Right(cur)
+                else ledger.recordReport(cur, obj.uri, obj.sha256)
+              recorded.left
+                .map(e => s"ledger: $e")
+                .map(v => Outcome(value, obj, wrote, v.value, replay))
     yield result
 
 // ------------------------------------------------------------------ load manifests
@@ -281,7 +297,8 @@ final case class MetricsLoadResult(
   * version is refused and rejected (a new algorithm needs a new `metricVersion`). Within one input
   * an identical duplicate row is dropped and counted; a conflicting duplicate rejects every copy.
   * `expectedRows` (the manifest row count) is checked before anything is written: a short input
-  * fails the stage instead of loading a silent subset.
+  * fails the stage instead of loading a silent subset. So does an input problem such as a missing
+  * directory ([[RowSource.problem]]).
   */
 final class ResearcherMetricsLoader(
     metrics: ResearcherMetricCache,
@@ -299,11 +316,13 @@ final class ResearcherMetricsLoader(
   ): Either[String, MetricsLoadResult] =
     stage
       .run(runId, Stage, LogicVersion) {
-        val all = source.rows.toVector
+        val problem = source.problem
+        val all = if problem.isDefined then Vector.empty else source.rows.toVector
         val rejects = Vector.newBuilder[RejectRecord]
         def reject(input: String, reason: String): Unit =
           rejects += RejectRecord.of(Stage, reason, input, runId)
-        if expectedRows.exists(_ != all.size.toLong) then
+        if problem.isDefined then Left(problem.get)
+        else if expectedRows.exists(_ != all.size.toLong) then
           Left(s"expected ${expectedRows.get} rows, the source gave ${all.size}")
         else
           val decoded = all.zipWithIndex.flatMap {

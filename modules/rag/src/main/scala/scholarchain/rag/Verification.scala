@@ -53,7 +53,8 @@ final case class Verdict(
   * an item backs it only for the researcher and metric at that position:
   *   - a researcher-metrics row, community membership or identity record: its own researcher;
   *   - a ranking: the researcher at a position of `positions`, for the ranking's metric (or
-  *     `rank`);
+  *     `rank`); a rank on a filtered ranking is written "rank of name (id) by metric among <filter>
+  *     in window W" ([[rankingFilter]], R6-1), never as a global rank;
   *   - a found coauthor edge or a cross-community link: its two researchers;
   *   - a path: its two endpoints; a publication: its work ID (the year).
   * The metric names a numeric key of the item's values (case, `_` and a `degree.` or `bridge.`
@@ -199,6 +200,22 @@ object ClaimVerifier:
     val t = s.trim.toLowerCase(Locale.ROOT)
     Vector("degree.", "bridge.").foldLeft(t)((a, p) => a.stripPrefix(p)).filter(_.isLetterOrDigit)
 
+  /** The filter of a filtered ranking item (topic, institution, or the primary ranking a bridge
+    * ranking is restricted to), sanitized and bounded to 120 characters; None for an unfiltered
+    * ranking (a filter starting with "none") or any other item. A position on a filtered ranking is
+    * a position among the filtered researchers only, so every text that states it names this filter
+    * (R6-1): the deterministic ranking claim and summary, and the verifier's rank label and
+    * structured text. The limit is not named: a position is the same in any prefix of the order.
+    */
+  def rankingFilter(e: EvidenceItem): Option[String] =
+    Option
+      .when(kindOf(e) == "ranking")(e.values.getOrElse("filter", ""))
+      .map(f => UntrustedText.bound(UntrustedText.sanitize(f), 120))
+      .filter(f => f.nonEmpty && !f.startsWith("none"))
+
+  /** " among <filter>" for a filtered ranking, else "" ([[rankingFilter]]). */
+  def amongText(e: EvidenceItem): String = rankingFilter(e).fold("")(f => s" among $f")
+
   /** A ranking's positions `rank:researcherId=value`, in order. */
   def rankingPositions(e: EvidenceItem): Vector[(String, String, String)] =
     e.values.getOrElse("positions", "").split(';').toVector.filter(_.nonEmpty).flatMap { p =>
@@ -286,13 +303,16 @@ object ClaimVerifier:
         )
       case EvidenceType.METRIC_RECORD if kindOf(e) == "ranking" =>
         val by = get("metricField").orElse(get("metric")).getOrElse("the metric")
+        // R6-1: a position on a filtered ranking holds only among the filtered researchers, so
+        // the rank label and text name the filter; the values are global and need no filter.
+        val among = amongText(e)
         rankingPositions(e).find(_._2 == subject).flatMap { (rank, _, value) =>
           if want == "rank" then
             Option.when(dec(rank).isDefined)(
               Held(
                 rank,
-                s"rank of ${name(subject)} by $by$win",
-                s"rank of ${ident(subject)} by $by$inWin"
+                s"rank of ${name(subject)} by $by$among$win",
+                s"rank of ${ident(subject)} by $by$among$inWin"
               )
             )
           else
@@ -631,12 +651,7 @@ object ClaimVerifier:
       val literals = cited.flatMap { x =>
         if x.evidenceType == EvidenceType.IDENTITY_RESOLUTION then
           x.values.get("query").filter(_.nonEmpty).map(q => s"'$q'")
-        else if kindOf(x) == "ranking" then
-          x.values
-            .get("filter")
-            .filter(f => f.nonEmpty && !f.startsWith("none"))
-            .map(f => UntrustedText.bound(f, 120))
-        else None
+        else rankingFilter(x)
       }.distinct
       literals.foreach { l =>
         var from = text.indexOf(l)

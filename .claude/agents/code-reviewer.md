@@ -6,8 +6,8 @@ description: Adversarial read-only review of any ScholarChain diff, phase or rep
   spec unclear and write the repair brief. Read-only - reports verified findings with
   severity, file and line and the owning agent; never edits or fixes anything.
 tools: Read, Grep, Glob, Bash
-model: opus
-effort: high
+model: sonnet
+effort: medium
 ---
 <!-- GENERATED from .agents/roles/code-reviewer.md by .agents/render.sh - do not edit; edit the source and re-run. -->
 

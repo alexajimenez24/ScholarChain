@@ -22,6 +22,9 @@ If any gate is missing, stop and tell the human which one; do not delegate.
 Use the **deploy-engineer** agent to run `scripts/run-bounded-pipeline.sh` with
 <argument>, confirm the EMR cluster auto-terminated after evidence was archived, and
 record dataset snapshot, run IDs, configuration and output locations.
+The work order writes the script call in the foreground under `timeout` with the bound
+the human gate names, and any local `sbt` step as `timeout 45m sbt check` or
+`timeout 30m sbt ...`; no background run, polling or wait loop (`AGENTS.md`, Commands).
 
 Report: run IDs, Hadoop and Spark counters, output paths, duration, estimated cost and
 anything left running.

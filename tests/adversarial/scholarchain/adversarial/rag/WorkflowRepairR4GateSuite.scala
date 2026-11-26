@@ -5,12 +5,13 @@ import scholarchain.core.*
 import scholarchain.rag.*
 
 /** Phase 09 repair round 4 gate tests (test-engineer, Phase 08b step 4) for R4-1, R4-2 and R4-3
-  * (`docs/agent-runs/phase-09/review-report-04.md`). Rule under test (human work order,
-  * `docs/agent-runs/phase-08b/prompt.md` step 3, `answer-synthesis-v2`, `claim-verifier-v2`; checks
-  * converted for `claim-verifier-v3` in the Phase 08b follow-up, where free text is only ever an
-  * UNVERIFIED interpretation and each figure is its own structured claim): every number of a model
-  * claim is a figure tuple (researcherId, metric, value, evidenceIds); the verifier checks the
-  * tuple against the cited item that holds that metric for that researcher (a ranking: only for the
+  * (`docs/agent-runs/phase-09/review-report-04.md`). Rule under test: `answer-synthesis-v2` replies
+  * checked by `claim-verifier-v3` (first written for the verifier version of the human work order
+  * `docs/agent-runs/phase-08b/prompt.md` step 3, converted in the Phase 08b follow-up, where free
+  * text is only ever an UNVERIFIED interpretation and each figure is its own structured claim;
+  * scaladoc version string corrected in Phase 11, carried item C11): every number of a model claim
+  * is a figure tuple (researcherId, metric, value, evidenceIds); the verifier checks the tuple
+  * against the cited item that holds that metric for that researcher (a ranking: only for the
   * researcher at that position); the number shown is rendered from the evidence; any other number
   * in free model text is weakened and labeled. The class under test: a false per-researcher number
   * is never VERIFIED, whatever the prose around it says.

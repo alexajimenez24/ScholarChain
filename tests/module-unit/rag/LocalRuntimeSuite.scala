@@ -29,8 +29,17 @@ class LocalRuntimeSuite extends munit.FunSuite:
     fields.foreach((k, v) => j(k) = v)
     j.render()
 
-  /** Writes the run and returns the run manifest path; `tamper` edits the neptune manifest. */
-  private def exportRun(out: Path, manifest: String, tamper: ujson.Value => Unit = _ => ()): Path =
+  /** Writes the run and returns the run manifest path; `tamper` edits the neptune manifest.
+    * `communities` (C14) gives the run's `communities` table rows; None writes an export without
+    * that table, as before Phase 11. `tamperDynamo` edits the dynamodb manifest.
+    */
+  private def exportRun(
+      out: Path,
+      manifest: String,
+      tamper: ujson.Value => Unit = _ => (),
+      communities: Option[RagWorld => Vector[EvidenceItem]] = None,
+      tamperDynamo: ujson.Value => Unit = _ => ()
+  ): Path =
     val runId = Ids.run(manifest)
     val w = new RagWorld(runId)
     val folder = out.resolve(s"spark/snapshot=${w.snapshot}/run_id=$runId")
@@ -109,6 +118,25 @@ class LocalRuntimeSuite extends munit.FunSuite:
         )
       )
     )
+    communities.map(_(w)).foreach { rows =>
+      def part(e: EvidenceItem) =
+        s"windowLabel=${e.values("window")}/recordKind=${e.values("recordKind")}"
+      rows.groupBy(part).foreach { (p, es) =>
+        write(
+          jl.resolve(s"communities/$p"),
+          es.map(e =>
+            extra(
+              JsonLines.encode(e),
+              "windowLabel" -> e.values("window"),
+              "recordKind" -> e.values("recordKind")
+            )
+          )
+        )
+      }
+      dynamo("communities") =
+        ujson.Obj("source" -> entry(counts(rows)(part), "windowLabel", "recordKind"))
+    }
+    tamperDynamo(dynamo)
     Files.writeString(lm.resolve("dynamodb.json"), dynamo.render(2))
     val byDocType = w.summaries.groupMapReduce(_.values("docType"))(_ => 1)(_ + _)
     val vectors = ujson.Obj(
@@ -266,5 +294,124 @@ class LocalRuntimeSuite extends munit.FunSuite:
         n => n("nodes")("jsonLines")("rowsByPartition")("label=Researcher") = 9
       )
       assert(load(path).left.exists(_.contains("the load manifest says 9")), load(path).toString)
+    }
+  }
+
+  // C14: community sizes ------------------------------------------------------------------------
+
+  /** The quantum community (3 members in 2015-2026) and one cross-community edge row. */
+  private def communityRows(w: RagWorld): Vector[EvidenceItem] =
+    def row(key: String, values: (String, String)*) =
+      w.ctx.evidence(
+        EvidenceType.COMMUNITY_RECORD,
+        key,
+        "s3://fixture/graph/communities",
+        Vector.empty,
+        values.toMap,
+        "graph-v1"
+      )
+    Vector(
+      row(
+        "community|quantum",
+        "recordKind" -> "community",
+        "communityId" -> SmokeFixture.QuantumCommunity,
+        "communitySize" -> "3",
+        "window" -> Recent.label
+      ),
+      row(
+        "cross|bob-carol",
+        "recordKind" -> "cross_community_edge",
+        "edgeId" -> "ce:1",
+        "communityA" -> SmokeFixture.QuantumCommunity,
+        "communityB" -> SmokeFixture.BiologyCommunity,
+        "jointPublicationCount" -> "1",
+        "window" -> Recent.label
+      )
+    )
+
+  test("C14: the communities table feeds the community reader; sizes reach the answer") {
+    withOut { out =>
+      val rt = load(exportRun(out, manifestText(), communities = Some(communityRows)))
+        .fold(e => fail(e), identity)
+      val rows = rt.report.rows.toMap
+      assertEquals(rows("communities/windowLabel=2015-2026/recordKind=community"), 1L)
+      assert(!rows.contains("communities/windowLabel=2000-2009/recordKind=community"))
+      val reader = rt.stores.communities.getOrElse(fail("no community reader"))
+      val got = reader
+        .community(rt.ctx.graphRunId, SmokeFixture.QuantumCommunity, Recent)
+        .fold(e => fail(e.toString), identity)
+      assertEquals(got.map(_.size), Some(3L))
+      assertEquals(
+        reader.community(rt.ctx.graphRunId, SmokeFixture.BiologyCommunity, Recent),
+        Right(None)
+      )
+      val a = rt
+        .workflow()
+        .run(
+          "qry-local-c14",
+          AnalysisRequest(
+            "Which researchers have the most distinct coauthors since 2015, and which of them are the strongest bridges between communities?"
+          )
+        )
+        .fold(e => fail(e.describe), identity)
+      val sized = a.answer.claims.filter(_.text.contains("of 3 members"))
+      assert(sized.nonEmpty && sized.forall(_.verificationStatus == VerificationStatus.VERIFIED))
+      assert(!a.answer.summary.contains(s"community size of ${SmokeFixture.QuantumCommunity}"))
+    }
+  }
+
+  test("C14: an export without the communities table serves no community store (sizes missing)") {
+    withOut { out =>
+      val rt = load(exportRun(out, manifestText())).fold(e => fail(e), identity)
+      assertEquals(rt.stores.communities, None)
+      assert(!rt.report.rows.exists(_._1.startsWith("communities/")))
+      val a = rt
+        .workflow()
+        .run(
+          "qry-local-c14-old",
+          AnalysisRequest(
+            "Which researchers have the most distinct coauthors since 2015, and which of them are the strongest bridges between communities?"
+          )
+        )
+        .fold(e => fail(e.describe), identity)
+      assert(a.answer.claims.forall(c => !"""\b\d+\s+members\b""".r.findFirstIn(c.text).isDefined))
+      assert(
+        a.answer.summary.contains(
+          s"community size of ${SmokeFixture.QuantumCommunity} is not available: the Spark community table is not in any store the runtime reads"
+        ),
+        a.answer.summary
+      )
+    }
+  }
+
+  test("C14: a community row-count mismatch or a bad community row fails the load") {
+    withOut { out =>
+      val path = exportRun(
+        out,
+        manifestText(),
+        communities = Some(communityRows),
+        tamperDynamo = d =>
+          d("communities")("source")("jsonLines")("rowsByPartition")(
+            "windowLabel=2015-2026/recordKind=community"
+          ) = 2
+      )
+      assert(load(path).left.exists(_.contains("the load manifest says 2")), load(path).toString)
+    }
+    withOut { out =>
+      val path = exportRun(
+        out,
+        manifestText(),
+        communities = Some(w =>
+          communityRows(w).map(e =>
+            if e.values("recordKind") == "community" then
+              e.copy(values = e.values.updated("communitySize", "0"))
+            else e
+          )
+        )
+      )
+      assert(
+        load(path).left.exists(_.contains("communities: 1 rows rejected")),
+        load(path).toString
+      )
     }
   }

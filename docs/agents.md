@@ -99,8 +99,21 @@ Gold-set labels: the entity-resolution gold set (at least 200 manually reviewed 
 The spec names no path for it, so the matrix chooses `datasets/gold/**`.
 dataset-engineer's `datasets/**` grant excludes it (territory `except` row); agents may
 read it, and entity-resolution-engineer never reads it into matching logic (section 4).
-guard-ownership blocks file-tool writes to it for every agent, and guard-dangerous blocks
-shell writes.
+guard-ownership blocks file-tool writes to it for every agent.
+guard-dangerous blocks the shell writes it can resolve: a write, move or deletion whose
+target resolves under `datasets/gold/` or is an ancestor of it (`datasets`, the
+repository root or above), through cd, `~` and `$HOME`, globs, braces, find -delete or a
+writing -exec, xargs fed with names that can include it, heredoc bodies and here-strings
+(all read as commands), git checkout or restore, and an sbt run's output option, plus
+interpreter code that names datasets with gold or with a directory operation (Phase 11
+C04).
+A delete or move through a glob that can match `datasets/gold` itself is blocked
+(`datasets/*`, `cd datasets && rm -rf *`); a glob that cannot match it
+(`datasets/*.tmp`) is allowed (Phase 11 repair round 2, R-3; this replaces the
+repair-round-2 `datasets/*` residual that the Phase 05 gate reopened).
+It does not block a target built at run time (a bare variable or `$NAME/`, a path an
+interpreter computes, a list of names read from a file); git history (the labels are
+tracked), git diff and the human gate are the backstop.
 
 Hadoop integration tests: the spec gives "Hadoop integration tests" to hadoop-engineer
 (`docs/spec/assignment.md` line 334; local or mini-cluster runs of representative jobs,
@@ -117,6 +130,41 @@ build-engineer owns its structure (which entries exist, how the build reads them
 dependency-updater edits only library version values inside it, and never creates it.
 Plugin versions and the sbt version stay with build-engineer.
 Machine tool versions live only in `toolchain/`.
+
+Build inputs (Phase 11 repair round 3, human): guard-dangerous blocks every shell write
+it can resolve into `project/` at the repository root, `~/.sbt` or `~/.ivy2`, with the
+gold-set write analysis (redirection, tee, cp, mv, ln, install, rsync, rm, sed -i,
+mkdir, touch, find writes, xargs, git checkout or restore; `~`, `$HOME`, `${HOME}`,
+absolute, relative and through cd; interpreter code that names them with a write).
+`project/` changes go only through the Write or Edit tool and guard-ownership.
+Reads, a copy from them, git reads and sbt's own writes to `project/target` are allowed.
+
+Fail-closed rule (Phase 11 repair round 4, human; replaces the round-3 heredoc rule):
+guard-dangerous blocks when in doubt and has no data exceptions.
+- Every heredoc body and here-string word is read as commands by every pass, whatever
+  its end marker or receiver.
+- A command that any pass cannot fully parse is blocked: an unbalanced quote, an end
+  marker or heredoc place the scanner cannot read with certainty, `<<` inside `${...}`,
+  `$[...]` or `$((...))`, a heredoc inside a substitution or subshell, `$'...'` or
+  `$"..."` quoting, an unmatched `)` (a `case` pattern too), more than 16 heredocs,
+  nesting deeper than the passes follow, and a crashed pass or one with no verdict.
+- Text that bash evaluates as code is code: `test`, `[` and `[[` with `-v` or `-R`
+  take a plain name; `[[ ]]` arithmetic operators (`-eq`, `-lt` and the rest) take
+  literal numbers or `$?`; arithmetic expansion and `((...))` take digits and operators;
+  subscripts, substring offsets, `${!name}` and `@P` take literals; `let`, `declare -i`
+  and `-n`, `export -f`, `mapfile -C`, `trap` with an action, `alias` definitions,
+  `BASH_ENV`, `PS0` to `PS4`, `PROMPT_COMMAND` and `BASH_FUNC_*` are blocked; `eval` or
+  `sh -c` of an expansion and a shell or `source` reading a pipe, a process substitution
+  or `/dev/stdin` are blocked.
+- Size and time: a hook input over 65536 characters or a command over 16384 is blocked;
+  the scan runs under a 6-second deadline, below the 10-second hook timeout, and a
+  timeout, crash, signal or any exit status other than 0 or 2 is a block.
+  Observed on Claude Code 2.1.332 (inert probe, Phase 11 repair round 4): a hook that
+  runs past its timeout is cancelled and the tool call proceeds, and a hook that exits 1
+  or is killed (137) lets the call proceed too, so the guard must finish and decide
+  before the harness timeout.
+- Agents write report text and other prose with the Write tool (or in the hand-back
+  message, for a role without Write), never with a shell heredoc.
 
 Unowned by design: the test marker `.claude/.last-test-run` (git-ignored, touched only
 by `sbt check`; guard-dangerous blocks shell writes to it and running `markTestRun` by
@@ -292,6 +340,9 @@ Phase execution (small tasks, no mid-phase interruptions):
 1. At the start of a phase the orchestrator splits the phase work order into small
    tasks; each is complete and testable on its own and names one owner, its inputs,
    what done means and the check that proves it.
+   A long sbt or pipeline command in a work order is written to run in the foreground
+   under `timeout` (`timeout 45m sbt check`, `timeout 30m` for project tests and local
+   pipeline runs; `AGENTS.md`, Commands).
 2. documentation-engineer writes the task list into `STATUS.md` before the first task.
 3. The orchestrator runs the tasks one by one, routing each to its owner; the repair,
    unit-test and black-box test loops (section 7) run inside the phase.
@@ -343,7 +394,7 @@ it, because a description that the cheapest model routes correctly is clear.
 Per-task model choice (phase 1 amendment 2, to save usage on small work):
 - a high-tier role never runs below high; its tier is the floor;
 - a standard-tier role may run on `low` for a small, mechanical task (for example a
-  one-line version bump);
+  one-line version bump), except code-reviewer, whose floor is standard;
 - any role may be raised to high;
 - the work order states the model and why, and the report header and `run-log.md`
   name the model actually used, so a step-down is always visible.
@@ -510,7 +561,13 @@ Mechanics, read from the harness tool descriptions and not yet probed by a live 
   instruction-only.
 
 ### code-reviewer
-- Tier: high, because it is the adversarial last check before a human gate.
+- Tier: standard for Phases 12 to 16 (human decision, Phase 11 repair round 3, to save
+  usage), with standard as its floor: it never runs on `low`.
+  Phase 17's final review uses the high tier: before Phase 17, factory-engineer returns
+  `.agents/roles/code-reviewer.md` to `tier: high` and re-renders (ratified like every
+  constitutional change); until that is in force, the Phase 17 work order raises
+  code-reviewer to high (model `opus`; the effort stays the agent file's).
+  It was high, because it is the adversarial last check before a human gate.
 - May: read everything; run sbt and git as evidence; judge test fairness; write repair
   briefs in its report.
 - Must never: create, edit or delete any file.

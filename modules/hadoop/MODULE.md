@@ -75,10 +75,12 @@ Arguments come as `--name value` pairs.
 - The run ID is `Ids.run(manifest)`.
   The manifest holds the input paths, snapshot, caps, reducers, compress flag,
   normalization version, schema versions and the logic version
-  `Pipeline.LogicVersion` (`"hadoop-v2"`, field `pipeline`); it holds no timestamp and not
+  `Pipeline.LogicVersion` (`"hadoop-v3"`, field `pipeline`); it holds no timestamp and not
   the output root, so the same inputs give the same run ID.
-  `LogicVersion` is bumped on any logic change, so every run ID differs from a run made
-  before the repair (it was `"hadoop-v1"`).
+  `LogicVersion` is bumped on any logic change, so every new run ID differs from earlier
+  ones.
+  It has been `"hadoop-v3"` since Phase 11 repair round 1 (A-1); it was `"hadoop-v2"`
+  after Phase 04 repair round 1 and `"hadoop-v1"` before that.
   Inputs at a path are treated as immutable per snapshot.
 
 ### Job graph
@@ -180,6 +182,7 @@ Added in repair round 1:
 - J04 `FALLBACK_BLOCKS_COMPARED` and `FALLBACK_BLOCKS_REFUSED`.
   A refused fallback block also increments `REJECTED_RECORDS` and writes a reject line,
   but not `OVERSIZE_BLOCKS`.
+  The primary block that triggered fallback is counted separately in `OVERSIZE_BLOCKS`.
 - J01 `UNSUPPORTED_ENCODING` (see the encoding rule).
 - J01 `INVALID_IDENTIFIER`: it now also counts invalid identifiers found by the DBLP
   parser, namely an `orcid` attribute that is present but invalid, an `ee` on
@@ -232,11 +235,17 @@ not rejected.
   before `targetId`.
 - A team above `--max-team` is not expanded: it is counted (`OVERSIZE_TEAMS`), the
   refused pairs are counted (`PAIRS_REFUSED_BY_CAP`) and a reject line is written.
-- A researcher or work block above `--max-block` is not compared as a whole
-  (`OVERSIZE_BLOCKS`).
-  A researcher block is first split by full name; the within-cluster
-  `same_source_cluster` links of refused parts remain.
-  A block above the hard cap of 10 x `--max-block` is refused whole.
+- A researcher or work block above `--max-block` is not compared as a whole.
+  Each counts once in `OVERSIZE_BLOCKS` with one reject line.
+  A researcher block (more than `--max-block` clusters) is split by full name even when
+  every part then fits.
+  Parts still above the cap are named in that same line (`K parts refused: ...`, which the
+  500-character reason limit may cut) and are not counted again; their within-cluster
+  `same_source_cluster` links remain.
+  A block above the hard cap of 10 x `--max-block` members is refused whole, also counted
+  once.
+  The function is `BlockLogic.primaryRefusal(key, results, maxBlock): Option[String]`
+  (Phase 11, A-1).
 - Fallback keys (repair round 1, B1; spec line 2245).
   The trigger is a researcher block with more than `--max-block` clusters; the split by
   full name stays and fallback blocks are added.
@@ -347,6 +356,18 @@ Observed numbers after the repair (full tables in
   (79 before the repair), adversarialTests 68 of 68 (the 5 red tests are green).
   The test-engineer rerun (R1c) and Review 2 were still pending when this was written.
 
+### Phase 11 done
+
+Sources: `docs/agent-runs/phase-11/repair-01-hadoop-engineer.md`,
+`test-report-02.md` and `test-report-03.md`.
+
+- A-1: an oversize researcher block is counted once; `LogicVersion` `hadoop-v3`.
+- C18: J03 and J04 job-level unit cases in `RejectsAndLimitsSuite`, plus the adversarial
+  `ReducerWiringSuite` (test-engineer).
+- Hadoop module-unit tests in the full `sbt check`: 100 passed.
+- No dataset or cloud run was made with `hadoop-v3`.
+  Spark reads `hadoop-v2` and `hadoop-v3` (C20); that chain has not been run.
+
 ## Not done
 
 - The EMR smoke-run script (infra-engineer, Phase 13) and any cloud run.
@@ -378,6 +399,12 @@ Source: hadoop-engineer repair report (HR2) and the earlier T2 report, both in
 The four open items of test-engineer's T3 report (fallback keys, `INVALID_IDENTIFIER`,
 J03 duplicate and conflict counts, trailing cap flag) are fixed in repair round 1 and
 removed from this list.
+
+- Open from Phase 11's carry list:
+  - K07: J01 status rejects still print Scala `Option` text, so the reject formats
+    described for them above are the intended ones, not what the code produces.
+  - K08: a decode-only charset fails J01 instead of a counted refusal.
+  - K09: fallback-block work is bounded only by the hard pair cap.
 
 - The J03 reducer still buffers all values of a key in memory.
   The exact-key cap bounds the quadratic pairs, not the memory of a giant group.

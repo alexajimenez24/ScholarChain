@@ -155,7 +155,8 @@ final class CollaborationWorkflow(
         _ <- Either.cond(
           errors.isEmpty,
           (),
-          WorkflowError.InvalidRequest(s"answer invalid: ${errors.mkString("; ").take(300)}")
+          // An internal invariant, not the caller's fault; Downstream text never reaches a client.
+          WorkflowError.Downstream("answer", s"answer invalid: ${errors.mkString("; ").take(300)}")
         )
         _ <- bundles
           .put(e.bundle)

@@ -416,6 +416,21 @@ class VectorLoaderSuite extends munit.FunSuite:
     assert(r.load(five, Some(5L)).isRight) // the stage is retried and succeeds
   }
 
+  test("the vector loader fails its stage on a missing input directory, even with one row due") {
+    val r = new Rig
+    val absent = java.nio.file.Path.of("target", "no-such-vector-dir-" + run.take(8))
+    val res = r.loader.load(run, RowSource.jsonLinesDir[SemanticDocument](absent), Some(1L))
+    assert(res.left.exists(_.contains("is missing")), res.toString)
+    val rendered = r.loader.loadRendered(
+      run,
+      RowSource.jsonLinesDir[EvidenceItem](absent).mapE(e => Right(SourceRecord.Summary(e))),
+      RenderFx.stub()
+    )
+    assert(rendered.left.exists(_.contains("is missing")), rendered.toString)
+    assertEquals(r.ledger.map(_.status), Some(LedgerStatus.Failed))
+    assertEquals((r.store.gets, r.store.putCalls, r.objects.keys), (0, 0, Vector.empty[String]))
+  }
+
   test("a different logic version for the same run and stage is a conflict, not a silent rerun") {
     val r = new Rig
     loaded(r, five)
@@ -613,23 +628,97 @@ class ResearcherMetricsLoaderSuite extends munit.FunSuite:
     assertEquals(loader.load(run, RowSource.of(Seq(m(0)))).toOption.get.created, 1L)
   }
 
-  test("a missing input directory is a visible malformed row, not an empty successful load") {
+  private def absent =
+    java.nio.file.Path.of("target", "no-such-metrics-dir-" + run.take(8))
+
+  test("a missing input directory fails the stage; it is never a Succeeded load of one reject") {
     val r = new Rig
-    val absent = java.nio.file.Path.of("target", "no-such-metrics-dir-" + run.take(8))
-    val res = r.loader
-      .load(run, RowSource.jsonLinesDir[ResearcherMetrics](absent, Validate.metrics))
-      .toOption
-      .get
-    assertEquals((res.read, res.created, res.rejected.size), (1L, 0L, 1))
-    assert(res.rejected.head.reason.contains("input directory"), res.rejected.head.reason)
-    assert(res.rejected.head.reason.contains("is missing"))
+    val res =
+      r.loader.load(run, RowSource.jsonLinesDir[ResearcherMetrics](absent, Validate.metrics))
+    assert(res.left.exists(e => e.contains("input directory") && e.contains("is missing")), res)
+    val entry = r.tables.runLedger.get(run, r.loader.Stage).toOption.get.map(_.value)
+    assertEquals(entry.map(e => (e.status, e.outputUri)), Some((LedgerStatus.Failed, None)))
+    assert(entry.flatMap(_.error).exists(_.contains("is missing")), entry)
+    assertEquals(r.objects.keys, Vector.empty[String])
+    assertEquals(r.kv.size(cfg.dynamo.researcherMetricTable), 0)
   }
 
-  test("a missing input directory does not satisfy an expected row count") {
+  test("a missing input directory fails whatever the expected row count says, also 0 and 1") {
+    Seq(0L, 1L, 2L).foreach { n =>
+      val r = new Rig
+      val res = r.loader.load(run, RowSource.jsonLinesDir[ResearcherMetrics](absent), Some(n))
+      assert(res.left.exists(_.contains("is missing")), s"$n: $res")
+      assertEquals(
+        r.tables.runLedger.get(run, r.loader.Stage).toOption.get.map(_.value.status),
+        Some(LedgerStatus.Failed)
+      )
+    }
+  }
+
+  test("the input problem survives mapE, filter and concat") {
+    val missing = RowSource.jsonLinesDir[ResearcherMetrics](absent)
+    val ok = RowSource.of(Seq(m(0)))
+    assert(missing.mapE(Right(_)).problem.isDefined)
+    assert(RowSource.filter(missing)(_ => true).problem.isDefined)
+    assert(RowSource.concat(ok, missing)(identity, identity).problem.isDefined)
+    assert(RowSource.concat(missing, ok)(identity, identity).problem.isDefined)
+    assertEquals(RowSource.concat(ok, ok)(identity, identity).problem, None)
+  }
+
+  test("an existing directory without rows is a legitimate empty load: Succeeded, read 0") {
     val r = new Rig
-    val absent = java.nio.file.Path.of("target", "no-such-metrics-dir-" + run.take(8))
-    val res = r.loader.load(run, RowSource.jsonLinesDir[ResearcherMetrics](absent), Some(2L))
-    assert(res.left.exists(_.contains("expected 2 rows")), res.toString)
+    val dir = java.nio.file.Files.createTempDirectory("empty-metrics")
+    try
+      val res = r.loader
+        .load(run, RowSource.jsonLinesDir[ResearcherMetrics](dir), Some(0L))
+        .toOption
+        .get
+      assertEquals((res.read, res.created, res.rejected), (0L, 0L, Vector.empty))
+      assertEquals(
+        r.tables.runLedger.get(run, r.loader.Stage).toOption.get.map(_.value.status),
+        Some(LedgerStatus.Succeeded)
+      )
+    finally java.nio.file.Files.delete(dir)
+  }
+
+  test("a repairing replay records its new report on the ledger and keeps the earlier one") {
+    val r = new Rig
+    val broken = new RowSource[ResearcherMetrics]:
+      def rows = Iterator(Right(m(0)), Left("truncated line"))
+    val first = r.loader.load(run, broken).toOption.get
+    assertEquals(first.rejected.size, 1)
+    val before = r.tables.runLedger.get(run, r.loader.Stage).toOption.get.get
+    val repaired = r.load(Seq(m(0), m(1))).toOption.get
+    assertEquals((repaired.created, repaired.rejected, repaired.replay), (1L, Vector.empty, true))
+    assertNotEquals(repaired.report.sha256, first.report.sha256)
+    val after = r.tables.runLedger.get(run, r.loader.Stage).toOption.get.get
+    assertEquals(
+      (after.value.status, after.value.attempt, after.value.outputUri, after.value.outputSha256),
+      (LedgerStatus.Succeeded, 2, Some(repaired.report.uri), Some(repaired.report.sha256))
+    )
+    assertEquals(
+      after.value.priorOutputs,
+      Vector(PriorOutput(1, first.report.uri, first.report.sha256, before.value.updatedAt))
+    )
+    assert(r.objects.keys.contains(first.report.uri)) // the earlier report object stays
+    // the same replay again changes nothing
+    r.load(Seq(m(0), m(1)))
+    assertEquals(r.tables.runLedger.get(run, r.loader.Stage).toOption.get.get, after)
+    // a failing replay of a Succeeded stage changes nothing either
+    assert(r.load(Seq(m(0)), Some(9L)).isLeft)
+    assertEquals(r.tables.runLedger.get(run, r.loader.Stage).toOption.get.get, after)
+    // the history is version-guarded: a stale entry cannot overwrite it
+    assert(r.tables.runLedger.recordReport(before, "s3://x/y", "00").isLeft)
+    assertEquals(r.tables.runLedger.get(run, r.loader.Stage).toOption.get.get, after)
+  }
+
+  test("a ledger entry without report history keeps the old stored form and decodes") {
+    val old =
+      """{"runId":"r","stage":"s","status":"Started","attempt":1,"logicVersion":"v",""" +
+        """"outputUri":null,"outputSha256":null,"error":null,"updatedAt":"t"}"""
+    val e = upickle.default.read[LedgerEntry](old)
+    assertEquals(e.priorOutputs, Vector.empty)
+    assert(!upickle.default.write(e).contains("priorOutputs"))
   }
 
 class NeptuneLoadJobSuite extends munit.FunSuite:

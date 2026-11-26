@@ -44,7 +44,10 @@ final class EvidenceBuilderAgent(ctx: RuntimeContext, limits: EvidenceLimits = E
       val seen = scala.collection.mutable.LinkedHashMap.empty[String, EvidenceItem]
       xs.foreach { e =>
         val errs = Validate.evidence(e)
-        if errs.nonEmpty then notes += s"dropped invalid ${e.evidenceId}: ${errs.head.take(120)}"
+        // C19: the note names the item, never the validation text (it can echo stored values).
+        if errs.nonEmpty then
+          val id = if Ids.isEvidenceId(e.evidenceId) then e.evidenceId else "(malformed ID)"
+          notes += s"dropped invalid evidence item $id: it failed core validation"
         else
           seen.get(e.evidenceId) match
             case None                  => seen(e.evidenceId) = e
@@ -79,7 +82,8 @@ final class EvidenceBuilderAgent(ctx: RuntimeContext, limits: EvidenceLimits = E
       _ <- Either.cond(
         errs.isEmpty,
         (),
-        WorkflowError.InvalidRequest(s"bundle invalid: ${errs.mkString("; ").take(300)}")
+        // An internal invariant, not the caller's fault; Downstream text never reaches a client.
+        WorkflowError.Downstream("evidence", s"bundle invalid: ${errs.mkString("; ").take(300)}")
       )
     yield (fitted, notes.result())
 
@@ -168,7 +172,7 @@ final class EvidencePipeline(
   val resolver = new ResearcherResolverAgent(ctx, stores.directory)
   val metrics = new CollaborationMetricsAgent(ctx, stores.kv, stores.directory, stores.ranking)
   val paths = new PathFinderAgent(ctx, stores.directory)
-  val communities = new CommunityAnalystAgent(ctx, metrics, paths)
+  val communities = new CommunityAnalystAgent(ctx, metrics, paths, stores.communities)
   val semantic = new SemanticContextAgent(retriever)
   val builder = new EvidenceBuilderAgent(ctx, limits)
 
@@ -341,9 +345,9 @@ final class EvidencePipeline(
         )
       val notes =
         windowNote.toVector ++ filterNotes ++ missingNamed ++ views.flatMap(_.notes).distinct ++
-          sem.left.toOption
-            .map(e => s"semantic context unavailable: ${e.describe}")
-            .toVector ++
+          // C19: a fixed note; the vector store or embedder text never reaches notes, the model
+          // prompt or the answer (the audit's "semantic" stage timing records "failed").
+          sem.left.toOption.map(_ => SemanticUnavailableNote).toVector ++
           Option
             .when(ops(COMPONENT_LOOKUP) && ids.isEmpty)(ComponentNote)
             .toVector ++ buildNotes
@@ -472,6 +476,10 @@ final class EvidencePipeline(
 
 object EvidencePipeline:
   val Version = "evidence-pipeline-v1"
+
+  /** The only note a failed semantic retrieval leaves (C19): no downstream error text. */
+  val SemanticUnavailableNote =
+    "semantic context unavailable: the vector index or embedding query failed, so the answer uses no descriptive context"
   val ComponentNote =
     "component values are per researcher (componentId, componentSize in each metrics row); the Spark component table is not in any store the runtime reads, so no component list or largest-component record is available"
   val MaxCommunityViews = 5

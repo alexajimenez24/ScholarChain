@@ -55,9 +55,27 @@ class JwtSuite extends munit.FunSuite:
     assertEquals(p.subject, "user-1")
     assertEquals(p.scopes, Set("scholarchain/graph.read", "scholarchain/evidence.read"))
   }
-  test("an ID token with aud instead of client_id is accepted") {
-    val t = TestJwt.token(clientId = None, extra = Map("aud" -> ujson.Str(TestJwt.Audience)))
-    assert(verify(t).isRight)
+  private def idClaims(use: String = "id") =
+    Map("token_use" -> ujson.Str(use), "aud" -> ujson.Str(TestJwt.Audience))
+
+  test("an ID token (token_use id) with aud instead of client_id is accepted") {
+    val p = verify(TestJwt.token(clientId = None, extra = idClaims())).toOption.get
+    assertEquals(p.clientId, Some(TestJwt.Audience))
+  }
+  test("token_use: refresh, bogus, non-string and missing values are refused") {
+    Vector[ujson.Value]("refresh", "bogus", "", "Access", ujson.Num(1), ujson.Null).foreach { v =>
+      val t = TestJwt.token(extra = Map("token_use" -> v))
+      assertEquals(verify(t), Left(AuthFailure.WrongTokenUse), v.render())
+    }
+    assertEquals(verify(TestJwt.token(drop = Set("token_use"))), Left(AuthFailure.WrongTokenUse))
+  }
+  test("token_use binds the audience claim: access with client_id, id with aud") {
+    val accessByAud = TestJwt.token(clientId = None, extra = idClaims("access"))
+    assertEquals(verify(accessByAud), Left(AuthFailure.WrongAudience))
+    val idByClientId = TestJwt.token(extra = Map("token_use" -> ujson.Str("id")))
+    assertEquals(verify(idByClientId), Left(AuthFailure.WrongAudience))
+    val otherClient = TestJwt.token(clientId = Some("other"), extra = idClaims("access"))
+    assertEquals(verify(otherClient), Left(AuthFailure.WrongAudience))
   }
   test(
     "expired, wrong issuer, wrong audience, bad signature, unknown key, bad algorithm are refused"

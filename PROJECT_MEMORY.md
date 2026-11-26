@@ -19,7 +19,7 @@ in STATUS.md. -->
 | Pipeline orchestration | one Step Functions workflow: Hadoop, entity resolution, Spark, Neptune bulk load | one place for retries, catches and run IDs |
 | Terraform layout | layered stacks (foundation, data, compute, app, observability), outputs through SSM | each stack plans and applies alone; small blast radius |
 | Harness | Claude Code only (Codex adapters kept, out of scope) | one harness to probe and evidence before the deadline (Phase 01 repair round 1) |
-| Guard hardening | known guard gaps accepted in Phase 01, fixed in Phase 11 | the repair loop limit was reached; Phase 11 is the adversarial-testing phase |
+| Guard hardening | known guard gaps accepted in Phase 01, fixed in Phase 11 (not all: K01, K04 and the new S-1 CRITICAL are open, see STATUS.md) | the repair loop limit was reached; Phase 11 is the adversarial-testing phase |
 | Config format | versioned `scholarchain-v1.yaml` in JSON-compatible YAML 1.2, parsed by uPickle | the work order asks for HOCON or YAML, and uPickle is the only JSON library (addendum) |
 | Service config | three deployables plus shared Cognito JWT settings, all from `${VAR}` placeholders | no identity or endpoint value is written in the repository |
 | Enrichment datasets | OpenAlex, Crossref and ORCID with DBLP; Semantic Scholar is not selected | the dataset manifest lists these four sources |
@@ -37,7 +37,7 @@ in STATUS.md. -->
 | Embedding work queue | manifest-driven batch with a bounded in-process queue, not SQS | no cloud this phase, every step is idempotent, and an SQS stack belongs to infra-engineer; `WorkQueue` is the seam for a Phase 10 SQS adapter (Phase 08 step 02a) |
 | Embedding version | `<modelId>@<dimension>`, locally `hash-embed-v1@256`; a change means a new index version | one index holds one embedding version, and a changed model never overwrites vectors (Phase 08) |
 | Semantic context | `semantic-context-v1`, untrusted data, `score` the only number; graph values only from graph evidence | vector similarity must never supply a count, path, component or bridge value (Phase 08 step 03) |
-| Claim verification | construction rule (`claim-verifier-v3`): only structured claims (researcherId, metric, value or rank, evidenceIds) can be VERIFIED; free-text model claims, summaries and notes are labeled "UNVERIFIED interpretation"; a model answer is never VERIFIED overall | pattern detection of numbers in free text stayed open through reviews 3 to 5b; human decision of 2026-11-25 in `docs/agent-runs/phase-08b/run-log.md`; R6-1 (filtered-ranking rank text) is open, no further repair round (Phase 08b follow-up) |
+| Claim verification | construction rule (`claim-verifier-v3`): only structured claims (researcherId, metric, value or rank, evidenceIds) can be VERIFIED; free-text model claims, summaries and notes are labeled "UNVERIFIED interpretation"; a model answer is never VERIFIED overall | pattern detection of numbers in free text stayed open through reviews 3 to 5b; human decision of 2026-11-25 in `docs/agent-runs/phase-08b/run-log.md`; R6-1 (filtered-ranking rank text), left open after the Phase 08b follow-up, was closed in Phase 11 (C09) with the version kept at v3 |
 | Region and budget | us-east-2, $25 hard cap | course limits |
 
 ## Plan

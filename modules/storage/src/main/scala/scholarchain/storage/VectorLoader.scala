@@ -463,7 +463,7 @@ final class VectorLoader private (
       case (Left(e), i)  => Left(Rej(s"row $i", s"malformed row: $e"))
       case (Right(d), _) => Right(Vector(Entry(d, None)))
     }
-    run(runId, expectedRows, source.rows.size.toLong, rows)
+    run(runId, source.problem, expectedRows, source.rows.size.toLong, rows)
 
   /** Renders every source row through `renderer` and loads one document per rendered chunk. */
   def loadRendered(
@@ -506,7 +506,14 @@ final class VectorLoader private (
         }
         built.left.map(w => Rej(rec.id, w))
     }
-    run(runId, expectedRows, if expectedRows.isDefined then source.rows.size.toLong else 0L, rows)
+    val problem = source.problem
+    run(
+      runId,
+      problem,
+      expectedRows,
+      if expectedRows.isDefined then source.rows.size.toLong else 0L,
+      rows
+    )
 
   /** The mutable state of one load. */
   private final class State(runId: String):
@@ -554,6 +561,7 @@ final class VectorLoader private (
 
   private def run(
       runId: String,
+      inputProblem: Option[String],
       expectedRows: Option[Long],
       countedRows: => Long,
       rows: Iterator[Either[Rej, Vector[Entry]]]
@@ -561,8 +569,9 @@ final class VectorLoader private (
     stage
       .run(runId, Stage, LogicVersion) {
         val st = new State(runId)
-        val have = expectedRows.map(_ => countedRows)
-        if expectedRows.exists(e => !have.contains(e)) then
+        lazy val have = expectedRows.map(_ => countedRows)
+        if inputProblem.isDefined then Left(inputProblem.get)
+        else if expectedRows.exists(e => !have.contains(e)) then
           Left(s"expected ${expectedRows.get} rows, the source gave ${have.get}")
         else
           while st.fatalError.isEmpty && rows.hasNext do

@@ -32,6 +32,12 @@ final case class EntityResolutionConfig(
     maxBlockSize: Int,
     maxLlmCallsPerRun: Int
 ) derives ReadWriter
+
+/** `identityCutMaxClusterLinks` is the largest number of accepted identity links (inclusive) that a
+  * contradicted identity cluster may hold and still be rebuilt by the contradiction cut; it bounds
+  * the memory of the one row that carries such a cluster. Uncontradicted clusters are not limited.
+  * Range 1..[[ConfigLoader.MaxIdentityCutClusterLinks]].
+  */
 final case class GraphConfig(
     policyVersion: String,
     metricVersion: String,
@@ -43,7 +49,8 @@ final case class GraphConfig(
     betweennessSampleSources: Int,
     betweennessSeed: Long,
     kcoreMaxK: Int,
-    pathMaxDepth: Int
+    pathMaxDepth: Int,
+    identityCutMaxClusterLinks: Int
 ) derives ReadWriter
 final case class RetrievalConfig(
     graphLimit: Int,
@@ -134,6 +141,11 @@ final case class ScholarChainConfig(
 object ConfigLoader:
   val DefaultResource = "scholarchain/config/scholarchain-v1.yaml"
   val SupportedVersions = Set("config-v1")
+
+  /** Hard ceiling of `graph.identityCutMaxClusterLinks`: a plausibility constant, not a tuned value
+    * (the tuned value is in the file). One cluster's links form one executor row.
+    */
+  val MaxIdentityCutClusterLinks = 1000000
   private val Placeholder = "\\$\\{([A-Z][A-Z0-9_]*)(?::-([^}]*))?\\}".r
   private val WholePlaceholder = "^\\$\\{([A-Z][A-Z0-9_]*)(?::-([^}]*))?\\}$".r
 
@@ -235,6 +247,7 @@ object ConfigLoader:
       "graph.betweennessSampleSources" -> g.betweennessSampleSources.toLong,
       "graph.kcoreMaxK" -> g.kcoreMaxK.toLong,
       "graph.pathMaxDepth" -> g.pathMaxDepth.toLong,
+      "graph.identityCutMaxClusterLinks" -> g.identityCutMaxClusterLinks.toLong,
       "retrieval.graphLimit" -> r.graphLimit.toLong,
       "retrieval.vectorLimit" -> r.vectorLimit.toLong,
       "retrieval.contextTokenBudget" -> r.contextTokenBudget.toLong,
@@ -265,6 +278,9 @@ object ConfigLoader:
         ),
         Option.when(g.windows.isEmpty)("graph.windows is empty"),
         Option.when(g.maxTeamSizeForPairs < 2)("graph.maxTeamSizeForPairs must be >= 2"),
+        Option.when(g.identityCutMaxClusterLinks > MaxIdentityCutClusterLinks)(
+          s"graph.identityCutMaxClusterLinks must be <= $MaxIdentityCutClusterLinks (is ${g.identityCutMaxClusterLinks})"
+        ),
         Option.when(r.maxPathDepth < 1 || r.maxPathDepth > g.pathMaxDepth)(
           s"retrieval.maxPathDepth must be 1..graph.pathMaxDepth (${g.pathMaxDepth})"
         ),

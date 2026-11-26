@@ -1,5 +1,6 @@
 {
   "_comment": "Owner: factory-engineer (constitutional). The only place model IDs live; roles name a tier (high or standard), never a model. The low tier is no role's default: the routing suite runs on it, and the orchestrator may step a standard-tier role down to it for a small mechanical task (AGENTS.md). After a change, run .agents/render.sh and get ratification.",
+  "_code_reviewer": "Human decision, Phase 11 repair round 3: code-reviewer uses the standard tier for Phases 12 to 16 (tier: standard in .agents/roles/code-reviewer.md; never low). Phase 17's final review uses the high tier: before Phase 17, factory-engineer returns the role to tier: high and re-renders (ratified), or the Phase 17 work order raises code-reviewer to high (Agent-tool model opus; effort stays the agent file's). See docs/agents.md section 4, code-reviewer.",
   "claude": {
     "high": { "model": "opus", "effort": "high" },
     "standard": { "model": "sonnet", "effort": "medium" },

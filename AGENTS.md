@@ -54,6 +54,12 @@ The build is an sbt multi-project build; uPickle is the only JSON library.
   images.
 - `.claude/hooks/validate-agent-files.sh`, `.agents/render.sh --check` and
   `.agents/routing-suite.sh`: control-plane checks (factory-engineer).
+- Long commands run in the foreground under `timeout`, one sbt at a time:
+  `timeout 45m sbt check` for the full check, `timeout 30m sbt <project>/test` (or
+  `testOnly`) for project tests, and `timeout 30m` for a local pipeline run (`runMain`).
+  Every work order writes its long sbt and pipeline commands with that `timeout`.
+  Never background, poll or wait-loop on a run (the guard blocks polling loops); if the
+  harness moves a command to the background, start nothing else and wait for it.
 
 ## Hard rules
 
@@ -106,6 +112,8 @@ The build is an sbt multi-project build; uPickle is the only JSON library.
 - Per-task model: a role's tier is its default, and for a high-tier role its floor.
   For a small, mechanical task the orchestrator may run a standard-tier role on `low`
   (`haiku`, `gpt-6-luna`), or raise any role to high, and says so in the work order.
+  code-reviewer is standard for Phases 12 to 16 and never runs on `low`; Phase 17's
+  final review runs it on high (`docs/agents.md` 4, code-reviewer).
   This authorizes the Agent-tool and `spawn_agent` model overrides (`docs/agents.md` 4).
 - The orchestrator never does a role's work inline; it delegates with a work order and
   reads the report.
@@ -149,6 +157,10 @@ and model, then STATUS, OWNER, WORK ORDER, FILES CREATED, FILES MODIFIED, COMMAN
 TEST RESULTS, VALIDATION RESULTS, ASSUMPTIONS, RISKS, MANUAL ACTION REQUIRED,
 BLOCKED-ON OWNER, BLOCKED-ON EVIDENCE and NEXT GATE.
 What was not done and the state left behind go under RISKS.
+Write a report file, and any other prose, with the Write tool where your role has it; a
+role without Write (code-reviewer) puts the report in its hand-back message.
+Never write text with a shell heredoc: guard-dangerous reads every heredoc body as
+commands and blocks what it cannot parse (`docs/agents.md`, fail-closed rule).
 Hidden model reasoning is never stored; phase records hold work orders, final reports,
 command output, review findings and human decisions (`docs/agent-runs/README.md`).
 

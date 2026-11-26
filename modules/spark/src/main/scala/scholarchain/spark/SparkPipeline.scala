@@ -473,15 +473,17 @@ object SparkPipeline:
         ),
         "windowLabel"
       ),
-      ev(
-        "communities",
+      Export.write(
         union(
           windowed.map(r =>
             Export.communities(r, run, tableUri(s"communities/windowLabel=${r.window.label}"))
           )
         ),
-        "windowLabel",
-        "recordKind"
+        base,
+        "communities",
+        SchemaVersions.Evidence,
+        Seq("windowLabel", "recordKind"),
+        Some(Export.CommunitiesJson)
       ),
       ev(
         "path-evidence",
