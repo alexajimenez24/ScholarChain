@@ -1,0 +1,22 @@
+{
+  "environment": "dev",
+  "course": "cs441",
+  "expiration": "2026-12-31",
+  "persistent": false,
+  "park_services": false,
+  "min_tasks": 1,
+  "max_tasks": 3,
+  "task_size": {
+    "query-service": { "cpu": 512, "memory": 1024 },
+    "graph-service": { "cpu": 512, "memory": 1024 },
+    "embedding-worker": { "cpu": 512, "memory": 1024 }
+  },
+  "service_port": 8080,
+  "llm_enabled": false,
+  "synthesis_model_id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "synthesis_destination_regions": ["us-east-1", "us-east-2", "us-west-2"],
+  "api_throttle_rate": 10,
+  "api_throttle_burst": 20,
+  "access_token_minutes": 60,
+  "log_retention_days": 14
+}

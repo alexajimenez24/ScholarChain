@@ -1,0 +1,9 @@
+{
+  "environment": "dev",
+  "course": "cs441",
+  "expiration": "2026-12-31",
+  "alarm_action_arns": [],
+  "neptune_max_ncu": 2.5,
+  "api_latency_p90_ms": 5000,
+  "embedding_tokens_per_hour_alarm": 20000000
+}

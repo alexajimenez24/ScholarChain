@@ -1,0 +1,19 @@
+{
+  "environment": "dev",
+  "course": "cs441",
+  "expiration": "2026-12-31",
+  "persistent": false,
+  "enable_emr_endpoint": false,
+  "emr_release_label": "emr-spark-8.0.0",
+  "emr_instance_type": "m6g.xlarge",
+  "emr_core_count": 2,
+  "emr_max_instances": 4,
+  "emr_ebs_gb": 32,
+  "emr_idle_timeout_seconds": 1800,
+  "pipeline_timeout_seconds": 14400,
+  "step_timeout_seconds": 5400,
+  "embedding_queue_visibility_seconds": 180,
+  "embedding_max_receives": 5,
+  "log_retention_days": 14,
+  "ecr_keep_images": 10
+}

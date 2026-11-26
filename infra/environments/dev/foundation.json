@@ -1,0 +1,11 @@
+{
+  "environment": "dev",
+  "course": "cs441",
+  "expiration": "2026-12-31",
+  "persistent": false,
+  "enable_nat": false,
+  "interface_endpoints": [],
+  "vpc_cidr": "10.42.0.0/16",
+  "budget_limit_usd": 25,
+  "create_emr_service_linked_role": true
+}

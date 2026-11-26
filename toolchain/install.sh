@@ -65,6 +65,75 @@ else
 fi
 ln -sfn "$sf" "$bin/scalafmt"
 
+# Skip test for the tools below: the binary in the pinned directory reports the pin.
+at_pin() { # version binary args...
+  local ver="$1"
+  shift
+  [ -x "$1" ] && vmatch "$ver" "$(CHECKPOINT_DISABLE=1 "$@" 2>&1)"
+}
+need_unzip() {
+  command -v unzip >/dev/null 2>&1 \
+    || { echo "unzip is missing; a human must install the system package" >&2; exit 1; }
+}
+
+echo "==> Terraform $TERRAFORM_VERSION"
+tf_dir="$tools/terraform-$TERRAFORM_VERSION"
+if at_pin "$TERRAFORM_VERSION" "$tf_dir/terraform" version; then
+  echo "    already installed, skipping"
+else
+  need_unzip
+  fetch "$TERRAFORM_URL" "$tmp/terraform.zip" "$TERRAFORM_SHA256"
+  mkdir "$tmp/terraform"
+  unzip -q "$tmp/terraform.zip" terraform -d "$tmp/terraform"
+  rm -rf "$tf_dir"
+  mv "$tmp/terraform" "$tf_dir"
+fi
+ln -sfn "$tf_dir/terraform" "$bin/terraform"
+
+echo "==> AWS CLI $AWS_CLI_VERSION"
+aws_dir="$tools/aws-cli-$AWS_CLI_VERSION"
+aws_exe="$aws_dir/v2/current/bin/aws"
+if at_pin "$AWS_CLI_VERSION" "$aws_exe" --version; then
+  echo "    already installed, skipping"
+else
+  need_unzip
+  fetch "$AWS_CLI_URL" "$tmp/awscli.zip" "$AWS_CLI_SHA256"
+  mkdir "$tmp/awscli" "$tmp/awscli-bin"
+  unzip -q "$tmp/awscli.zip" -d "$tmp/awscli"
+  rm -rf "$aws_dir"
+  # The vendor installer writes absolute links, so it installs into the final directory.
+  # Its bin links go to a throwaway directory; ours are made below.
+  "$tmp/awscli/aws/install" -i "$aws_dir" -b "$tmp/awscli-bin" >/dev/null
+fi
+ln -sfn "$aws_exe" "$bin/aws"
+ln -sfn "$aws_dir/v2/current/bin/aws_completer" "$bin/aws_completer"
+
+echo "==> trivy $TRIVY_VERSION"
+trivy_dir="$tools/trivy-$TRIVY_VERSION"
+if at_pin "$TRIVY_VERSION" "$trivy_dir/trivy" --version; then
+  echo "    already installed, skipping"
+else
+  fetch "$TRIVY_URL" "$tmp/trivy.tgz" "$TRIVY_SHA256"
+  mkdir "$tmp/trivy"
+  tar -xzf "$tmp/trivy.tgz" -C "$tmp/trivy" trivy
+  rm -rf "$trivy_dir"
+  mv "$tmp/trivy" "$trivy_dir"
+fi
+ln -sfn "$trivy_dir/trivy" "$bin/trivy"
+
+echo "==> shellcheck $SHELLCHECK_VERSION"
+sc_dir="$tools/shellcheck-$SHELLCHECK_VERSION"
+if at_pin "$SHELLCHECK_VERSION" "$sc_dir/shellcheck" --version; then
+  echo "    already installed, skipping"
+else
+  fetch "$SHELLCHECK_URL" "$tmp/shellcheck.tgz" "$SHELLCHECK_SHA256"
+  mkdir "$tmp/shellcheck"
+  tar -xzf "$tmp/shellcheck.tgz" -C "$tmp/shellcheck" --strip-components=1
+  rm -rf "$sc_dir"
+  mv "$tmp/shellcheck" "$sc_dir"
+fi
+ln -sfn "$sc_dir/shellcheck" "$bin/shellcheck"
+
 echo "==> verify-only tools (pre-installed by the human, never reinstalled)"
 check() { # name expected observed
   if [ -z "$2" ]; then
@@ -84,9 +153,7 @@ obs() {
 check uv "$UV_VERSION" "$(obs uv --version)"
 check uvx "$UV_VERSION" "$(obs uvx --version)"
 check terraform-mcp-server "$TERRAFORM_MCP_SERVER_VERSION" "$(obs terraform-mcp-server --version)"
-check aws-cli "$AWS_CLI_VERSION" "$(obs aws --version)"
 check claude "$CLAUDE_CODE_VERSION" "$(obs claude --version)"
-check terraform "$TERRAFORM_VERSION" "$(obs terraform version)"
 check python3 "$PYTHON3_VERSION" "$(obs python3 --version)"
 if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null; then
   echo "    MISMATCH python3: 3.11 or later is required (hooks and validator use tomllib)" >&2
@@ -98,6 +165,10 @@ echo "==> installed versions"
 JAVA_HOME="$jdk_dir" "$jdk_dir/bin/java" -version 2>&1 | head -n 1 | sed 's/^/    /'
 JAVA_HOME="$jdk_dir" PATH="$jdk_dir/bin:$PATH" "$sbt_dir/bin/sbt" --script-version 2>&1 | tail -n 1 | sed 's/^/    sbt /'
 "$sf" --version | sed 's/^/    /'
+CHECKPOINT_DISABLE=1 "$tf_dir/terraform" version | sed 's/^/    /'
+"$aws_exe" --version | sed 's/^/    /'
+"$trivy_dir/trivy" --version | sed 's/^/    trivy /'
+"$sc_dir/shellcheck" --version | sed -n 's/^version: /    shellcheck /p'
 
 if [ "$failures" -gt 0 ]; then
   echo "==> $failures verify-only mismatch(es)" >&2

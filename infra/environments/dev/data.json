@@ -1,0 +1,11 @@
+{
+  "environment": "dev",
+  "course": "cs441",
+  "expiration": "2026-12-31",
+  "persistent": false,
+  "enable_neptune": false,
+  "embedding_model_id": "amazon.titan-embed-text-v2:0",
+  "embedding_dimension": 256,
+  "embedding_queue_name_suffix": "embedding-jobs",
+  "log_retention_days": 30
+}

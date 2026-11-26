@@ -5,7 +5,60 @@ resume. -->
 
 ## Where things stand
 
-### Resume here: Phase 11 (adversarial testing), waiting on the human
+### Resume here: Phase 12 (infrastructure), nothing applied or committed
+
+Sources: `docs/agent-runs/phase-12/` (`run-log.md`, the step reports,
+`agent-report.md`).
+
+- Tasks done: step 1 (toolchain-engineer), step 2 (infra-engineer task I1), step 3
+  (infra-engineer task I2) and this documentation step.
+- Task running: none.
+- Next task: one fresh code-reviewer review, saved as `review-report.md`.
+- If it reports CRITICAL or MAJOR findings, one repair round for those only.
+- Then a re-check only if a repair ran, and then the human gate.
+- Half done: nothing.
+- Open BLOCKED-ON: none (`agent-report.md`).
+- Applied: nothing.
+  No `terraform plan` ran, because the state bucket name was not supplied.
+  `infra/backend/dev.s3.tfbackend` still holds the placeholder `<state-bucket-name>`.
+- Plan counts and plan SHA-256 do not exist for any stack.
+- Committed: nothing.
+  The toolchain, infra and scripts changes are uncommitted in the working tree.
+- sbt: not run in this phase, because no Scala source changed.
+- `scripts/cleanup.sh`: not syntax-checked by any agent, because the guard blocks it.
+- Reported by infra-engineer (`agent-report.md`): `terraform fmt -check` and
+  `terraform validate` passed on all 5 stacks.
+- Reported by infra-engineer: trivy found 23 findings.
+  The author judged them deliberate and suppressed none.
+  They are not yet reviewed.
+- Reported cost (`agent-report.md`, from public price files): typical $6.37 for the
+  Phase 14 and 15 window, upper bound $12.30.
+  Some prices are UNVERIFIED (S3 Standard, EBS gp3, the dashboard).
+- Open human actions (`agent-report.md`, MANUAL ACTION REQUIRED):
+  1. Create the state bucket, replace the placeholder and disclose the edit in
+     `human-gate.md`.
+  2. Supply `TF_VAR_owner`, `TF_VAR_budget_alert_email` and `TF_VAR_state_bucket_name`.
+  3. Plan foundation, then data, compute, app and observability, each after the
+     previous one is applied.
+  4. Sign `APPROVED-PLAN-SHA256` (one line per stack plan) and `COST-ESTIMATE-USD`.
+  5. Run `bash -n scripts/cleanup.sh` and `shellcheck -x -P scripts scripts/cleanup.sh`.
+  6. Decide the synthesis model ID, and activate the cost-allocation tags.
+- Phase 14 gaps, outside infra-engineer's territory (`agent-report.md`):
+  the deployables have no main class (service-engineer); no entry point writes the
+  Neptune bulk-load CSV or enqueues the 31,000 embedding messages
+  (storage-engineer, build-engineer); a 100,000-work DBLP sample is needed
+  (dataset-engineer).
+- Unverified until a plan or apply: the EMR 8.0.0 endpoint service name, EMR 8 with
+  SSE-S3, and the policy sizes.
+- The aws-api MCP server is deprecated. Migration guide:
+  https://github.com/awslabs/mcp/blob/main/src/aws-api-mcp-server/MIGRATION.md
+- Phase 11 `human-gate.md` exists, per the orchestrator.
+  This note does not state its decision.
+- This section documents no infrastructure; that is Phase 17.
+
+### Previous state: Phase 11 (adversarial testing), waiting on the human
+
+Phase 12 has started; its resume note is above.
 
 Sources: `docs/agent-runs/phase-11/` (`run-log.md`, `carried-items.md`,
 `repair-plan.md`, repair, test and review reports).
