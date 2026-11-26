@@ -1,9 +1,6 @@
 # S3 backend settings for the dev environment, shared by every stack. No secrets.
-# HUMAN: replace the placeholder with the state bucket you created once outside
-# Terraform (versioning on, public access blocked, SSE on). Until then, terraform init
-# fails on the invalid bucket name, by design.
 # The key is NOT set here: each stack passes its own
-#   -backend-config=key=scholarchain/dev/<stack>/terraform.tfstate
+#   -backend-config=key=scholarchain/dev/STACK/terraform.tfstate (STACK = the stack name)
 # Locking is S3-native (use_lockfile = true in each stack's backend block); there is no
 # DynamoDB lock table.
 bucket = "scholarchain-tfstate-30a68cd5"
