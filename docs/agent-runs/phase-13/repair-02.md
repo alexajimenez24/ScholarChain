@@ -1,0 +1,28 @@
+HARNESS: claude-code
+MODEL: opus (high tier, as the work order states)
+STATUS: COMPLETE
+OWNER: infra-engineer
+WORK ORDER: Phase 13 human-ordered fix (repair-02): MINOR-1 redaction, MINOR-2 exit trap, MINOR-3 EMR credential refresh
+FILES CREATED: none in the repository. Test fixtures and stubs (fake account number) are in the session scratchpad (t-redact.sh, t-guard.sh, t-creds.sh, lib-guard.sh, imds-stub.py, bin/{aws,docker,terraform,java}, repo/)
+FILES MODIFIED: scripts/lib/common.sh, scripts/run-bounded-pipeline.sh, scripts/run-experiment.sh, scripts/deploy.sh, scripts/emr/scholarchain-step.sh
+COMMANDS RUN: bash -n on the 5 changed scripts plus plan, rollback, smoke-test, archive-evidence and cleanup (all OK). shellcheck 0.11.0 `-x -P scripts` on 11 scripts (rc=0). The three offline test files run against stubs on PATH. The dry runs listed below, with stub aws, docker and terraform first on PATH so any AWS call would be logged instead of sent.
+TEST RESULTS: redaction 16/16 passed; exit guard 28/28 passed; credential endpoint 30/30 passed (74/74 in total, 0 failed). Dry-run exit codes are the same as before the change: pipeline start 3 (with --embed-units 0 and with 5), finish 0, usage 2, experiment "none" 1, experiment fixture 3, deploy 3, plan 0, rollback 3, smoke-test 3, archive 0. The stubs logged 0 AWS, docker or terraform calls across all dry runs.
+VALIDATION RESULTS: No stateful replacement, no Terraform change (so terraform validate and plan were not needed), no IAM change, no cost change.
+- (1) Redaction. Every aws, terraform and docker call now goes through a new wrapper, sc_errredact: stdout passes through untouched so the scripts can still parse values, and stderr is redacted as it streams on a pipe. Error text also has any bare 12-digit number replaced, which covers messages printed before the caller identity is known. SQS queue URLs are now redacted too. docker login, tag and push in deploy.sh are redacted on both streams. In the EMR helper, the output of aws, hadoop, spark-submit and the CLI (which ends up in the EMR step logs) is redacted on both streams. Tests prove exit codes survive the pipes (plan exit 2, push 1, AWS 254), strict mode still stops the script, 20,000 lines arrive with none lost, and SHA-256 hashes and 26-digit bucket suffixes are left alone.
+- (2) Exit guard (sc_guard_* in common.sh). Armed only after a real run passes its gates; dry runs, usage errors and refusals make zero AWS calls. It traps EXIT, INT, TERM and HUP. While it runs, errexit and the ERR trap are off and further signals are ignored, so each step is checked on its own and one failure cannot skip the next. It keeps the original exit code, but a successful run whose guard failed exits 1. Every failure prints a ==> GUARD-FAILED line. The MINOR-2 case is tested: when get-execution-history is denied, the script still exits 254 and the cluster check and scale-down still run.
+- (3) Credential refresh, in the EMR helper with no Scala change. The helper starts a small credential endpoint on 127.0.0.1 that requires a random token and serves the current instance-profile credentials from IMDSv2. The CLI already reads this through core EnvironmentCredentials (AWS_CONTAINER_CREDENTIALS_FULL_URI, loopback http is allowed) and refreshes 5 minutes before expiry. Tests prove: rotated keys are served on each request; requests with no token, a wrong token or another path get 403; no static keys are left set; the token is never on any command line; no credential value appears in any output; and the endpoint is gone after the helper exits.
+ASSUMPTIONS:
+- Pipeline start, read literally ("any exit path", including success): a successful start also scales ECS to zero. Consequence: embedding jobs queued by the run wait in SQS until the services run again. --keep-services was added, which keeps the services after a successful start or finish only (it prints ==> SERVICES-KEPT); a failure always scales them to zero. Start runs as the deployment role, which may not terminate EMR clusters, so its cluster check only reports: CLUSTER-ACTIVE after a successful start, CLUSTER-STILL-ACTIVE after a failed one.
+- Finish arms the guard only after it confirms the execution has ended, so a finish refused because the run is still RUNNING cannot kill a live run.
+- The experiment guard checks every active scholarchain-<env>- cluster, so a pipeline running in parallel would fail the experiment's exit.
+RISKS:
+- Not guarded: a finish whose first describe-execution call fails exits before the guard is armed. Rerun finish; EMR idle auto-termination still applies.
+- An interrupt during a call can cut off that call's own redacted error text.
+- package.sh's local docker calls and smoke-test's curl calls are not wrapped; neither prints an account ID.
+- Not run on real AWS: Scala's refresh timing (read in the code, not executed) and the EMR timing of IMDS credential rotation (from AWS documentation, not observed).
+- NOT RUN: shellcheck and the dry run of cleanup.sh, because the guard blocks commands that name it. cleanup.sh itself was not edited; it picks up the redaction through common.sh. Also NOT RUN: an end-to-end real-run test of run-experiment.sh, which would need a human-gate.md fixture; the guard is covered by the library-level test.
+- No commits. The changes sit uncommitted next to the earlier Phase 13 changes.
+MANUAL ACTION REQUIRED: No plan, plan SHA-256 or cost to sign. The human decides whether the start-scales-to-zero reading (with --keep-services as the opt-out) is acceptable.
+BLOCKED-ON OWNER: none
+BLOCKED-ON EVIDENCE: none
+NEXT GATE: human review of this repair (code-reviewer only if the human orders it), then the Phase 13 gate

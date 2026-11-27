@@ -12,9 +12,10 @@
 # BEFORE it applies the app plan, so the repositories must exist one stack earlier.
 #
 # Hourly cost while it exists: 0 with enable_emr_endpoint = false (SQS, ECR, Step
-# Functions and the security configuration bill per use or per GB-month). With the
-# endpoint: one interface endpoint in one AZ per hour. A pipeline run adds the EMR nodes
-# for its duration. Figures and sources are in the phase report.
+# Functions and the security configuration bill per use or per GB-month). With it: the
+# two pipeline interface endpoints (EMR service and SQS), each in one AZ, per hour. A
+# pipeline run adds the EMR nodes for its duration. Figures and sources are in the phase
+# report.
 
 locals {
   name = "scholarchain-${var.environment}"
@@ -43,6 +44,7 @@ data "aws_ssm_parameter" "in" {
     "${local.foundation}/sg/emr-primary",
     "${local.foundation}/sg/emr-core",
     "${local.foundation}/sg/emr-service-access",
+    "${local.foundation}/sg/endpoints",
     "${local.data}/buckets/artifacts",
     "${local.data}/buckets/curated",
     "${local.data}/buckets/graph",
@@ -55,6 +57,9 @@ data "aws_ssm_parameter" "in" {
     "${local.data}/neptune/endpoint",
     "${local.data}/neptune/port",
     "${local.data}/neptune/loader-role-arn",
+    "${local.data}/dynamodb/run-ledger",
+    "${local.data}/dynamodb/researcher-metric",
+    "${local.data}/vectors/dimension",
   ])
 
   name = each.value
@@ -209,6 +214,43 @@ resource "aws_vpc_endpoint" "emr" {
   }
 }
 
+# SQS interface endpoint (Phase 13), on the same window toggle as the EMR endpoint: the
+# pipeline's enqueue-embeddings step runs on the EMR primary node, whose groups have no
+# 0.0.0.0/0 egress, so SQS is reached through this endpoint (emr_to_endpoints and
+# endpoints_from_client rules, foundation) instead of widening EMR egress to the NAT.
+# $0.01/h in one AZ. Private DNS makes the services' SQS calls use it too while it exists
+# (their groups allow 443 to the endpoints group). Its policy admits only the two project
+# queues, so the endpoint cannot reach any other queue.
+data "aws_iam_policy_document" "sqs_endpoint" {
+  statement {
+    sid    = "OnlyTheEmbeddingQueues"
+    effect = "Allow"
+    actions = [
+      "sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage",
+      "sqs:ChangeMessageVisibility", "sqs:GetQueueAttributes", "sqs:GetQueueUrl",
+    ]
+    resources = [aws_sqs_queue.embedding.arn, aws_sqs_queue.embedding_dlq.arn]
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+  }
+}
+
+resource "aws_vpc_endpoint" "sqs" {
+  count = var.enable_emr_endpoint ? 1 : 0
+
+  vpc_id              = local.p["vpc/id"]
+  service_name        = "com.amazonaws.${var.region}.sqs"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [local.private_subnet_ids[0]]
+  security_group_ids  = [local.p["sg/endpoints"]]
+  private_dns_enabled = true
+  policy              = data.aws_iam_policy_document.sqs_endpoint.json
+
+  tags = { Name = "${local.name}-sqs" }
+}
+
 # The service access group (on the endpoint) must accept 443 from the cluster instances
 # for emr-spark-8.0.0, and the primary and core groups need egress 443 to it (EMR adds
 # neither rule to custom managed groups; Amazon EMR Management Guide, "Working with
@@ -262,6 +304,7 @@ module "published" {
       "pipeline/neptune-endpoint"   = local.p["neptune/endpoint"]
       "pipeline/log-group"          = aws_cloudwatch_log_group.pipeline.name
       "emr/endpoint-enabled"        = tostring(var.enable_emr_endpoint)
+      "sqs/endpoint-enabled"        = tostring(var.enable_emr_endpoint)
       "emr/release-label"           = var.emr_release_label
       "emr/security-configuration"  = aws_emr_security_configuration.this.name
       "emr/max-instances"           = tostring(var.emr_max_instances)

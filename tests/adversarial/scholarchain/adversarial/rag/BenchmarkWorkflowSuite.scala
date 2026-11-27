@@ -696,6 +696,7 @@ class BenchmarkWorkflowSuite extends munit.FunSuite:
   }
 
   test("semantic retrieval is scored on the semantic partition only, apart from deterministic") {
+    assume(BenchmarkRuntime.present, s"run data absent at ${BenchmarkStore.runDir}")
     val runs = BenchmarkRuntime.benchmark.flatMap(_.result.toOption)
     assume(runs.nonEmpty)
     runs.foreach { r =>

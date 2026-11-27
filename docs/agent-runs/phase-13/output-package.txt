@@ -1,0 +1,272 @@
+$ cd <repo> && timeout 120m scripts/package.sh
+==> [package] STEP preflight: mode=all
+==> [package] INFO: the tree is dirty: images are tagged :90370d8fe5187008de582f40aa13ee31d1da8913-dirty and the record says dirty=true
+==> [package] STEP build: one sbt run: packageJobs
+queryService/assembly
+graphService/assembly
+embeddingWorker/assembly
+[info] welcome to sbt 1.13.1 (Amazon.com Inc. Java 17.0.21.1)
+[info] loading settings for project scholarchain-build from plugins.sbt...
+[info] loading project definition from /home/ajcreator/scholarchain/project
+[info] loading settings for project root from build.sbt...
+[info] resolving key references (12595 settings) ...
+[info] set current project to scholarchain (in build file:/home/ajcreator/scholarchain/)
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[info] 3 file(s) merged using strategy 'Rename' (Run the task at debug level to see the details)
+[info] 12 file(s) merged using strategy 'Discard' (Run the task at debug level to see the details)
+[info] Built: /home/ajcreator/scholarchain/target/jobs/hadoop-0.1.0-SNAPSHOT.jar
+[info] Jar hash: 2f5ee80cf3934102c3508dae3cddeef9cd04f9f5
+[success] Total time: 5 s, completed Nov 26, 2026, 5:38:03 PM
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[info] 3 file(s) merged using strategy 'Rename' (Run the task at debug level to see the details)
+[info] 12 file(s) merged using strategy 'Discard' (Run the task at debug level to see the details)
+[info] Built: /home/ajcreator/scholarchain/target/jobs/entityResolution-0.1.0-SNAPSHOT.jar
+[info] Jar hash: c9f4f6549ac557dced6e263ecff63d3a07ce1599
+[success] Total time: 3 s, completed Nov 26, 2026, 5:38:06 PM
+[info] 1 file(s) merged using strategy 'Rename' (Run the task at debug level to see the details)
+[info] 11 file(s) merged using strategy 'Discard' (Run the task at debug level to see the details)
+[info] Built: /home/ajcreator/scholarchain/target/jobs/sparkAnalytics-0.1.0-SNAPSHOT.jar
+[info] Jar hash: d9507cb9e17221efa64505b6375ba83c1cd41c20
+[success] Total time: 2 s, completed Nov 26, 2026, 5:38:08 PM
+[info] 5 file(s) merged using strategy 'Rename' (Run the task at debug level to see the details)
+[info] 51 file(s) merged using strategy 'Discard' (Run the task at debug level to see the details)
+[info] Built: /home/ajcreator/scholarchain/target/services/query-service/queryService-0.1.0-SNAPSHOT.jar
+[info] Jar hash: 2da37ef4201e5a7273ff91ceae8d75006d242e49
+[success] Total time: 8 s, completed Nov 26, 2026, 5:38:15 PM
+[info] 5 file(s) merged using strategy 'Rename' (Run the task at debug level to see the details)
+[info] 51 file(s) merged using strategy 'Discard' (Run the task at debug level to see the details)
+[info] Built: /home/ajcreator/scholarchain/target/services/graph-service/graphService-0.1.0-SNAPSHOT.jar
+[info] Jar hash: f0e930f95cd8c3c2991f07fdcd09b18b3f04075c
+[success] Total time: 7 s, completed Nov 26, 2026, 5:38:22 PM
+[info] 5 file(s) merged using strategy 'Rename' (Run the task at debug level to see the details)
+[info] 51 file(s) merged using strategy 'Discard' (Run the task at debug level to see the details)
+[info] Built: /home/ajcreator/scholarchain/target/services/embedding-worker/embeddingWorker-0.1.0-SNAPSHOT.jar
+[info] Jar hash: ef196cdaa3ed27f9fb10a9b1d4e1712e84e20e13
+[success] Total time: 7 s, completed Nov 26, 2026, 5:38:29 PM
+==> [package] OK: sbt packageJobs
+queryService/assembly
+graphService/assembly
+embeddingWorker/assembly finished
+==> [package] STEP image-query-service: sbt queryService/dockerLocalBuild (timeout 20m): scholarchain-query-service:local
+[info] welcome to sbt 1.13.1 (Amazon.com Inc. Java 17.0.21.1)
+[info] loading settings for project scholarchain-build from plugins.sbt...
+[info] loading project definition from /home/ajcreator/scholarchain/project
+[info] loading settings for project root from build.sbt...
+[info] resolving key references (12595 settings) ...
+[info] set current project to scholarchain (in build file:/home/ajcreator/scholarchain/)
+[info] Assembly jar up to date: /home/ajcreator/scholarchain/target/services/query-service/queryService-0.1.0-SNAPSHOT.jar
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile:
+#1 transferring dockerfile: 1.52kB 0.1s done
+#1 DONE 0.6s
+
+#2 [internal] load metadata for docker.io/library/amazoncorretto:17.0.21-al2023-headless@sha256:dae4ff04ffa0bca0f1daf5761dc30dfaf52156025fdf8cb5ef6f340ae61cee0c
+#2 DONE 2.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.1s
+
+#4 [internal] load build context
+#4 DONE 0.0s
+
+#5 [1/3] FROM docker.io/library/amazoncorretto:17.0.21-al2023-headless@sha256:dae4ff04ffa0bca0f1daf5761dc30dfaf52156025fdf8cb5ef6f340ae61cee0c
+#5 resolve docker.io/library/amazoncorretto:17.0.21-al2023-headless@sha256:dae4ff04ffa0bca0f1daf5761dc30dfaf52156025fdf8cb5ef6f340ae61cee0c 0.1s done
+#5 sha256:ae049f09b382ff8aa954338f8f90bb4a10e4965d1625645cabe264d2c86c6e47 1.05MB / 82.61MB 0.3s
+#5 sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 0B / 54.57MB 0.2s
+#5 sha256:ae049f09b382ff8aa954338f8f90bb4a10e4965d1625645cabe264d2c86c6e47 6.29MB / 82.61MB 0.6s
+#5 sha256:ae049f09b382ff8aa954338f8f90bb4a10e4965d1625645cabe264d2c86c6e47 13.52MB / 82.61MB 0.9s
+#5 ...
+
+#4 [internal] load build context
+#4 transferring context: 38.86MB 1.3s done
+#4 DONE 1.4s
+
+#5 [1/3] FROM docker.io/library/amazoncorretto:17.0.21-al2023-headless@sha256:dae4ff04ffa0bca0f1daf5761dc30dfaf52156025fdf8cb5ef6f340ae61cee0c
+#5 sha256:ae049f09b382ff8aa954338f8f90bb4a10e4965d1625645cabe264d2c86c6e47 23.93MB / 82.61MB 1.4s
+#5 sha256:ae049f09b382ff8aa954338f8f90bb4a10e4965d1625645cabe264d2c86c6e47 31.46MB / 82.61MB 1.7s
+#5 sha256:ae049f09b382ff8aa954338f8f90bb4a10e4965d1625645cabe264d2c86c6e47 38.80MB / 82.61MB 2.0s
+#5 sha256:ae049f09b382ff8aa954338f8f90bb4a10e4965d1625645cabe264d2c86c6e47 45.09MB / 82.61MB 2.3s
+#5 sha256:ae049f09b382ff8aa954338f8f90bb4a10e4965d1625645cabe264d2c86c6e47 49.28MB / 82.61MB 2.4s
+#5 sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 3.15MB / 54.57MB 2.3s
+#5 sha256:ae049f09b382ff8aa954338f8f90bb4a10e4965d1625645cabe264d2c86c6e47 55.57MB / 82.61MB 2.7s
+#5 sha256:ae049f09b382ff8aa954338f8f90bb4a10e4965d1625645cabe264d2c86c6e47 61.87MB / 82.61MB 3.0s
+#5 sha256:ae049f09b382ff8aa954338f8f90bb4a10e4965d1625645cabe264d2c86c6e47 68.16MB / 82.61MB 3.3s
+#5 sha256:ae049f09b382ff8aa954338f8f90bb4a10e4965d1625645cabe264d2c86c6e47 74.45MB / 82.61MB 3.6s
+#5 sha256:ae049f09b382ff8aa954338f8f90bb4a10e4965d1625645cabe264d2c86c6e47 81.79MB / 82.61MB 3.9s
+#5 sha256:ae049f09b382ff8aa954338f8f90bb4a10e4965d1625645cabe264d2c86c6e47 82.61MB / 82.61MB 4.1s done
+#5 sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 6.29MB / 54.57MB 4.2s
+#5 sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 9.44MB / 54.57MB 5.0s
+#5 sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 12.58MB / 54.57MB 5.6s
+#5 sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 16.78MB / 54.57MB 6.0s
+#5 sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 20.97MB / 54.57MB 6.5s
+#5 sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 25.17MB / 54.57MB 6.8s
+#5 sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 29.36MB / 54.57MB 7.1s
+#5 sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 32.51MB / 54.57MB 7.2s
+#5 sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 37.75MB / 54.57MB 7.5s
+#5 sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 42.99MB / 54.57MB 7.8s
+#5 sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 46.14MB / 54.57MB 8.0s
+#5 sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 49.28MB / 54.57MB 8.1s
+#5 sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 53.01MB / 54.57MB 8.3s
+#5 sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 54.57MB / 54.57MB 8.4s done
+#5 extracting sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d
+#5 extracting sha256:48c7a3aa33f84b2fa7af701f558c0a97251fe0ca6790119c6f912decc8cad76d 7.7s done
+#5 DONE 16.5s
+
+#5 [1/3] FROM docker.io/library/amazoncorretto:17.0.21-al2023-headless@sha256:dae4ff04ffa0bca0f1daf5761dc30dfaf52156025fdf8cb5ef6f340ae61cee0c
+#5 extracting sha256:ae049f09b382ff8aa954338f8f90bb4a10e4965d1625645cabe264d2c86c6e47
+#5 extracting sha256:ae049f09b382ff8aa954338f8f90bb4a10e4965d1625645cabe264d2c86c6e47 6.5s done
+#5 DONE 23.0s
+
+#6 [2/3] COPY --chown=0:0 --chmod=0644 app.jar /opt/scholarchain/app.jar
+#6 DONE 0.9s
+
+#7 [3/3] WORKDIR /opt/scholarchain
+#7 DONE 0.1s
+
+#8 exporting to image
+#8 exporting layers
+#8 exporting layers 3.9s done
+#8 exporting manifest sha256:a6c181b46f0ff13cfc1f5083a2e7e71c6106e314f8d93e4f4e71f22d346acef5 0.0s done
+#8 exporting config sha256:e07cc94c1c88c200d51acd37901ea4c61e090338731b5c3a0032a846c407e990 0.0s done
+#8 exporting attestation manifest sha256:7e79dbd7b23e1ade73b964f6189e8263c34f8df9f34114ba3b014974aa2ea462
+#8 exporting attestation manifest sha256:7e79dbd7b23e1ade73b964f6189e8263c34f8df9f34114ba3b014974aa2ea462 0.1s done
+#8 exporting manifest list sha256:2f69d0ffe4468084c496ac34bcedb2cc3502929515dedee360db02e2b7927130 0.0s done
+#8 naming to docker.io/library/scholarchain-query-service:local 0.0s done
+#8 unpacking to docker.io/library/scholarchain-query-service:local
+#8 unpacking to docker.io/library/scholarchain-query-service:local 0.6s done
+#8 DONE 4.9s
+[info] built local image scholarchain-query-service:local
+[success] Total time: 43 s, completed Nov 26, 2026, 5:39:27 PM
+==> [package] OK: built scholarchain-query-service:local
+==> [package] STEP image-graph-service: sbt graphService/dockerLocalBuild (timeout 20m): scholarchain-graph-service:local
+[info] welcome to sbt 1.13.1 (Amazon.com Inc. Java 17.0.21.1)
+[info] loading settings for project scholarchain-build from plugins.sbt...
+[info] loading project definition from /home/ajcreator/scholarchain/project
+[info] loading settings for project root from build.sbt...
+[info] resolving key references (12595 settings) ...
+[info] set current project to scholarchain (in build file:/home/ajcreator/scholarchain/)
+[info] Assembly jar up to date: /home/ajcreator/scholarchain/target/services/graph-service/graphService-0.1.0-SNAPSHOT.jar
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.52kB 0.0s done
+#1 DONE 0.1s
+
+#2 [internal] load metadata for docker.io/library/amazoncorretto:17.0.21-al2023-headless@sha256:dae4ff04ffa0bca0f1daf5761dc30dfaf52156025fdf8cb5ef6f340ae61cee0c
+#2 DONE 0.1s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [internal] load build context
+#4 DONE 0.0s
+
+#5 [1/3] FROM docker.io/library/amazoncorretto:17.0.21-al2023-headless@sha256:dae4ff04ffa0bca0f1daf5761dc30dfaf52156025fdf8cb5ef6f340ae61cee0c
+#5 resolve docker.io/library/amazoncorretto:17.0.21-al2023-headless@sha256:dae4ff04ffa0bca0f1daf5761dc30dfaf52156025fdf8cb5ef6f340ae61cee0c 0.0s done
+#5 DONE 0.1s
+
+#4 [internal] load build context
+#4 transferring context: 37.38MB 0.9s done
+#4 DONE 1.0s
+
+#5 [1/3] FROM docker.io/library/amazoncorretto:17.0.21-al2023-headless@sha256:dae4ff04ffa0bca0f1daf5761dc30dfaf52156025fdf8cb5ef6f340ae61cee0c
+#5 CACHED
+
+#6 [2/3] COPY --chown=0:0 --chmod=0644 app.jar /opt/scholarchain/app.jar
+#6 DONE 0.3s
+
+#7 [3/3] WORKDIR /opt/scholarchain
+#7 DONE 0.1s
+
+#8 exporting to image
+#8 exporting layers
+#8 exporting layers 2.2s done
+#8 exporting manifest sha256:eadd57677b012cba7f015cf64da38baeb7ca810db3197fb7331b7d3105cda93b 0.0s done
+#8 exporting config sha256:cd2cfa9c700ed2ba43ff457bcba64e17559429d27ad4269d59c0977f764e69d0 0.0s done
+#8 exporting attestation manifest sha256:d84a8c3e772a848ac74dda0e52d613d7c44081a3f721f98df1af9bef57f4e1a3 0.0s done
+#8 exporting manifest list sha256:28fe2aad60136af68d310f2e4a7f45fa3343f9ca2942d0c2e098e76eacc91a77 0.0s done
+#8 naming to docker.io/library/scholarchain-graph-service:local
+#8 naming to docker.io/library/scholarchain-graph-service:local done
+#8 unpacking to docker.io/library/scholarchain-graph-service:local
+#8 unpacking to docker.io/library/scholarchain-graph-service:local 0.6s done
+#8 DONE 3.0s
+[info] built local image scholarchain-graph-service:local
+[success] Total time: 20 s, completed Nov 26, 2026, 5:40:06 PM
+==> [package] OK: built scholarchain-graph-service:local
+==> [package] STEP image-embedding-worker: sbt embeddingWorker/dockerLocalBuild (timeout 20m): scholarchain-embedding-worker:local
+[info] welcome to sbt 1.13.1 (Amazon.com Inc. Java 17.0.21.1)
+[info] loading settings for project scholarchain-build from plugins.sbt...
+[info] loading project definition from /home/ajcreator/scholarchain/project
+[info] loading settings for project root from build.sbt...
+[info] resolving key references (12595 settings) ...
+[info] set current project to scholarchain (in build file:/home/ajcreator/scholarchain/)
+[info] Assembly jar up to date: /home/ajcreator/scholarchain/target/services/embedding-worker/embeddingWorker-0.1.0-SNAPSHOT.jar
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.52kB done
+#1 DONE 0.1s
+
+#2 [internal] load metadata for docker.io/library/amazoncorretto:17.0.21-al2023-headless@sha256:dae4ff04ffa0bca0f1daf5761dc30dfaf52156025fdf8cb5ef6f340ae61cee0c
+#2 DONE 0.1s
+
+#3 [internal] load .dockerignore
+#3 transferring context:
+#3 transferring context: 2B done
+#3 DONE 0.1s
+
+#4 [internal] load build context
+#4 DONE 0.0s
+
+#5 [1/3] FROM docker.io/library/amazoncorretto:17.0.21-al2023-headless@sha256:dae4ff04ffa0bca0f1daf5761dc30dfaf52156025fdf8cb5ef6f340ae61cee0c
+#5 resolve docker.io/library/amazoncorretto:17.0.21-al2023-headless@sha256:dae4ff04ffa0bca0f1daf5761dc30dfaf52156025fdf8cb5ef6f340ae61cee0c 0.1s done
+#5 DONE 0.1s
+
+#4 [internal] load build context
+#4 transferring context: 37.39MB 0.6s done
+#4 DONE 0.7s
+
+#5 [1/3] FROM docker.io/library/amazoncorretto:17.0.21-al2023-headless@sha256:dae4ff04ffa0bca0f1daf5761dc30dfaf52156025fdf8cb5ef6f340ae61cee0c
+#5 CACHED
+
+#6 [2/3] COPY --chown=0:0 --chmod=0644 app.jar /opt/scholarchain/app.jar
+#6 DONE 1.1s
+
+#7 [3/3] WORKDIR /opt/scholarchain
+#7 DONE 0.1s
+
+#8 exporting to image
+#8 exporting layers
+#8 exporting layers 2.4s done
+#8 exporting manifest sha256:3378d9b9a1b923218d0dcabd433f22074cc7892ae79b44af78f4f7d116b60da3 0.0s done
+#8 exporting config sha256:3b88cdade9c6e733902b70c828e73f8a0b06e4b8e0c637ad1f1c791da590aa16 0.0s done
+#8 exporting attestation manifest sha256:08c988305d8fa60d913734a79e5fe556c62ea5eefee6236002c6813720d5835b
+#8 exporting attestation manifest sha256:08c988305d8fa60d913734a79e5fe556c62ea5eefee6236002c6813720d5835b 0.1s done
+#8 exporting manifest list sha256:1743778aff121c2ccdffabf4134a1f17f651a89f8f1635c2ad1c88f683d216ca 0.0s done
+#8 naming to docker.io/library/scholarchain-embedding-worker:local done
+#8 unpacking to docker.io/library/scholarchain-embedding-worker:local
+#8 unpacking to docker.io/library/scholarchain-embedding-worker:local 0.4s done
+#8 DONE 3.1s
+[info] built local image scholarchain-embedding-worker:local
+[success] Total time: 11 s, completed Nov 26, 2026, 5:40:29 PM
+==> [package] OK: built scholarchain-embedding-worker:local
+==> [package] STEP provider: the query-service assembly holds exactly one RendererProvider entry
+==> [package] OK: one provider entry: scholarchain.rag.SemanticRendererProvider
+==> [package] STEP checksums: SHA-256 of every jar built by this run
+==> PACKAGE jar hadoop sha256=705cccfcbfa5fb0ee25a1f25ce9936fcbef37476a5a68514ecbb04cbf810919f target/jobs/hadoop-0.1.0-SNAPSHOT.jar
+==> PACKAGE jar entity-resolution sha256=3019f1696cc796a9aaa8dc199361da96a155888865b4bcd7a2e8b39c0fbd4856 target/jobs/entityResolution-0.1.0-SNAPSHOT.jar
+==> PACKAGE jar spark sha256=e3cbafdcfa6474dfa42c66c24a81ce95c736b8b24da82e829f948fee8a6d535f target/jobs/sparkAnalytics-0.1.0-SNAPSHOT.jar
+==> PACKAGE jar query-service sha256=6a1c5f57c6834e0ae6085b91ac0acc9eae5d268984283953e9c2d396d5156c12 target/services/query-service/queryService-0.1.0-SNAPSHOT.jar
+==> PACKAGE jar graph-service sha256=5c2809575433640ad62ec9189b8e9e1e01d6b5d5899d4c202185b05ac0519860 target/services/graph-service/graphService-0.1.0-SNAPSHOT.jar
+==> PACKAGE jar embedding-worker sha256=eb16529c9d5283a123531f7bc628c18f5e33571771b4c32e0726c9a2c9d867c6 target/services/embedding-worker/embeddingWorker-0.1.0-SNAPSHOT.jar
+==> [package] STEP images: tag the three local images :90370d8fe5187008de582f40aa13ee31d1da8913-dirty and record their image IDs
+==> PACKAGE image query-service scholarchain-query-service:90370d8fe5187008de582f40aa13ee31d1da8913-dirty id=sha256:2f69d0ffe4468084c496ac34bcedb2cc3502929515dedee360db02e2b7927130
+==> PACKAGE image graph-service scholarchain-graph-service:90370d8fe5187008de582f40aa13ee31d1da8913-dirty id=sha256:28fe2aad60136af68d310f2e4a7f45fa3343f9ca2942d0c2e098e76eacc91a77
+==> PACKAGE image embedding-worker scholarchain-embedding-worker:90370d8fe5187008de582f40aa13ee31d1da8913-dirty id=sha256:1743778aff121c2ccdffabf4134a1f17f651a89f8f1635c2ad1c88f683d216ca
+==> PACKAGE record target/package/90370d8fe5187008de582f40aa13ee31d1da8913-dirty/package-manifest.txt
+==> [package] OK: packaged 90370d8fe5187008de582f40aa13ee31d1da8913-dirty (mode=all)
+exit code: 0

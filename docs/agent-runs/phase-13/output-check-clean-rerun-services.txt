@@ -1,0 +1,39 @@
+$ cd <scratchpad>/clean-copy && timeout 30m sbt -batch graphService/test queryService/test
+[info] welcome to sbt 1.13.1 (Amazon.com Inc. Java 17.0.21.1)
+[info] loading settings for project clean-copy-build from plugins.sbt...
+[info] loading project definition from /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/project
+[info] loading settings for project root from build.sbt...
+[info] resolving key references (12595 settings) ...
+[info] set current project to scholarchain (in build file:/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/)
+Test run [36mscholarchain.services.graph.GraphEvidenceSuite[0m started
+[32mscholarchain.services.graph.GraphEvidenceSuite[0m: finished [90m2.793s[0m
+Test run [36mscholarchain.services.graph.GraphEvidenceSuite[0m finished: 0 failed, 0 ignored, 1 total [90m2.798s[0m
+Test run [36mscholarchain.services.graph.GraphNodeSuite[0m started
+[32mscholarchain.services.graph.GraphNodeSuite[0m: finished [90m3.489s[0m
+Test run [36mscholarchain.services.graph.GraphNodeSuite[0m finished: 0 failed, 0 ignored, 3 total [90m3.529s[0m
+Test run [36mscholarchain.services.graph.GraphFailureSuite[0m started
+[32mscholarchain.services.graph.GraphFailureSuite[0m: finished [90m3.009s[0m
+Test run [36mscholarchain.services.graph.GraphFailureSuite[0m finished: 0 failed, 0 ignored, 5 total [90m3.01s[0m
+Test run [36mscholarchain.services.graph.GraphNeighborsSuite[0m started
+[32mscholarchain.services.graph.GraphNeighborsSuite[0m: finished [90m3.763s[0m
+Test run [36mscholarchain.services.graph.GraphNeighborsSuite[0m finished: 0 failed, 0 ignored, 7 total [90m3.802s[0m
+Test run [36mscholarchain.services.graph.GraphWiringSuite[0m started
+[32mscholarchain.services.graph.GraphWiringSuite[0m: finished [90m3.428s[0m
+Test run [36mscholarchain.services.graph.GraphWiringSuite[0m finished: 0 failed, 0 ignored, 2 total [90m3.43s[0m
+[info] Passed: Total 18, Failed 0, Errors 0, Passed 18
+[success] Total time: 8 s, completed Nov 26, 2026, 5:36:58 PM
+query-service: SERVING_RUN_MANIFEST_URI is not set; not ready
+query-service: serving run run-66774be797cb7a6f
+query-service: served run not loaded: graph-nodes/label=Researcher: 3 rows, the load manifest says 4
+Test run [36mscholarchain.services.query.QueryWiringSuite[0m started
+[32mscholarchain.services.query.QueryWiringSuite[0m: finished [90m2.34s[0m
+Test run [36mscholarchain.services.query.QueryWiringSuite[0m finished: 0 failed, 0 ignored, 8 total [90m2.341s[0m
+Test run [36mscholarchain.services.query.DownstreamMappingSuite[0m started
+[32mscholarchain.services.query.DownstreamMappingSuite[0m: finished [90m3.09s[0m
+Test run [36mscholarchain.services.query.DownstreamMappingSuite[0m finished: 0 failed, 0 ignored, 6 total [90m3.1s[0m
+Test run [36mscholarchain.services.query.QueryServiceSuite[0m started
+[32mscholarchain.services.query.QueryServiceSuite[0m: finished [90m14.962s[0m
+Test run [36mscholarchain.services.query.QueryServiceSuite[0m finished: 0 failed, 0 ignored, 25 total [90m14.972s[0m
+[info] Passed: Total 39, Failed 0, Errors 0, Passed 39
+[success] Total time: 16 s, completed Nov 26, 2026, 5:37:15 PM
+exit code: 0

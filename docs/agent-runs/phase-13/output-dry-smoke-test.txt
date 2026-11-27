@@ -1,0 +1,15 @@
+$ cd <repo> && timeout 120s scripts/smoke-test.sh --env dev --researcher "Example Researcher" --dry-run
+==> [smoke-test] STEP dry-run: env=dev expect=90370d8fe5187008de582f40aa13ee31d1da8913 (no AWS call, no HTTP request)
+==> [smoke-test] DRY-RUN check tools (aws curl git python3): PASS
+==> [smoke-test] DRY-RUN check SCHOLARCHAIN_SMOKE_TOKEN is set (value never read here): WOULD-REFUSE (SCHOLARCHAIN_SMOKE_TOKEN is not set (or pass --unauthenticated-only))
+==> [smoke-test] DRY-RUN check API endpoint and cluster name from SSM /scholarchain/dev/app/{api/endpoint,ecs/cluster-name}: NOT-CHECKED (needs an AWS call; the real run checks it)
+==> [smoke-test] DRY-RUN would: check SSM app/deploy/image-tag == 90370d8fe5187008de582f40aa13ee31d1da8913 and that query-service, graph-service and embedding-worker run :90370d8fe5187008de582f40aa13ee31d1da8913 with running == desired >= 1
+==> [smoke-test] DRY-RUN would: check every running task of the three services is RUNNING and HEALTHY (container check on GET /healthz)
+==> [smoke-test] DRY-RUN would: GET /v1/graph/nodes/smoke-test without a token: expect 401; GET /healthz through the API: expect 404 or 401
+==> [smoke-test] DRY-RUN would: POST /v1/query (sync, limit 5, maxPathDepth 2, Idempotency-Key smoke-90370d8fe518-20261126T234203Z) about the collaborators of "Example Researcher": expect 200 succeeded, not abstained, a claim citing evidence
+==> [smoke-test] DRY-RUN would: GET /v1/evidence/<claims[0].evidenceIds[0]>: expect 200, same evidenceId, non-empty sourceUri
+==> [smoke-test] DRY-RUN would: repeat the POST with the same key: expect 200, Idempotent-Replayed: true, same queryId
+==> [smoke-test] DRY-RUN would: POST /v1/query with constraints.nationality: expect 422 unsupported_constraint
+==> [smoke-test] DRY-RUN would: GET /v1/graph/nodes/smoke-test with the token: expect 200 or 404
+==> [smoke-test] DRY-RUN result: a real run would REFUSE (1 check(s) above); no AWS call was made, nothing changed
+exit code: 3

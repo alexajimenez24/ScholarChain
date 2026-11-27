@@ -21,10 +21,6 @@ output "permissions_boundary_arn" {
   value = module.deployment_iam.permissions_boundary_arn
 }
 
-output "nat_enabled" {
-  value = var.enable_nat
-}
-
 output "ssm_parameter_names" {
   value = module.published.names
 }

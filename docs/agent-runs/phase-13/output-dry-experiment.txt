@@ -1,0 +1,18 @@
+# in <scratchpad>/clean-copy (throwaway git repo) after: git add experiments/a2-dry-check (fixture manifest.json + run.sh, staged, not committed)
+$ timeout 120s scripts/run-experiment.sh --env dev --phase 13 --manifest experiments/a2-dry-check/manifest.json --dry-run
+==> [run-experiment] STEP dry-run: experiment a2-dry-check manifest sha256=9deb1a8ef47e387b223ac53ab24104fa3c2a9a8078d5bf3e59fb19cb0c4ed116 (no AWS call, nothing run)
+==> [run-experiment] OK: manifest is valid: entrypoint experiments/a2-dry-check/run.sh, maxMinutes=10 maxEcsTasks=1 maxEmrInstances=0 costEstimateUsd=0.05
+==> [run-experiment] DRY-RUN check manifest and entrypoint are committed: PASS
+==> [run-experiment] DRY-RUN check entrypoint matches entrypointSha256: PASS
+==> [run-experiment] DRY-RUN check source tree is clean: WOULD-REFUSE (the source tree is dirty (changes above); only docs/agent-runs/phase-NN/ and new files under releases/ are exempt as evidence)
+==> [run-experiment] DRY-RUN check human gate phase-13 approves HEAD, env dev, the cost and this manifest: WOULD-REFUSE (no human gate: docs/agent-runs/phase-13/human-gate.md)
+==> [run-experiment] DRY-RUN check caller is assumed-role/scholarchain-dev-deployment: NOT-CHECKED (needs an AWS call; the real run checks it)
+==> [run-experiment] DRY-RUN would: run timeout 10m bash experiments/a2-dry-check/run.sh --requests=10 with SCHOLARCHAIN_EXPERIMENT_OUT=target/experiments/a2-dry-check/exp-20261126t234219z
+==> [run-experiment] DRY-RUN would: write target/experiments/a2-dry-check/exp-20261126t234219z/experiment-record.txt and console.log (kept for a failed run too); metric locations: AWS/ApiGateway:Latency
+==> [run-experiment] DRY-RUN result: a real run would REFUSE (2 check(s) above); no AWS call was made, nothing changed
+exit code: 3
+
+# in <repo> (no experiment manifest exists in the repository yet)
+$ timeout 120s scripts/run-experiment.sh --env dev --phase 13 --manifest experiments/none/manifest.json --dry-run
+==> [run-experiment] FAILED step=start: no manifest file experiments/none/manifest.json
+exit code: 1

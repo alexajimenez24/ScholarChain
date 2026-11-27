@@ -47,6 +47,9 @@ object Fx:
     )
 
 class JwtSuite extends munit.FunSuite:
+  // Hang guard only: the first test pays one-time JVM setup (RSA keys, IO runtime, class
+  // loading), over 30s in a loaded `sbt check`. Product timeouts are unchanged.
+  override val munitTimeout = scala.concurrent.duration.Duration(2, "min")
   import Fx.*
   private def verify(t: String) = run(TestJwt.verifier.verify(t))
 
@@ -151,6 +154,7 @@ class JwtSuite extends munit.FunSuite:
   }
 
 class ErrorModelSuite extends munit.FunSuite:
+  override val munitTimeout = scala.concurrent.duration.Duration(2, "min")
   import Fx.*
   test("status mapping of every error code") {
     val m = ErrorCode.values.map(c => c.wire -> c.status.code).toMap
@@ -206,6 +210,7 @@ class ErrorModelSuite extends munit.FunSuite:
   }
 
 class ServiceKitSuite extends munit.FunSuite:
+  override val munitTimeout = scala.concurrent.duration.Duration(2, "min")
   import Fx.*
   private val inner = HttpRoutes.of[IO] {
     case GET -> Root / "v1" / "boom" =>
@@ -342,6 +347,7 @@ class ServiceKitSuite extends munit.FunSuite:
   }
 
 class DownstreamSuite extends munit.FunSuite:
+  override val munitTimeout = scala.concurrent.duration.Duration(2, "min")
   import Fx.*
   private def policy(attempts: Int = 2, threshold: Int = 2, timeout: FiniteDuration = 1.second) =
     ResiliencePolicy(timeout, attempts, Duration.Zero, threshold, 10.seconds)
@@ -397,6 +403,7 @@ class DownstreamSuite extends munit.FunSuite:
   }
 
 class EmfSuite extends munit.FunSuite:
+  override val munitTimeout = scala.concurrent.duration.Duration(2, "min")
   test("an EMF line has the _aws envelope, dimension values and metric values") {
     val j = ujson.read(
       Emf.line(
@@ -416,6 +423,7 @@ class EmfSuite extends munit.FunSuite:
   }
 
 class EvidenceRoutesSuite extends munit.FunSuite:
+  override val munitTimeout = scala.concurrent.duration.Duration(2, "min")
   import Fx.*
   private val kit = new ServiceKit("svc", new CollectingMetrics)
   private def routes(

@@ -1,0 +1,7 @@
+$ cd <repo> && timeout 120s bash scripts/cleanup.sh --env dev --dry-run
+NOT RUN: the harness hook blocked the command before it started (infra-engineer did not work around it).
+Verbatim hook message:
+PreToolUse:Bash hook error: ["$CLAUDE_PROJECT_DIR"/.claude/hooks/guard-dangerous.sh]: Blocked by guard-dangerous hook: running scripts/cleanup.sh (human only). Agents never run this. If it is really needed, a human runs it manually; the approved paths are in docs/agents.md section 6.
+Command for the human (dry run: no AWS call, no terraform command, deletes nothing; expected exit 3 from an agent-free shell without SCHOLARCHAIN_CLEANUP_CONFIRM):
+  cd ~/scholarchain && timeout 120s bash scripts/cleanup.sh --env dev --dry-run; echo "exit code: $?"
+exit code: none (not run)

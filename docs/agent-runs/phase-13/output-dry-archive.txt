@@ -1,0 +1,13 @@
+$ cd <repo> && timeout 120s scripts/archive-evidence.sh --env dev --phase 13 --dry-run
+==> [archive-evidence] STEP dry-run: env=dev phase=13 run=all metrics-hours=0 (no AWS call, no copy)
+==> [archive-evidence] INFO: revision=90370d8fe5187008de582f40aa13ee31d1da8913 dirty=true
+==> [archive-evidence] DRY-RUN would: collect 107 file(s) into target/evidence/phase-13-90370d8fe518-20261126t234225z/test-reports/
+==> [archive-evidence] DRY-RUN would: collect 1 file(s) into target/evidence/phase-13-90370d8fe518-20261126t234225z/plans/
+==> [archive-evidence] DRY-RUN would: collect 2 file(s) into target/evidence/phase-13-90370d8fe518-20261126t234225z/package/
+==> [archive-evidence] DRY-RUN would: collect 0 file(s) into target/evidence/phase-13-90370d8fe518-20261126t234225z/pipeline/
+==> [archive-evidence] DRY-RUN would: collect 0 file(s) into target/evidence/phase-13-90370d8fe518-20261126t234225z/experiments/
+==> [archive-evidence] DRY-RUN would: collect 0 file(s) into target/evidence/phase-13-90370d8fe518-20261126t234225z/releases/
+==> [archive-evidence] DRY-RUN would: skip CloudWatch metrics (no --metrics-hours): no AWS call
+==> [archive-evidence] DRY-RUN would: redact account IDs, scan for access key IDs and private keys, write INDEX.txt and SHA256SUMS
+==> [archive-evidence] DRY-RUN result: the local checks pass; no AWS call was made, nothing changed
+exit code: 0

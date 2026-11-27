@@ -3,22 +3,30 @@
 #
 # Usage:
 #   scripts/plan.sh --env dev --stack foundation [--window on|off] [--text-out FILE]
-#                   [--plan-dir DIR] [--allow-no-egress]
+#                   [--plan-dir DIR] [--serving-manifest s3://...] [--dry-run]
 #
 # --window on (cloud window) adds the toggles the committed JSON files keep off:
-#   foundation -var enable_nat=true, data -var enable_neptune=true,
-#   compute -var enable_emr_endpoint=true. --window off (default) plans them off, which
-#   for an applied window DESTROYS the NAT, Neptune (listed first as STATEFUL-DESTROY)
-#   and the EMR endpoint. The app plan refuses to run while foundation's NAT is off,
-#   because the services would have no egress (override: --allow-no-egress).
+#   data -var enable_neptune=true, compute -var enable_emr_endpoint=true (the EMR and SQS
+#   interface endpoints). --window off (default) plans them off, which for an applied
+#   window DESTROYS Neptune (listed first as STATEFUL-DESTROY) and the endpoints.
+# The services' egress (one NAT gateway and the private default route) is part of the app
+# stack (infra/stacks/app/egress.tf) and exists while the services are not parked, so the
+# app plan shows it; foundation has no window toggle (Phase 13).
+# --serving-manifest (app only): the Spark run manifest of the pipeline run query-service
+#   answers from (-var serving_run_manifest_uri=..., env SERVING_RUN_MANIFEST_URI); it is
+#   recorded in the plan metadata. Without it the service starts unready (no served run).
+# --dry-run: checks the arguments, names the init and plan it would run and the files it
+#   would write, and evaluates the checks that need no AWS call; it makes no AWS call and
+#   runs no terraform command. Exit 0 = local checks pass, 3 = a real run would refuse.
 #
 # Stacks are planned one at a time in the order foundation, data, compute, app,
 # observability: a later stack reads the SSM parameters a lower stack publishes, so its
 # plan fails until the lower stack is applied.
 #
 # What it does (nothing is applied, nothing in AWS is changed):
-#   1. checks tools, the environment name, the backend file (no placeholder) and the
-#      TF_VAR_* inputs that never live in a file (values are never printed):
+#   1. checks tools, the environment name, the backend file (no placeholder in a setting
+#      line; comments may hold anything) and the TF_VAR_* inputs that never live in a
+#      file (values are never printed):
 #        every stack: TF_VAR_owner
 #        foundation:  TF_VAR_budget_alert_email, TF_VAR_state_bucket_name
 #   2. reads the caller identity (to redact the account ID) and the git HEAD,
@@ -33,7 +41,8 @@
 #
 # Files (outside the repository, so the tree stays clean):
 #   <plan-dir>/<stack>.tfplan       saved plan (binary; holds plan-time values, never commit)
-#   <plan-dir>/<stack>.tfplan.meta  env, stack, revision, dirty flag, sha256, time
+#   <plan-dir>/<stack>.tfplan.meta  env, stack, revision, dirty flag, window, serving
+#                                   manifest, sha256, time
 #   <plan-dir>/<stack>.plan.txt     redacted plan text (or --text-out FILE)
 # <plan-dir> defaults to $SCHOLARCHAIN_PLAN_DIR or ~/.scholarchain/plans, plus /<env>.
 #
@@ -44,38 +53,74 @@
 # foundation, admin-changes (everything the deployment role may not apply there, listed
 # as ==> ADMIN-CHANGE lines); deploy.sh uses admin-changes to pick the identity for a
 # foundation apply. The plan directory is always absolute (sc_plan_dir).
+# Exit codes: 0 plan saved (changes or none), 1 a check or terraform failed, 2 usage.
 
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
 
-usage() { sed -n '2,12p' "$0"; exit 2; }
+usage() { sed -n '2,6p' "$0"; exit 2; }
 
-ENV="" STACK="" TEXT_OUT="" PLAN_DIR="" WINDOW=off ALLOW_NO_EGRESS=false
+ENV="" STACK="" TEXT_OUT="" PLAN_DIR="" WINDOW=off SERVING="" DRY_RUN=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --env) ENV="${2:-}"; shift 2 ;;
     --stack) STACK="${2:-}"; shift 2 ;;
     --window) WINDOW="${2:-}"; shift 2 ;;
-    --allow-no-egress) ALLOW_NO_EGRESS=true; shift ;;
+    --serving-manifest) SERVING="${2:-}"; shift 2 ;;
     --text-out) TEXT_OUT="${2:-}"; shift 2 ;;
     --plan-dir) PLAN_DIR="${2:-}"; shift 2 ;;
+    --dry-run) DRY_RUN=true; shift ;;
     -h | --help) usage ;;
-    *) sc_die "unknown argument: $1" ;;
+    *) printf '==> [plan] FAILED: unknown argument: %s\n' "$1" >&2; usage ;;
   esac
 done
 [[ -n "$ENV" && -n "$STACK" ]] || usage
 [[ "$WINDOW" == on || "$WINDOW" == off ]] || sc_die "--window must be on or off"
+sc_check_stack "$STACK"
+if [[ -n "$SERVING" ]]; then
+  [[ "$STACK" == "app" ]] || sc_die "--serving-manifest applies to the app stack only"
+  [[ "$SERVING" =~ $SC_SERVING_RE ]] || sc_die "--serving-manifest must be s3://<graph bucket>/runs/<run label>/spark/.../run-manifests/run-<hex>.json"
+fi
+
+foundation_bucket_matches() {
+  local b
+  b="$(sed -n 's/^bucket *= *"\(.*\)"$/\1/p' "$SC_INFRA/backend/$ENV.s3.tfbackend")"
+  [[ "$b" == "${TF_VAR_state_bucket_name:-}" ]] ||
+    sc_die "TF_VAR_state_bucket_name differs from the bucket in infra/backend/$ENV.s3.tfbackend"
+}
+
+if [[ "$DRY_RUN" == true ]]; then
+  sc_step dry-run "env=$ENV stack=$STACK window=$WINDOW (no AWS call, no terraform command)"
+  sc_dry_check "tools (terraform aws git sha256sum python3)" sc_need_tools terraform aws git sha256sum python3 timeout sed awk
+  sc_dry_check "environment name and backend file (no placeholder)" sc_check_env "$ENV"
+  sc_dry_check "plan-time inputs set (names only, values never printed)" sc_require_tf_vars "$STACK"
+  sc_dry_check "variable file infra/environments/$ENV/$STACK.json" test -f "$SC_INFRA/environments/$ENV/$STACK.json"
+  if [[ "$STACK" == "foundation" ]]; then
+    sc_dry_check "TF_VAR_state_bucket_name equals the backend bucket" foundation_bucket_matches
+  fi
+  REV="$(sc_head)"
+  DIRTY=false
+  if sc_is_dirty; then DIRTY=true; fi
+  sc_info "revision=$REV dirty=$DIRTY (a dirty plan is for review only; deploy.sh refuses it)"
+  sc_dry_aws "caller identity (sts get-caller-identity, read only)"
+  if [[ "$STACK" == "app" ]]; then
+    sc_dry_aws "Neptune enabled (SSM /scholarchain/$ENV/data/neptune/enabled; a warning only)"
+  fi
+  dir="${PLAN_DIR:-${SCHOLARCHAIN_PLAN_DIR:-$HOME/.scholarchain/plans}/$ENV}"
+  mapfile -t VARS < <(sc_tf_plan_vars "$ENV" "$STACK" "$REV" "$WINDOW" "$SERVING")
+  sc_would "terraform -chdir=infra/stacks/$STACK init -input=false -reconfigure -lockfile=readonly -backend-config=../../backend/$ENV.s3.tfbackend -backend-config=key=scholarchain/$ENV/$STACK/terraform.tfstate"
+  sc_would "terraform -chdir=infra/stacks/$STACK plan -input=false -lock-timeout=60s -detailed-exitcode $(IFS=' ' && printf '%s' "${VARS[*]}") -out=${dir/#"$HOME"/\~}/$STACK.tfplan"
+  sc_would "write ${dir/#"$HOME"/\~}/$STACK.tfplan, $STACK.tfplan.meta and ${TEXT_OUT:-${dir/#"$HOME"/\~}/$STACK.plan.txt}, print the ==> PLAN-SUMMARY and ==> PLAN-SHA256 lines; never apply"
+  sc_dry_end
+fi
 
 sc_step preflight "env=$ENV stack=$STACK"
 sc_need_tools terraform aws git sha256sum python3 timeout sed awk
 sc_check_env "$ENV"
-sc_check_stack "$STACK"
 sc_require_tf_vars "$STACK"
 [[ -f "$SC_INFRA/environments/$ENV/$STACK.json" ]] || sc_die "no variable file infra/environments/$ENV/$STACK.json"
 if [[ "$STACK" == "foundation" ]]; then
-  backend_bucket="$(sed -n 's/^bucket *= *"\(.*\)"$/\1/p' "$SC_INFRA/backend/$ENV.s3.tfbackend")"
-  [[ "$backend_bucket" == "${TF_VAR_state_bucket_name:-}" ]] ||
-    sc_die "TF_VAR_state_bucket_name differs from the bucket in infra/backend/$ENV.s3.tfbackend"
+  foundation_bucket_matches
 fi
 if [[ -n "$PLAN_DIR" ]]; then
   mkdir -p "$PLAN_DIR"
@@ -100,21 +145,22 @@ fi
 sc_info "revision=$REV dirty=$DIRTY"
 
 if [[ "$STACK" == "app" ]]; then
-  sc_step egress "the services need egress (Bedrock, ECR, Logs, SQS, S3 Vectors, JWKS)"
-  nat="$(sc_ssm "/scholarchain/$ENV/foundation/network/nat-enabled")"
-  if [[ "$nat" != "true" && "$ALLOW_NO_EGRESS" != true ]]; then
-    sc_die "foundation has enable_nat=false: plan and deploy foundation with --window on first (or pass --allow-no-egress to plan anyway)"
-  fi
+  sc_step readiness "Neptune and the served run (warnings only)"
   if [[ "$(sc_ssm "/scholarchain/$ENV/data/neptune/enabled")" != "true" ]]; then
     sc_info "WARNING: Neptune is disabled; query-service and graph-service will not become ready"
+  fi
+  if [[ -z "$SERVING" ]]; then
+    sc_info "WARNING: no --serving-manifest; query-service starts without a served run and answers 503 until one is planned"
+  else
+    sc_info "served run: $SERVING"
   fi
 fi
 
 sc_step init "terraform init (S3 backend, key scholarchain/$ENV/$STACK/terraform.tfstate)"
 sc_tf_init "$ENV" "$STACK" | sc_redact
 
-sc_step plan "terraform plan -out ${PLAN/#$HOME/~} window=$WINDOW (full output follows)"
-mapfile -t VARS < <(sc_tf_plan_vars "$ENV" "$STACK" "$REV" "$WINDOW")
+sc_step plan "terraform plan -out ${PLAN/#"$HOME"/\~} window=$WINDOW (full output follows)"
+mapfile -t VARS < <(sc_tf_plan_vars "$ENV" "$STACK" "$REV" "$WINDOW" "$SERVING")
 rm -f "$PLAN" "$PLAN.meta"
 # -detailed-exitcode returns 2 for "changes present": suspend errexit and the ERR trap.
 trap - ERR
@@ -135,10 +181,10 @@ sc_tf "$STACK" show -json "$PLAN" | python3 -I "$SC_ROOT/scripts/lib/plan_summar
 
 SHA="$(sha256sum "$PLAN" | awk '{print $1}')"
 {
-  printf 'env=%s\nstack=%s\nrevision=%s\ndirty=%s\nwindow=%s\nsha256=%s\ncreated=%s\nterraform=%s\n' \
-    "$ENV" "$STACK" "$REV" "$DIRTY" "$WINDOW" "$SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  printf 'env=%s\nstack=%s\nrevision=%s\ndirty=%s\nwindow=%s\nserving_manifest=%s\nsha256=%s\ncreated=%s\nterraform=%s\n' \
+    "$ENV" "$STACK" "$REV" "$DIRTY" "$WINDOW" "${SERVING:-none}" "$SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     "$(terraform version | head -1)"
 } >"$PLAN.meta"
 printf '==> PLAN-FILE %s\n==> PLAN-SHA256 %s\n==> PLAN-REVISION %s dirty=%s window=%s\n' \
-  "${PLAN/#$HOME/~}" "$SHA" "$REV" "$DIRTY" "$WINDOW" | tee -a "$TEXT_OUT"
-sc_ok "saved plan, metadata and redacted text (${TEXT_OUT/#$HOME/~}); nothing was applied"
+  "${PLAN/#"$HOME"/\~}" "$SHA" "$REV" "$DIRTY" "$WINDOW" | tee -a "$TEXT_OUT"
+sc_ok "saved plan, metadata and redacted text (${TEXT_OUT/#"$HOME"/\~}); nothing was applied"

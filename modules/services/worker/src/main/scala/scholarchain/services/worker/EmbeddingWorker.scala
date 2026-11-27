@@ -134,9 +134,19 @@ final class EmbeddingWorker(
       )
     )
 
-  /** The polling loop of the deployed worker: drain, and pause when the queue was empty. */
-  def loop(idle: FiniteDuration = 5.seconds): IO[Nothing] =
-    (drainOnce.flatMap(r => if r.received == 0 then IO.sleep(idle) else IO.unit)).foreverM
+  /** One turn of the polling loop: drain, and pause when the queue was empty or the drain failed (a
+    * queue error never ends the loop; only the failure's class is logged).
+    */
+  def step(idle: FiniteDuration): IO[Unit] =
+    drainOnce
+      .flatMap(r => if r.received == 0 then IO.sleep(idle) else IO.unit)
+      .handleErrorWith(e =>
+        Bootstrap.log("embedding-worker", s"drain failed: ${e.getClass.getSimpleName}") *>
+          IO.sleep(idle)
+      )
+
+  /** The polling loop of the deployed worker. */
+  def loop(idle: FiniteDuration = 5.seconds): IO[Nothing] = step(idle).foreverM
 
 /** The worker has no public routes; it serves health and readiness only, through the shared kit. */
 object WorkerApp:

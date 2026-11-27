@@ -58,6 +58,12 @@ variable "environment" {
   type        = map(string)
 }
 
+variable "health_port" {
+  description = "Port of the service's own GET /healthz (liveness), probed inside the container; every deployable serves it, the worker too (its port is not mapped)."
+  type        = number
+  default     = 8080
+}
+
 variable "task_role_arn" {
   type = string
 }
@@ -150,6 +156,17 @@ resource "aws_ecs_task_definition" "this" {
     portMappings           = local.port_mappings
     environment            = [for k in sort(keys(var.environment)) : { name = k, value = var.environment[k] }]
     mountPoints            = [{ sourceVolume = "tmp", containerPath = "/tmp", readOnly = false }]
+    # Liveness only (GET /healthz touches no dependency, docs/api.md), so a service that
+    # is not yet ready (no served run, Neptune off) is never killed in a loop; readiness
+    # is proven by scripts/smoke-test.sh through real requests. bash /dev/tcp, because the
+    # image (amazoncorretto al2023 headless) is not known to carry curl.
+    healthCheck = {
+      command     = ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/${var.health_port} && printf 'GET /healthz HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && IFS= read -r -t 4 line <&3 && [[ $line == *' 200 '* ]]"]
+      interval    = 30
+      timeout     = 5
+      retries     = 3
+      startPeriod = 90
+    }
     logConfiguration = {
       logDriver = "awslogs"
       options = {

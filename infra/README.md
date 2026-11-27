@@ -30,9 +30,17 @@ those parameters with `data "aws_ssm_parameter"`.
   `/scholarchain/<env>/<stack>/deploy/revision`, which deploy.sh verifies) and
   `image_tag` (app, the same SHA).
 - Cloud-window toggles, off in the committed JSON files and turned on only by
-  `scripts/plan.sh --window on`: `enable_nat` (foundation), `enable_neptune` (data),
-  `enable_emr_endpoint` (compute). `--window off` plans them off again (Neptune then
-  shows as STATEFUL-DESTROY). The app plan refuses to run while the NAT is off.
+  `scripts/plan.sh --window on`: `enable_neptune` (data), `enable_emr_endpoint`
+  (compute: the EMR service and SQS interface endpoints). `--window off` plans them off
+  again (Neptune then shows as STATEFUL-DESTROY).
+- Egress of the ECS tasks (Phase 13): one zonal NAT gateway, its address and the private
+  default route are app-stack resources (`infra/stacks/app/egress.tf`, with the cost
+  comparison), created while `park_services = false`, so the app plan shows the path and
+  parking the services removes it. Foundation no longer has a NAT toggle. The pipeline
+  does not use the NAT: EMR reaches SQS through the compute stack's endpoint.
+- `serving_run_manifest_uri` (app, query-service `SERVING_RUN_MANIFEST_URI`): passed by
+  `scripts/plan.sh --serving-manifest`, printed by `run-bounded-pipeline.sh --finish`
+  as `==> SERVING-MANIFEST`.
 - `persistent = true` turns on deletion protection, PITR, Neptune final snapshots, longer
   backups, keeps ECR images and Cognito; dev keeps it false so cleanup works.
 
@@ -78,9 +86,10 @@ query-service for RAG context); workers are `embedding-worker`. The justificatio
 - observability: data `neptune/enabled`, `models/embedding-model-id`; compute
   `sqs/embedding-{queue,dlq}-name`, `pipeline/state-machine-arn`; app `api/id`,
   `ecs/cluster-name`, `ecs/service/<image>`.
-- Scripts also read: foundation `network/nat-enabled`; compute `deploy/revision`,
-  `emr/endpoint-enabled`, `pipeline/*`; app `api/endpoint`, `deploy/image-tag`,
-  `ecs/task-family/*`, `auth/*`.
+- Scripts also read: compute `deploy/revision`, `emr/endpoint-enabled`,
+  `sqs/endpoint-enabled`, `pipeline/*`; app `api/endpoint`, `api/id`,
+  `deploy/image-tag`, `ecs/task-family/*`, `auth/*`. The app stack publishes
+  `network/nat-enabled` and `query/serving-run`.
 
 ## Contracts for later stacks
 
@@ -114,8 +123,9 @@ only, so the paths that create billable resources must run as that role:
 - `scripts/deploy.sh` for `foundation` reads `admin-changes` from the signed plan
   (`plan_summary.py --stack foundation`: every change to a type other than `aws_eip`,
   `aws_nat_gateway`, `aws_route`, `aws_vpc_endpoint`, the two security group rule types
-  and `aws_ssm_parameter`, each printed as `==> ADMIN-CHANGE`): 0 (the window NAT or
-  endpoint toggle) requires the role; more than 0 (the bootstrap apply, any role, trust,
+  and `aws_ssm_parameter`, each printed as `==> ADMIN-CHANGE`): 0 (an interface endpoint
+  toggle; the NAT is an app-stack resource since Phase 13) requires the role; more than
+  0 (the bootstrap apply, any role, trust,
   boundary, IAM, budget or network-structure change) refuses the role and runs with the
   human's administrator credentials, which the budget action does not cover.
 - Apply order is unchanged (foundation, data, compute, app, observability) and has no
@@ -279,7 +289,9 @@ https://docs.aws.amazon.com/service-authorization/latest/reference/list_emr.html
   cannot call the EMR API to start or change one.
 - `emr-instance` (EC2 instance profile): no elasticmapreduce action. It had none in
   effect before (its inline policy grants none); the on-cluster helper
-  `scripts/emr/scholarchain-step.sh` calls only S3 and Neptune. UNVERIFIED until a run:
+  `scripts/emr/scholarchain-step.sh` and the storage loaders it runs (Phase 13) call
+  only S3, DynamoDB, SQS and Neptune, plus the node's own IMDSv2 for the instance
+  profile credentials the storage CLI needs in its environment. UNVERIFIED until a run:
   whether an EMR 7 application on the nodes calls a describe action (AWS's legacy
   AmazonElasticMapReduceforEC2Role grants `elasticmapreduce:Describe*`/`List*`).
 - Who may still define or start the pipeline: the deployment role (CreateStateMachine,
@@ -422,7 +434,12 @@ task definition revision; the data-lake buckets and the state bucket are still k
 
 ## Scripts
 
-`scripts/plan.sh`, `deploy.sh`, `rollback.sh`, `smoke-test.sh`,
-`run-bounded-pipeline.sh` and `cleanup.sh` (human only, not executable), with shared
-helpers in `scripts/lib/` and the on-cluster step helper `scripts/emr/scholarchain-step.sh`.
-Each script's header is its usage and its gate list.
+`scripts/check.sh` (every non-cloud gate, one sbt run), `package.sh` (jars, images,
+checksums, the renderer-provider check), `plan.sh`, `deploy.sh`, `rollback.sh`,
+`smoke-test.sh`, `run-bounded-pipeline.sh`, `run-experiment.sh`, `archive-evidence.sh`
+and `cleanup.sh` (human only, not executable), with shared helpers in `scripts/lib/` and
+the on-cluster step helper `scripts/emr/scholarchain-step.sh`.
+Each script's header is its usage, its gate list and its exit codes. Every
+cloud-dependent script takes `--dry-run` (no AWS call; exit 0 = the local checks pass,
+3 = a real run would refuse). `run-experiment.sh` also needs an
+`APPROVED-EXPERIMENT-SHA256: <manifest SHA-256>` line in the phase's `human-gate.md`.

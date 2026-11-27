@@ -60,7 +60,7 @@ variable "persistent" {
 }
 
 variable "enable_emr_endpoint" {
-  description = "Create the interface endpoint emr-spark-8.0.0 needs for clusters in private subnets (billed per hour, one AZ). true only inside a cloud window; run-bounded-pipeline.sh refuses to start without it."
+  description = "Create the pipeline's two interface endpoints: the EMR service endpoint emr-spark-8.0.0 needs for clusters in private subnets, and SQS for the enqueue step (each billed per hour, one AZ). true only inside a cloud window; run-bounded-pipeline.sh refuses to start without them."
   type        = bool
   default     = false
 }

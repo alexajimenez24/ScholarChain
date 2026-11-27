@@ -6,13 +6,20 @@
 # names below and can never set a trust policy.
 #
 #   runtime-query   query-service task role: Neptune READ ONLY, S3 Vectors query, rag
-#                   text reads, query-session and evidence-bundle writes, embedding calls
+#                   text reads, served-run listing (graph runs/*), query-session and
+#                   evidence-bundle writes, embedding calls
 #   runtime-graph   graph-service task role: Neptune READ ONLY (the read-only runtime role
 #                   for Neptune), metric and evidence reads
 #   runtime-worker  embedding-worker task role: drains the embedding queue, writes
-#                   vectors and rag text objects, records the run ledger
+#                   vectors and rag text objects, writes and reads back its load reports
+#                   (curated bucket, logs/* only), records the run ledger
 #   emr-instance    EC2 instance profile of EMR nodes: data-lake reads and writes,
-#                   pipeline tables, Neptune bulk-loader start and status, enqueue
+#                   pipeline tables, Neptune bulk-loader start and status, enqueue. The
+#                   Phase 13 loader steps (storage PipelineCli neptune-load, load-dynamo,
+#                   enqueue-embeddings, run on the primary node) need nothing more:
+#                   graph and curated writes, run-ledger and researcher-metric items,
+#                   neptune-db StartLoaderJob/GetLoaderJobStatus and sqs:SendMessage
+#                   are all below.
 #   step-functions  the pipeline state machine: EMR cluster and step control, pass only
 #                   the two EMR roles, enqueue embedding jobs
 # Not here: emr-service (AWS managed policy plus its pass grant, foundation), the ECS
@@ -120,6 +127,21 @@ data "aws_iam_policy_document" "query" {
     resources = [local.objects["rag"], local.objects["graph"]]
   }
 
+  # Phase 13 (step-01 report): at startup the service lists the Spark export of the served
+  # run (SERVING_RUN_MANIFEST_URI, under runs/<label>/spark/) to load its JSON-lines rows.
+  # Listing is limited to that prefix; the other buckets stay unlistable.
+  statement {
+    sid       = "ListServedRuns"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = [var.bucket_arns["graph"]]
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = ["runs/*"]
+    }
+  }
+
   statement {
     sid       = "ReadAllPipelineTables"
     effect    = "Allow"
@@ -197,6 +219,18 @@ data "aws_iam_policy_document" "worker" {
     effect    = "Allow"
     actions   = ["s3:PutObject"]
     resources = [local.objects["rag"]]
+  }
+
+  # Phase 13 repair round 1 (MAJOR-1): LoadStage stores every load report under the
+  # storage Zone.Logs, which S3Layout maps to the CURATED bucket, prefix logs/ (not the
+  # logs bucket). ArtifactWriter.writeAt is a create-only put (If-None-Match) and reads the
+  # object back on 412 to compare hashes, so it needs PutObject and GetObject, on logs/*
+  # only. Without it no queue message is ever acknowledged.
+  statement {
+    sid       = "WriteLoadReports"
+    effect    = "Allow"
+    actions   = ["s3:PutObject", "s3:GetObject"]
+    resources = ["${var.bucket_arns["curated"]}/logs/*"]
   }
 
   statement {

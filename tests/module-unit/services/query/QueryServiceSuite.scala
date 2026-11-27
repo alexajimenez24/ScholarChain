@@ -110,6 +110,9 @@ object QFx:
 import QFx.*
 
 class QueryServiceSuite extends munit.FunSuite:
+  // Hang guard only: the first test pays one-time JVM setup (RSA keys, IO runtime, class
+  // loading), over 30s in a loaded `sbt check`. Product timeouts are unchanged.
+  override val munitTimeout = scala.concurrent.duration.Duration(2, "min")
   private def answerOf(b: String) = ujson.read(b)("answer")
 
   test("a synchronous query returns a verified, evidence-backed answer with IDs and a metric") {

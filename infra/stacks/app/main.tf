@@ -21,7 +21,8 @@
 #   workers          -> embedding-worker  (SQS drain into S3 Vectors)
 #
 # Hourly cost while it exists: three Fargate tasks at the minimum (1 each), up to nine at
-# the maximum; the hosted zone of the private DNS namespace per month; API Gateway,
+# the maximum; the NAT gateway and its public IPv4 address (egress.tf) while the services
+# are not parked; the hosted zone of the private DNS namespace per month; API Gateway,
 # Cognito M2M tokens and Cloud Map lookups per use. Figures in the phase report.
 
 locals {
@@ -127,6 +128,16 @@ locals {
     },
     { for t in local.tables : "DDB_${upper(replace(t, "-", "_"))}" => local.p["dynamodb/${t}"] },
   )
+
+  # query-service only: the served pipeline run (step-01 report). Unset until a pipeline
+  # run has written one; plan.sh --serving-manifest passes it, so the signed app plan
+  # names the run the service will answer from.
+  service_env = {
+    for s in local.services : s => merge(
+      local.common_env,
+      s == "query-service" && var.serving_run_manifest_uri != "" ? { SERVING_RUN_MANIFEST_URI = var.serving_run_manifest_uri } : {},
+    )
+  }
 
   desired = var.park_services ? 0 : var.min_tasks
   minimum = var.park_services ? 0 : var.min_tasks
@@ -274,7 +285,8 @@ module "service" {
   cpu                   = var.task_size[each.key].cpu
   memory                = var.task_size[each.key].memory
   port                  = contains(local.http, each.key) ? var.service_port : null
-  environment           = local.common_env
+  environment           = local.service_env[each.key]
+  health_port           = var.service_port
   task_role_arn         = local.task_role[each.key]
   execution_role_arn    = local.execution_role_arn
   subnet_ids            = local.private_subnet_ids
@@ -286,7 +298,9 @@ module "service" {
   min_tasks             = local.minimum
   max_tasks             = var.max_tasks
 
-  depends_on = [aws_iam_role_policy.execution]
+  # The execution policy and the egress route first: a task pulls its image from ECR
+  # and starts its log stream through the NAT (egress.tf).
+  depends_on = [aws_iam_role_policy.execution, aws_route.private_default]
 }
 
 # ----- Outputs for later stacks (SSM only) --------------------------------------------
@@ -303,6 +317,8 @@ module "published" {
       "deploy/image-tag"     = var.image_tag
       "ecs/cluster-name"     = aws_ecs_cluster.this.name
       "ecs/parked"           = tostring(var.park_services)
+      "network/nat-enabled"  = tostring(local.nat_enabled)
+      "query/serving-run"    = var.serving_run_manifest_uri == "" ? "none" : var.serving_run_manifest_uri
       "api/id"               = aws_apigatewayv2_api.this.id
       "api/endpoint"         = aws_apigatewayv2_api.this.api_endpoint
       "api/access-log-group" = aws_cloudwatch_log_group.api.name

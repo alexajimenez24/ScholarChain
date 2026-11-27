@@ -1,0 +1,17 @@
+$ cd <repo> && timeout 120s scripts/deploy.sh --env dev --stack app --phase 13 --dry-run
+==> [deploy] STEP dry-run: env=dev stack=app phase=13 (no AWS call, no build, no terraform command)
+==> [deploy] DRY-RUN check tools (terraform aws git sha256sum): PASS
+==> [deploy] DRY-RUN check environment name and backend file: PASS
+==> [deploy] DRY-RUN check stack name: PASS
+==> [deploy] DRY-RUN check phase number: PASS
+==> [deploy] DRY-RUN check source tree is clean: WOULD-REFUSE (the source tree is dirty (changes above); only docs/agent-runs/phase-NN/ and new files under releases/ are exempt as evidence)
+==> [deploy] DRY-RUN check human gate phase-13 approves HEAD 90370d8fe5187008de582f40aa13ee31d1da8913 and env dev within budget: WOULD-REFUSE (no human gate: docs/agent-runs/phase-13/human-gate.md)
+==> [deploy] DRY-RUN check saved plan ~/.scholarchain/plans/dev/app.tfplan is signed and its metadata names dev/app at HEAD, clean: WOULD-REFUSE (saved plan not found, not a regular file, or a symlink: ~/.scholarchain/plans/dev/app.tfplan; run scripts/plan.sh first)
+==> [deploy] DRY-RUN check caller is assumed-role/scholarchain-dev-deployment (foundation: by admin-changes): NOT-CHECKED (needs an AWS call; the real run checks it)
+==> [deploy] DRY-RUN would: scripts/package.sh --images-only (the assemblies, then one image at a time, each under timeout 20m), then tag and push query-service, graph-service and embedding-worker as <ECR repository>:90370d8fe5187008de582f40aa13ee31d1da8913 (an existing tag is kept)
+==> [deploy] DRY-RUN would: terraform init (S3 backend), re-hash the private plan copy, terraform apply <that copy> (no -auto-approve, no plan, no destroy)
+==> [deploy] DRY-RUN would: verify SSM /scholarchain/dev/app/deploy/revision == 90370d8fe5187008de582f40aa13ee31d1da8913
+==> [deploy] DRY-RUN would: verify the three services are stable, their task images are :90370d8fe5187008de582f40aa13ee31d1da8913 and every running task's digest equals the ECR digest
+==> [deploy] DRY-RUN would: print the ==> RELEASE lines for releases/
+==> [deploy] DRY-RUN result: a real run would REFUSE (3 check(s) above); no AWS call was made, nothing changed
+exit code: 3

@@ -1,0 +1,8 @@
+$ python3 -I -c <read Main-Class from each service assembly; check the class is in the jar> target/services/*/*.jar ; docker image inspect (Entrypoint) of each :local image
+OK  queryService-0.1.0-SNAPSHOT.jar Main-Class=scholarchain.services.query.QueryServiceMain
+OK  graphService-0.1.0-SNAPSHOT.jar Main-Class=scholarchain.services.graph.GraphServiceMain
+OK  embeddingWorker-0.1.0-SNAPSHOT.jar Main-Class=scholarchain.services.worker.EmbeddingWorkerMain
+query-service ["java","-XX:InitialRAMPercentage=25","-XX:MaxRAMPercentage=75","-XX:+ExitOnOutOfMemoryError","-jar","/opt/scholarchain/app.jar"] user=10001:10001
+graph-service ["java","-XX:InitialRAMPercentage=25","-XX:MaxRAMPercentage=75","-XX:+ExitOnOutOfMemoryError","-jar","/opt/scholarchain/app.jar"] user=10001:10001
+embedding-worker ["java","-XX:InitialRAMPercentage=25","-XX:MaxRAMPercentage=75","-XX:+ExitOnOutOfMemoryError","-jar","/opt/scholarchain/app.jar"] user=10001:10001
+exit code: 0

@@ -156,6 +156,10 @@ object LoadReport:
   * as it is. A replay with a different report (it completed rows rejected before, say) records the
   * new report on the ledger ([[RunLedger.recordReport]]); the earlier report stays in
   * `priorOutputs`. A replay whose body fails changes nothing on a `Succeeded` stage.
+  *
+  * Several writers may share one stage (embedding workers draining one run): a version conflict on
+  * the ledger entry is resolved by reading the entry again and applying the same step to it, at
+  * most [[LoadStage.MaxLedgerAttempts]] times.
   */
 final class LoadStage(ledger: RunLedger, writer: ArtifactWriter):
   final case class Outcome[A](
@@ -172,9 +176,9 @@ final class LoadStage(ledger: RunLedger, writer: ArtifactWriter):
     for
       started <- ledger.start(runId, stage, logicVersion).left.map(e => s"ledger: $e")
       (entry0, _) = started
-      cur <- entry0.value.status match
-        case LedgerStatus.Failed => ledger.retry(entry0).left.map(e => s"ledger: $e")
-        case _                   => Right(entry0)
+      cur <- onLatest(runId, stage, entry0) { e =>
+        if e.value.status == LedgerStatus.Failed then ledger.retry(e) else Right(e)
+      }
       result <- body match
         case Left(err) =>
           if cur.value.status == LedgerStatus.Started then ledger.fail(cur, err)
@@ -189,14 +193,35 @@ final class LoadStage(ledger: RunLedger, writer: ArtifactWriter):
               Left(msg)
             case Right((obj, wrote)) =>
               val replay = cur.value.status != LedgerStatus.Started
-              val recorded =
-                if !replay then ledger.succeed(cur, obj.uri, obj.sha256)
-                else if cur.value.outputSha256.contains(obj.sha256) then Right(cur)
-                else ledger.recordReport(cur, obj.uri, obj.sha256)
-              recorded.left
-                .map(e => s"ledger: $e")
+              onLatest(runId, stage, cur)(record(_, obj.uri, obj.sha256))
                 .map(v => Outcome(value, obj, wrote, v.value, replay))
     yield result
+
+  private def record(
+      e: Versioned[LedgerEntry],
+      uri: String,
+      sha: String
+  ): Either[KvError, Versioned[LedgerEntry]] =
+    e.value.status match
+      case LedgerStatus.Started   => ledger.succeed(e, uri, sha)
+      case LedgerStatus.Succeeded =>
+        if e.value.outputSha256.contains(sha) then Right(e)
+        else ledger.recordReport(e, uri, sha)
+      // another writer's attempt failed meanwhile; this one completed
+      case LedgerStatus.Failed => ledger.retry(e).flatMap(ledger.succeed(_, uri, sha))
+
+  private def onLatest(runId: String, stage: String, from: Versioned[LedgerEntry])(
+      step: Versioned[LedgerEntry] => Either[KvError, Versioned[LedgerEntry]]
+  ): Either[String, Versioned[LedgerEntry]] =
+    def go(e: Versioned[LedgerEntry], left: Int): Either[KvError, Versioned[LedgerEntry]] =
+      step(e) match
+        case Left(c: KvError.ConditionFailed) if left > 1 =>
+          ledger.get(runId, stage).flatMap(_.toRight(c)).flatMap(go(_, left - 1))
+        case other => other
+    go(from, LoadStage.MaxLedgerAttempts).left.map(e => s"ledger: $e")
+
+object LoadStage:
+  val MaxLedgerAttempts = 10
 
 // ------------------------------------------------------------------ load manifests
 

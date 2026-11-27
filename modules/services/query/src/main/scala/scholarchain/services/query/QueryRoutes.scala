@@ -110,8 +110,8 @@ final class QueryRoutes(guard: Guard, service: QueryService, maxBodyBytes: Int =
       guard.authorize(req, Scopes.QueryRun).flatMap(service.explain(_, id)).map(Json.ok)
   }
 
-/** Settings read from the environment. `LLM_ENABLED` defaults to false: the model-written path
-  * stays off until the Phase 08b finding R6-1 is closed.
+/** Settings read from the environment. `LLM_ENABLED` defaults to false: the model-written path is
+  * off unless a deployment turns it on.
   */
 final case class QueryConfig(llmEnabled: Boolean = false)
 

@@ -1,0 +1,42 @@
+$ cd <repo> && timeout 300s scripts/run-bounded-pipeline.sh --env dev --phase 13 --snapshot-dir datasets/samples/local/2026-11-24-25k --embed-units 0 --dry-run
+==> [run-bounded-pipeline] STEP dry-run: start env=dev phase=13 snapshot=2026-11-24-25k embed-units=0 neptune-load=false (no AWS call, no build, no upload)
+==> [run-bounded-pipeline] DRY-RUN check tools (aws git sbt python3): PASS
+==> [run-bounded-pipeline] DRY-RUN check snapshot files match retrieval.json and fit --max-input-mb 1024: PASS
+==> [run-bounded-pipeline] DRY-RUN check source tree is clean: WOULD-REFUSE (the source tree is dirty (changes above); only docs/agent-runs/phase-NN/ and new files under releases/ are exempt as evidence)
+==> [run-bounded-pipeline] DRY-RUN check human gate phase-13 approves HEAD 90370d8fe5187008de582f40aa13ee31d1da8913 and env dev within budget: WOULD-REFUSE (no human gate: docs/agent-runs/phase-13/human-gate.md)
+==> [run-bounded-pipeline] DRY-RUN check caller is assumed-role/scholarchain-dev-deployment: NOT-CHECKED (needs an AWS call; the real run checks it)
+==> [run-bounded-pipeline] DRY-RUN check compute deploy/revision == HEAD; emr/endpoint-enabled and sqs/endpoint-enabled are true: NOT-CHECKED (needs an AWS call; the real run checks it)
+==> [run-bounded-pipeline] DRY-RUN would: upload dblp-sample.xml create-only to s3://<raw bucket>/dblp/snapshot_date=2026-11-24-25k/dblp-sample.xml (metadata sha256)
+==> [run-bounded-pipeline] DRY-RUN would: upload openalex-works.jsonl create-only to s3://<raw bucket>/openalex/snapshot_date=2026-11-24-25k/openalex-works.jsonl (metadata sha256)
+==> [run-bounded-pipeline] DRY-RUN would: upload crossref-works.jsonl create-only to s3://<raw bucket>/crossref/snapshot_date=2026-11-24-25k/crossref-works.jsonl (metadata sha256)
+==> [run-bounded-pipeline] DRY-RUN would: upload dblp.dtd create-only to s3://<raw bucket>/dblp/snapshot_date=2026-11-24-25k/dblp.dtd (metadata sha256)
+==> [run-bounded-pipeline] DRY-RUN would: upload retrieval.json create-only to s3://<raw bucket>/dblp/snapshot_date=2026-11-24-25k/retrieval.json
+==> [run-bounded-pipeline] DRY-RUN would: scripts/package.sh --jars-only (one sbt run), then upload hadoop.jar, entity-resolution.jar, spark.jar, loaders.jar and emr/scholarchain-step.sh to s3://<artifacts bucket>/pipeline/90370d8fe5187008de582f40aa13ee31d1da8913/
+==> [run-bounded-pipeline] DRY-RUN would: start one execution run-<UTC time>-90370d8 with snapshot=2026-11-24 neptuneLoad=false embedUnits=0: Hadoop, entity resolution, Spark, load-dynamo, then terminate the cluster
+==> [run-bounded-pipeline] DRY-RUN would: write target/pipeline-evidence/<run>/run-start.txt and print ==> PIPELINE-STARTED and the --status/--finish commands
+==> [run-bounded-pipeline] DRY-RUN result: a real run would REFUSE (2 check(s) above); no AWS call was made, nothing changed
+exit code: 3
+
+$ cd <repo> && timeout 120s scripts/run-bounded-pipeline.sh --env dev --finish run-20261126t000000z-90370d8 --dry-run
+==> [run-bounded-pipeline] STEP dry-run: finish run-20261126t000000z-90370d8 (no AWS call)
+==> [run-bounded-pipeline] DRY-RUN check the execution run-20261126t000000z-90370d8 has ended (describe-execution): NOT-CHECKED (needs an AWS call; the real run checks it)
+==> [run-bounded-pipeline] DRY-RUN would: save describe-execution.json, execution-history.json and run-manifests.txt (account ID redacted) under ~/scholarchain/target/pipeline-evidence/run-20261126t000000z-90370d8
+==> [run-bounded-pipeline] DRY-RUN would: print the Spark run manifest as ==> SERVING-MANIFEST (for plan.sh --stack app --serving-manifest)
+==> [run-bounded-pipeline] DRY-RUN would: terminate any cluster named scholarchain-dev-run-20261126t000000z-90370d8 still STARTING/BOOTSTRAPPING/RUNNING/WAITING (not as the deployment role), then check it is TERMINATING
+==> [run-bounded-pipeline] DRY-RUN would: scale query-service, graph-service and embedding-worker to 0 tasks (minimum 0) and print ==> DRIFT
+==> [run-bounded-pipeline] DRY-RUN result: the local checks pass; no AWS call was made, nothing changed
+exit code: 0
+
+$ cd <repo> && timeout 120s scripts/run-bounded-pipeline.sh --env dev --phase 13 --snapshot-dir datasets/samples/local/2026-11-24-25k --dry-run
+# scripts/run-bounded-pipeline.sh: one bounded cloud pipeline run, in three separate
+# invocations (no polling loop on the laptop):
+#
+#   start:  scripts/run-bounded-pipeline.sh --env dev --phase NN
+#             --snapshot-dir datasets/samples/local/<snapshot label>
+#             --embed-units 0|all|N [--neptune-load true|false] [--max-input-mb N]
+#             [--dry-run]
+#   status: scripts/run-bounded-pipeline.sh --env dev --status <run label>
+#   finish: scripts/run-bounded-pipeline.sh --env dev --finish <run label>
+#             [--evidence-dir DIR] [--keep-services] [--dry-run]
+#
+exit code: 2

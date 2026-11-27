@@ -1,0 +1,6 @@
+$ cd <scratchpad>/clean-copy-2 && timeout 30m sbt -batch graphService/test rag/test
+[info] Passed: Total 18, Failed 0, Errors 0, Passed 18
+[success] Total time: 6 s, completed Nov 26, 2026, 6:31:18 PM
+[info] Passed: Total 166, Failed 0, Errors 0, Passed 166
+[success] Total time: 6 s, completed Nov 26, 2026, 6:31:24 PM
+exit code: 0

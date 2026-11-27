@@ -15,6 +15,9 @@ import QFx.*
   * nor the internal message.
   */
 class DownstreamMappingSuite extends munit.FunSuite:
+  // Hang guard only: the first test pays one-time JVM setup (RSA keys, IO runtime, class
+  // loading), over 30s in a loaded `sbt check`. Product timeouts are unchanged.
+  override val munitTimeout = scala.concurrent.duration.Duration(2, "min")
   private val Secret = "Bearer sc-fake-token-r4-5d1e password=hunter2-r4"
   private val Fragments = Vector(Secret, "sc-fake-token-r4-5d1e", "hunter2-r4")
   private val Message = "a downstream dependency failed"

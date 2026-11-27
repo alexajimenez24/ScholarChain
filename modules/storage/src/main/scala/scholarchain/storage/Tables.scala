@@ -95,7 +95,9 @@ final case class PriorOutput(attempt: Int, uri: String, sha256: String, recorded
 
 /** The state of one stage of one run. `outputUri` and `outputSha256` name the latest report;
   * `priorOutputs` (oldest first, empty for most stages and then absent from the stored JSON) keeps
-  * the ones a later replay replaced.
+  * the ones a later replay replaced. The list is capped at [[RunLedger.MaxPriorOutputs]] (the first
+  * report and the latest ones); `priorDropped` counts the pointers trimmed from the middle. The
+  * report objects themselves are never removed from S3.
   */
 final case class LedgerEntry(
     runId: String,
@@ -107,7 +109,8 @@ final case class LedgerEntry(
     outputSha256: Option[String],
     error: Option[String],
     updatedAt: String,
-    priorOutputs: Vector[PriorOutput] = Vector.empty
+    priorOutputs: Vector[PriorOutput] = Vector.empty,
+    priorDropped: Long = 0L
 ) derives ReadWriter
 
 /** One failed subject (a rejected vector key, a bad file) with its retry count. */
@@ -208,7 +211,8 @@ final class RunLedger(kv: KeyValueStore, table: String, clock: Clock = Clock.sys
   /** A replay of a `Succeeded` stage produced another report: the stage stays `Succeeded`, one
     * attempt higher, and names the new report; the replaced one moves to `priorOutputs`. The write
     * is version-guarded, so a concurrent change is a `ConditionFailed`, never a lost report. The
-    * history is bounded only by the 400 KB item limit, beyond which the write is refused.
+    * history keeps the first report and the latest ones, [[RunLedger.MaxPriorOutputs]] in all, so a
+    * stage recorded once per queue drain stays far below the 400 KB item limit.
     */
   def recordReport(
       cur: Versioned[LedgerEntry],
@@ -218,6 +222,10 @@ final class RunLedger(kv: KeyValueStore, table: String, clock: Clock = Clock.sys
     val e = cur.value
     val replaced = for u <- e.outputUri; h <- e.outputSha256
     yield PriorOutput(e.attempt, u, h, e.updatedAt)
+    val all = e.priorOutputs ++ replaced
+    val kept =
+      if all.size <= RunLedger.MaxPriorOutputs then all
+      else all.head +: all.takeRight(RunLedger.MaxPriorOutputs - 1)
     move(
       cur,
       Set(LedgerStatus.Succeeded),
@@ -226,7 +234,8 @@ final class RunLedger(kv: KeyValueStore, table: String, clock: Clock = Clock.sys
         outputUri = Some(outputUri),
         outputSha256 = Some(outputSha256),
         updatedAt = stamp,
-        priorOutputs = e.priorOutputs ++ replaced
+        priorOutputs = kept,
+        priorDropped = e.priorDropped + (all.size - kept.size)
       )
     )
 
@@ -283,6 +292,9 @@ final class RunLedger(kv: KeyValueStore, table: String, clock: Clock = Clock.sys
 
   def failures(runId: String, stage: String): Either[KvError, Vector[Versioned[FailureRecord]]] =
     for p <- pk(runId); st <- keyPart("stage", stage); r <- f.list(p, s"fail#$st#", 1000) yield r
+
+object RunLedger:
+  val MaxPriorOutputs = 100
 
 // ---------------------------------------------------------------- EntityLinkCache
 

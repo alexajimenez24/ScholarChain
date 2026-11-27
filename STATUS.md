@@ -5,7 +5,57 @@ resume. -->
 
 ## Where things stand
 
-### Resume here: Phase 12 (infrastructure), nothing applied or committed
+### Resume here: Phase 13, not committed, not applied, awaiting the human
+Sources: `docs/agent-runs/phase-13/`, read `run-log.md` section "Final round for the
+scripts" first, then `review-report-04.md`.
+- Next step: the human's decision on the open items below. No agent step is queued,
+  and no further repair round is authorized.
+- Final round (human, 2026-11-26): one infra-engineer repair (repair 3) on four trap
+  items, then a fresh code-reviewer check of those four only. Both are done.
+- Verdict (`review-report-04.md`): REQUEST_CHANGES, 1 MAJOR, 1 MINOR.
+  Items 1 to 3 MET (item 2 for single failures). Item 4 NOT MET: a repeated stop signal
+  can break cleanup. The reviewer's guard run was 27/28, with one FAIL ("F SIGNAL line
+  and guard ran (3 services scaled)"); the author's repair 3 run reported 103/103.
+- CARRIED TO THE HUMAN, MAJOR-1 (infra-engineer): a second stop signal during the first
+  one's handling can exit with no cluster check, no scale-down and no GUARD-FAILED line
+  (`scripts/lib/common.sh` 450-453, 482-485, 645). Seen in 4 of 15 reviewer runs,
+  including under an outer `timeout`. Reviewer's repair, not run: ignore INT, TERM and
+  HUP as the first action of each trap, then prove it with a repeated-signal loop.
+- CARRIED TO THE HUMAN, MINOR-1 (infra-engineer): the cluster-name SSM read is tried
+  once; if it fails, all three scale-downs are skipped (`common.sh` 617-621), found by
+  reading, not run.
+- Workaround until MAJOR-1 is fixed: no outer `timeout` around `run-bounded-pipeline.sh`
+  or `run-experiment.sh`, no repeated stop signals; after an interrupted run, check EMR
+  and ECS by hand.
+- Accepted choices (human, 2026-11-26): a successful `start` scales ECS to zero unless
+  `--keep-services` is given; `finish` refuses to scale down while the pipeline runs.
+- Approved in chat, 2026-11-26: `WriteLoadReports` on runtime-worker (`repair-01.md`),
+  recorded in `run-log.md`, not `human-gate.md`, which only the human writes.
+- Final `sbt check` exit 0 (`output-sbt-check-final.txt`): 1139 passed, 0 failed,
+  1 ignored. It ran before the script repairs; repairs 2 and 3 changed only shell
+  scripts, with no sbt run.
+- Older: the SIGPIPE MAJOR of `review-report-03.md` is MET (item 1). Old MINOR-1 relates
+  to item 4. Old MINOR-2 and MINOR-3 are not named in `review-report-04.md`.
+- Clean-copy `check.sh` 7 of 7 (`output-check-clean.txt`) predates both repairs.
+- Stale: `output-package.txt` and its images (query-service stale since step 4c).
+  Rerun `scripts/package.sh` before Phase 14. No image ran with `LLM_ENABLED=true`.
+- Human action, not run by any agent, no record that it was run: the cleanup dry run,
+  from an agent-free shell:
+  ```text
+  cd ~/scholarchain
+  timeout 120s bash scripts/cleanup.sh --env dev --dry-run; echo "exit code: $?"
+  ```
+  Expected exit 3 (`agent-report.md`); the guard blocked it for agents.
+- Applied: nothing; no plan, apply or deploy in phase 13. Committed: nothing.
+  Left behind: local Docker images, scratchpad copies and `target/` outputs.
+- Carried forward (not re-verified in phase 13): `LLM_ENABLED` defaults to false;
+  `ServingData` stands in for two rag adapters; Phase 14 window cost typical $6.85,
+  upper $13.43 (step 3), for the human to sign; synthesis model ID, cost-allocation
+  tags, Trivy's 23 findings, EMR 8.0.0 details; `docs/agent-runs/README.md` lacks
+  `APPROVED-EXPERIMENT-SHA256`; `aws-api` MCP server is at end of development
+  (migration guide in `agent-report.md`).
+
+### Previous resume point (no longer current): Phase 12 (infrastructure)
 
 Sources: `docs/agent-runs/phase-12/` (`run-log.md`, the step reports,
 `agent-report.md`).

@@ -69,6 +69,9 @@ object GFx:
 import GFx.*
 
 class GraphNodeSuite extends munit.FunSuite:
+  // Hang guard only: the first test pays one-time JVM setup (RSA keys, IO runtime, class
+  // loading), over 30s in a loaded `sbt check`. Product timeouts are unchanged.
+  override val munitTimeout = scala.concurrent.duration.Duration(2, "min")
   test("GET a node returns id, labels and properties with request and trace IDs") {
     val rig = new Rig
     val (r, b) = send(rig.routes, get(s"/v1/graph/nodes/$a"))
@@ -107,6 +110,7 @@ class GraphNodeSuite extends munit.FunSuite:
   }
 
 class GraphNeighborsSuite extends munit.FunSuite:
+  override val munitTimeout = scala.concurrent.duration.Duration(2, "min")
   private def page(rig: Rig, q: String) = send(rig.routes, get(s"/v1/graph/nodes/$a/neighbors$q"))
   private def ids(j: ujson.Value) = j("items").arr.map(_("nodeId").str).toVector
 
@@ -195,6 +199,7 @@ class GraphNeighborsSuite extends munit.FunSuite:
   }
 
 class GraphFailureSuite extends munit.FunSuite:
+  override val munitTimeout = scala.concurrent.duration.Duration(2, "min")
   private val path = s"/v1/graph/nodes/$a/neighbors"
 
   test("a failing store is 502 with a typed error and no store message") {
@@ -244,6 +249,7 @@ class GraphFailureSuite extends munit.FunSuite:
   }
 
 class GraphEvidenceSuite extends munit.FunSuite:
+  override val munitTimeout = scala.concurrent.duration.Duration(2, "min")
   private val item = EvidenceItem(
     "evidence-v1",
     "ev:graph:1",

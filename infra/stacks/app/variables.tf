@@ -114,6 +114,17 @@ variable "llm_enabled" {
   default     = false
 }
 
+variable "serving_run_manifest_uri" {
+  description = "query-service SERVING_RUN_MANIFEST_URI: the Spark run manifest of the pipeline run to serve (s3://<graph bucket>/runs/<label>/spark/run-manifests/run-<hex>.json). Empty until a run exists; supplied at plan time by scripts/plan.sh --serving-manifest, never in a file."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.serving_run_manifest_uri == "" || can(regex("^s3://[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/runs/run-[0-9]{8}t[0-9]{6}z-[0-9a-f]{7}/spark/([A-Za-z0-9=._-]+/)*run-manifests/run-[0-9a-f]+\\.json$", var.serving_run_manifest_uri))
+    error_message = "serving_run_manifest_uri must be empty or s3://<graph bucket>/runs/<run label>/spark/.../run-manifests/run-<hex>.json."
+  }
+}
+
 variable "synthesis_model_id" {
   description = "Bedrock synthesis model (config SYNTHESIS_MODEL_ID): a US geographic inference-profile ID (us.anthropic.*), because the grant in main.tf is the geo-profile shape. Human decision 2026-11-26: us.anthropic.claude-haiku-4-5-20251001-v1:0."
   type        = string

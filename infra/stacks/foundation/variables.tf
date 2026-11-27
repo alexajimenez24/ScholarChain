@@ -64,14 +64,8 @@ variable "persistent" {
   default     = false
 }
 
-variable "enable_nat" {
-  description = "One NAT gateway in the first AZ. true only inside a cloud window."
-  type        = bool
-  default     = false
-}
-
 variable "interface_endpoints" {
-  description = "Optional interface endpoints (each billed per hour, one AZ each). Default none: the NAT gateway covers egress."
+  description = "Optional interface endpoints (each billed per hour, one AZ each). Default none: the app stack's NAT gateway covers the services' egress, and the compute stack holds the pipeline's endpoints."
   type        = set(string)
   default     = []
 }

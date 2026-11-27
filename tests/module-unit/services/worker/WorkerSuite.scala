@@ -98,6 +98,9 @@ object WFx:
 import WFx.*
 
 class EmbeddingWorkerSuite extends munit.FunSuite:
+  // Hang guard only: the first test pays one-time JVM setup (RSA keys, IO runtime, class
+  // loading), over 30s in a loaded `sbt check`. Product timeouts are unchanged.
+  override val munitTimeout = scala.concurrent.duration.Duration(2, "min")
   test("valid messages are embedded and acknowledged") {
     val rig = new Rig
     val ds = (1 to 3).map(doc(_))
@@ -182,6 +185,7 @@ class EmbeddingWorkerSuite extends munit.FunSuite:
   }
 
 class WorkerHealthSuite extends munit.FunSuite:
+  override val munitTimeout = scala.concurrent.duration.Duration(2, "min")
   private def send(routes: HttpRoutes[IO], path: String) =
     routes.orNotFound
       .run(Request[IO](Method.GET, Uri.unsafeFromString(path)))

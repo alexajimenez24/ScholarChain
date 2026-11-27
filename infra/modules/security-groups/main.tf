@@ -27,8 +27,13 @@
 #
 # Egress note: tcp 443 to 0.0.0.0/0 for the three services is needed because Bedrock,
 # S3 Vectors, SQS, ECR, CloudWatch Logs and the Cognito JWKS URL are public AWS endpoints
-# reached through the NAT gateway (S3 and DynamoDB go through the gateway endpoints).
-# It is egress only and HTTPS only.
+# reached through the app stack's NAT gateway (S3 and DynamoDB go through the gateway
+# endpoints; SQS through the compute stack's endpoint while it exists). It is egress
+# only and HTTPS only.
+# Phase 13: the pipeline's loader steps run on the EMR primary node and call S3,
+# DynamoDB (gateway endpoints), Neptune (rule above) and SQS through the compute stack's
+# SQS interface endpoint (the emr_to_endpoints rule below), so EMR still has no
+# 0.0.0.0/0 egress.
 
 terraform {
   required_providers {

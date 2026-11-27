@@ -2,7 +2,12 @@
 # scripts/rollback.sh: return the three ECS services to the images of an earlier commit.
 #
 # Usage:
-#   scripts/rollback.sh --env dev --phase NN --to-commit <40-hex sha>
+#   scripts/rollback.sh --env dev --phase NN --to-commit <40-hex sha> [--dry-run]
+#
+# --dry-run: checks the arguments, the ancestry of --to-commit, the clean tree and the
+# human gate's environment line, names what a real run would do; no AWS call. Exit 0 =
+# local checks pass, 3 = a real run would refuse. Real run exit codes: 0 rolled back and
+# verified, 1 refused or failed, 2 usage.
 #
 # Run by deploy-engineer (/rollback, or a failed deploy gate). It refuses unless:
 #   - the source tree is clean,
@@ -24,31 +29,52 @@ source "$(dirname "$0")/lib/common.sh"
 
 usage() { sed -n '2,5p' "$0"; exit 2; }
 
-ENV="" PHASE="" TARGET=""
+ENV="" PHASE="" TARGET="" DRY_RUN=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --env) ENV="${2:-}"; shift 2 ;;
     --phase) PHASE="${2:-}"; shift 2 ;;
     --to-commit) TARGET="${2:-}"; shift 2 ;;
+    --dry-run) DRY_RUN=true; shift ;;
     -h | --help) usage ;;
-    *) sc_die "unknown argument: $1" ;;
+    *) printf '==> [rollback] FAILED: unknown argument: %s\n' "$1" >&2; usage ;;
   esac
 done
 [[ -n "$ENV" && -n "$PHASE" && -n "$TARGET" ]] || usage
+
+gate_env_matches() {
+  sc_read_gate "$PHASE"
+  [[ "$GATE_ENV" == "$ENV" ]] || sc_die "environment $ENV is not the APPROVED-ENVIRONMENT $GATE_ENV"
+}
+is_ancestor() { git -C "$SC_ROOT" merge-base --is-ancestor "$TARGET" HEAD || sc_die "$TARGET is not an ancestor of HEAD"; }
+
+if [[ "$DRY_RUN" == true ]]; then
+  sc_step dry-run "env=$ENV phase=$PHASE to-commit=$TARGET (no AWS call)"
+  [[ "$ENV" =~ ^[a-z][a-z0-9]{1,7}$ ]] || sc_die "invalid environment name: $ENV"
+  sc_check_phase "$PHASE"
+  [[ "$TARGET" =~ ^[0-9a-f]{40}$ ]] || sc_die "--to-commit must be a full 40-hex commit SHA"
+  sc_dry_check "tools (aws git)" sc_need_tools aws git timeout sed awk
+  sc_dry_check "$TARGET is an ancestor of HEAD" is_ancestor
+  sc_dry_check "source tree is clean" sc_require_clean_tree
+  sc_dry_check "human gate phase-$PHASE names environment $ENV" gate_env_matches
+  sc_dry_aws "each ECR repository holds :$TARGET and an ACTIVE task definition revision (newest 20) runs it"
+  sc_would "point query-service, graph-service and embedding-worker at those revisions (no new revision, no scaling change), wait up to 20 minutes for stability, verify each runs :$TARGET"
+  sc_would "print ==> DRIFT (Terraform state still records the last deploy) and ==> ROLLBACK; never run Terraform, never touch data"
+  sc_dry_end
+fi
 
 sc_step preflight "env=$ENV phase=$PHASE to-commit=$TARGET"
 sc_need_tools aws git timeout sed awk
 [[ "$ENV" =~ ^[a-z][a-z0-9]{1,7}$ ]] || sc_die "invalid environment name: $ENV"
 sc_check_phase "$PHASE"
 [[ "$TARGET" =~ ^[0-9a-f]{40}$ ]] || sc_die "--to-commit must be a full 40-hex commit SHA"
-git -C "$SC_ROOT" merge-base --is-ancestor "$TARGET" HEAD || sc_die "$TARGET is not an ancestor of HEAD"
+is_ancestor
 
 sc_step tree "refuse a dirty source tree"
 sc_require_clean_tree
 
 sc_step gate "the environment must be the approved one"
-sc_read_gate "$PHASE"
-[[ "$GATE_ENV" == "$ENV" ]] || sc_die "environment $ENV is not the APPROVED-ENVIRONMENT $GATE_ENV"
+gate_env_matches
 
 sc_step identity "caller identity"
 sc_identity

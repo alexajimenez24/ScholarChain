@@ -1,7 +1,8 @@
 # Optional interface VPC endpoints, each in ONE subnet (one AZ) to halve the hourly cost.
-# Every endpoint bills per hour while it exists, so the default set is empty: the NAT
-# gateway covers egress. Add a service here only with a written justification (for
-# example "bedrock-runtime" if the NAT gateway is removed). Callers in the second AZ reach
+# Every endpoint bills per hour while it exists, so the default set is empty: the app
+# stack's NAT gateway covers the services' egress (infra/stacks/app/egress.tf). Add a
+# service here only with a written justification (for example "bedrock-runtime" if the
+# NAT gateway is removed). Callers in the second AZ reach
 # the endpoint across AZs, which is acceptable for a course environment.
 
 terraform {

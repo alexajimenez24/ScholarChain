@@ -365,7 +365,7 @@ object LocalIngestion:
       )
     yield (m, parsed._1, parsed._2, parsed._3)
 
-  private def combined(
+  private[storage] def combined(
       summaries: RowSource[EvidenceItem],
       abstracts: RowSource[PaperAbstract],
       hasAbstracts: Boolean,
@@ -385,7 +385,7 @@ object LocalIngestion:
     * `chosen` the rows kept for a subset (all of them without one), and the `malformed` counts the
     * lines that did not decode, per source table.
     */
-  private final case class Selection(
+  private[storage] final case class Selection(
       keys: Set[String],
       totals: Map[String, Long],
       chosen: Map[String, Long],
@@ -396,7 +396,7 @@ object LocalIngestion:
   /** One pass over the export holding only keys: counts every row per document type and, with a
     * subset `n`, keeps the `n` smallest-SHA-256 keys per type.
     */
-  private def scan(
+  private[storage] def scan(
       summaries: RowSource[EvidenceItem],
       abstracts: RowSource[PaperAbstract],
       hasAbstracts: Boolean,
@@ -443,7 +443,7 @@ object LocalIngestion:
     * must equal the manifest. Lines that did not decode have no type, so when a table has any, that
     * table is compared as a whole (readable plus undecodable lines).
     */
-  private def checkAgainstManifest(
+  private[storage] def checkAgainstManifest(
       m: VectorManifest,
       absRows: Option[Long],
       cfg: ScholarChainConfig,

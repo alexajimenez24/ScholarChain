@@ -1,0 +1,11 @@
+$ cd <repo> && timeout 120s scripts/rollback.sh --env dev --phase 13 --to-commit 008b4517b2edc02f32ce046496e0ddae519cbccf --dry-run
+==> [rollback] STEP dry-run: env=dev phase=13 to-commit=008b4517b2edc02f32ce046496e0ddae519cbccf (no AWS call)
+==> [rollback] DRY-RUN check tools (aws git): PASS
+==> [rollback] DRY-RUN check 008b4517b2edc02f32ce046496e0ddae519cbccf is an ancestor of HEAD: PASS
+==> [rollback] DRY-RUN check source tree is clean: WOULD-REFUSE (the source tree is dirty (changes above); only docs/agent-runs/phase-NN/ and new files under releases/ are exempt as evidence)
+==> [rollback] DRY-RUN check human gate phase-13 names environment dev: WOULD-REFUSE (no human gate: docs/agent-runs/phase-13/human-gate.md)
+==> [rollback] DRY-RUN check each ECR repository holds :008b4517b2edc02f32ce046496e0ddae519cbccf and an ACTIVE task definition revision (newest 20) runs it: NOT-CHECKED (needs an AWS call; the real run checks it)
+==> [rollback] DRY-RUN would: point query-service, graph-service and embedding-worker at those revisions (no new revision, no scaling change), wait up to 20 minutes for stability, verify each runs :008b4517b2edc02f32ce046496e0ddae519cbccf
+==> [rollback] DRY-RUN would: print ==> DRIFT (Terraform state still records the last deploy) and ==> ROLLBACK; never run Terraform, never touch data
+==> [rollback] DRY-RUN result: a real run would REFUSE (2 check(s) above); no AWS call was made, nothing changed
+exit code: 3

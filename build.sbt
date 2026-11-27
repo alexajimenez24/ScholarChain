@@ -290,8 +290,84 @@ def deployable(id: String, folder: String, image: String): Project =
       libraryDependencies += "ch.qos.logback" % "logback-classic" % V.logback % Runtime
     )
 
+// Synthesis resources ---------------------------------------------------------------
+// With LLM_ENABLED=true (off by default) queryService reads the synthesis prompt from the
+// classpath, so its jar, and so its image, carries the prompt and the reply schema at their
+// repository paths. rag names them: SynthesisPrompt.File and SynthesisRules.SchemaFile. A new
+// prompt or schema version changes this list in the same change. prompts/ stays the only
+// source. They join the assembly classpath only, never Compile or Test resources: a
+// classpath copy wins over SYNTHESIS_PROMPT_ROOT, which the unit tests rely on.
+val synthesisResources =
+  settingKey[Seq[String]]("Repository paths the queryService jar must carry unchanged")
+val stageSynthesisResources =
+  taskKey[File]("Copy synthesisResources into a directory laid out as classpath resources")
+val verifySynthesisResources = taskKey[Unit](
+  "Fail unless the packaged queryService classpath holds each synthesis resource, unchanged"
+)
+
+val synthesisResourceSettings: Seq[Setting[_]] = Seq(
+  synthesisResources := Seq(
+    "prompts/runtime/answer-synthesis-v2.md",
+    "prompts/schemas/answer-synthesis-v2.json"
+  ),
+  stageSynthesisResources := {
+    val root = (ThisBuild / baseDirectory).value
+    val out = target.value / "synthesis-resources"
+    IO.delete(out) // never package a file that has left the list
+    synthesisResources.value.foreach { rel =>
+      if (!(root / rel).isFile)
+        throw new MessageOnlyException(s"synthesis resource $rel is missing from the repository")
+      IO.copyFile(root / rel, out / rel)
+    }
+    out
+  },
+  assembly / fullClasspath :=
+    (assembly / fullClasspath).value :+ Attributed.blank(stageSynthesisResources.value),
+  // Reads what assembly packages (its classpath: directories and jars), without building
+  // the fat jar. Exactly one copy: a second one would be left to the merge strategy.
+  verifySynthesisResources := {
+    val root = (ThisBuild / baseDirectory).value
+    val classpath = (assembly / fullClasspath).value.map(_.data)
+    val required = synthesisResources.value
+    def copies(rel: String): Seq[Array[Byte]] = classpath.flatMap { entry =>
+      if (entry.isDirectory) Some(entry / rel).filter(_.isFile).map(f => IO.readBytes(f))
+      else if (entry.isFile) {
+        val jar = new java.util.jar.JarFile(entry)
+        try
+          Option(jar.getEntry(rel)).map { e =>
+            val in = jar.getInputStream(e)
+            try IO.readBytes(in)
+            finally in.close()
+          }
+        finally jar.close()
+      } else None
+    }
+    val problems = required.flatMap { rel =>
+      val source = root / rel
+      copies(rel) match {
+        case _ if !source.isFile => Some(s"$rel: missing from the repository")
+        case Seq()               => Some(s"$rel: not on the packaged classpath")
+        case Seq(bytes)          =>
+          if (java.util.Arrays.equals(bytes, IO.readBytes(source))) None
+          else Some(s"$rel: the packaged copy differs from the repository file")
+        case more => Some(s"$rel: ${more.size} copies on the packaged classpath")
+      }
+    }
+    if (required.isEmpty)
+      throw new MessageOnlyException("synthesisResources is empty; nothing would be verified")
+    if (problems.nonEmpty)
+      throw new MessageOnlyException(
+        problems.mkString("queryService packaged resources are wrong: ", "; ", "")
+      )
+    streams.value.log.info(
+      s"verifySynthesisResources: ${required.size} packaged resources match the repository"
+    )
+  }
+)
+
 lazy val queryService = deployable("queryService", "query", "query-service")
   .dependsOn(core, rag, storage, servicesCommon)
+  .settings(synthesisResourceSettings)
 
 lazy val graphService = deployable("graphService", "graph", "graph-service")
   .dependsOn(core, storage, servicesCommon)
@@ -382,6 +458,19 @@ lazy val root = (project in file("."))
     publish / skip := true
   )
 
+// Task concurrency ------------------------------------------------------------------
+// The laptop gives WSL 5 GB, and suites with deadlines time out when projects' tests share
+// it. One Test-tagged task at a time across every project: that covers each in-process
+// suite and each forked test group, under `check`, `test` and `testOnly`. `exclusive` also
+// keeps compile and every other task from starting beside a running test (tests wait for
+// them too). Not limited: threads inside one suite or forked JVM (Spark, cats-effect),
+// threads a finished in-process suite leaves behind, and anything outside this sbt run.
+// Compile and packaging keep sbt's default parallelism among themselves.
+Global / concurrentRestrictions ++= Seq(
+  Tags.limit(Tags.Test, 1),
+  Tags.exclusive(Tags.Test)
+)
+
 // markTestRun and aliases ---------------------------------------------------------
 
 val markTestRun = taskKey[Unit](
@@ -399,13 +488,14 @@ ThisBuild / markTestRun := {
 }
 
 addCommandAlias("fmt", "scalafmtAll; scalafmtSbt")
-// check = format check, compile (main and test), all tests including tests/contracts
-// and tests/adversarial (no AWS), then the marker. markTestRun runs every project's
-// Test/test itself (once), so the alias has no separate `test` step. The alias stops at
-// the first failure.
+// check = format check, compile (main and test), the packaged-resource verification, all
+// tests including tests/contracts and tests/adversarial (no AWS), then the marker.
+// markTestRun runs every project's Test/test itself (once), so the alias has no separate
+// `test` step. The alias stops at the first failure.
 addCommandAlias(
   "check",
-  "scalafmtCheckAll; scalafmtSbtCheck; compile; Test/compile; markTestRun"
+  "scalafmtCheckAll; scalafmtSbtCheck; compile; Test/compile; " +
+    "queryService/verifySynthesisResources; markTestRun"
 )
 
 addCommandAlias(

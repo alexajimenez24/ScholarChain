@@ -1,0 +1,14 @@
+$ cd <repo> && timeout 120s scripts/plan.sh --env dev --stack foundation --dry-run
+==> [plan] STEP dry-run: env=dev stack=foundation window=off (no AWS call, no terraform command)
+==> [plan] DRY-RUN check tools (terraform aws git sha256sum python3): PASS
+==> [plan] DRY-RUN check environment name and backend file (no placeholder): PASS
+==> [plan] DRY-RUN check plan-time inputs set (names only, values never printed): PASS
+==> [plan] DRY-RUN check variable file infra/environments/dev/foundation.json: PASS
+==> [plan] DRY-RUN check TF_VAR_state_bucket_name equals the backend bucket: PASS
+==> [plan] INFO: revision=90370d8fe5187008de582f40aa13ee31d1da8913 dirty=true (a dirty plan is for review only; deploy.sh refuses it)
+==> [plan] DRY-RUN check caller identity (sts get-caller-identity, read only): NOT-CHECKED (needs an AWS call; the real run checks it)
+==> [plan] DRY-RUN would: terraform -chdir=infra/stacks/foundation init -input=false -reconfigure -lockfile=readonly -backend-config=../../backend/dev.s3.tfbackend -backend-config=key=scholarchain/dev/foundation/terraform.tfstate
+==> [plan] DRY-RUN would: terraform -chdir=infra/stacks/foundation plan -input=false -lock-timeout=60s -detailed-exitcode -var-file=../../environments/dev/foundation.json -var=revision=90370d8fe5187008de582f40aa13ee31d1da8913 -out=~/.scholarchain/plans/dev/foundation.tfplan
+==> [plan] DRY-RUN would: write ~/.scholarchain/plans/dev/foundation.tfplan, foundation.tfplan.meta and ~/.scholarchain/plans/dev/foundation.plan.txt, print the ==> PLAN-SUMMARY and ==> PLAN-SHA256 lines; never apply
+==> [plan] DRY-RUN result: the local checks pass; no AWS call was made, nothing changed
+exit code: 0

@@ -1,0 +1,878 @@
+$ cd <scratchpad>/clean-copy && timeout 45m scripts/check.sh
+==> [check] STEP constitution: check_constitution
+validate-agent-files OK: 19 roles, 19 Claude agents, 19 Codex agents, 4 MCP servers, 840 files with one writer
+render --check OK: 44 generated files match their sources
+==> [check] PASS constitution
+==> [check] STEP json: check_json
+9 JSON files parse
+==> [check] PASS json
+==> [check] STEP hooks: check_hooks
+6 hook shell files and 3 hook Python files parse
+==> [check] PASS hooks
+==> [check] STEP shell: check_shell
+18 shell files pass bash -n; 16 of them pass shellcheck
+==> [check] PASS shell
+==> [check] STEP schema: check_schema
+[manifest][ok] 5 datasets, required: dblp, openalex, crossref, orcid
+==> [check] PASS schema
+==> [check] STEP terraform: check_terraform
+--- foundation
+Success! The configuration is valid.
+
+--- data
+Success! The configuration is valid.
+
+--- compute
+Success! The configuration is valid.
+
+--- app
+Success! The configuration is valid.
+
+--- observability
+Success! The configuration is valid.
+
+==> [check] PASS terraform
+==> [check] STEP sbt: check_sbt
+[info] welcome to sbt 1.13.1 (Amazon.com Inc. Java 17.0.21.1)
+[info] loading settings for project clean-copy-build from plugins.sbt...
+[info] loading project definition from /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/project
+[info] compiling 1 Scala source to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/project/target/scala-2.12/sbt-1.0/classes ...
+[info] done compiling
+[info] loading settings for project root from build.sbt...
+[info] resolving key references (12595 settings) ...
+[info] set current project to scholarchain (in build file:/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/)
+[info] scalafmt: Checking 7 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/core)...
+[info] scalafmt: Checking 15 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/hadoop)...
+[info] scalafmt: Checking 15 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/rag)...
+[info] scalafmt: Checking 10 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/core)...
+[info] scalafmt: Checking 10 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/storage)...
+[info] scalafmt: Checking 7 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/services/common)...
+[info] scalafmt: Checking 18 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/entity-resolution)...
+[info] scalafmt: Checking 2 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/services/common)...
+[info] scalafmt: Checking 25 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/rag)...
+[info] scalafmt: Checking 15 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/spark)...
+[info] scalafmt: Checking 9 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/hadoop)...
+[info] scalafmt: Checking 11 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/entity-resolution)...
+[info] scalafmt: Checking 3 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/services/graph)...
+[info] scalafmt: Checking 11 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/spark)...
+[info] scalafmt: Checking 3 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/services/graph)...
+[info] scalafmt: Checking 20 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/storage)...
+[info] scalafmt: Checking 2 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/services/worker)...
+[info] scalafmt: Checking 3 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/services/worker)...
+[info] scalafmt: Checking 5 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/services/query)...
+[info] scalafmt: Checking 5 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/services/query)...
+[info] scalafmt: Checking 22 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/tests/adversarial)...
+[success] Total time: 17 s, completed Nov 26, 2026, 5:16:20 PM
+[info] scalafmt: Checking 1 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy)...
+[info] scalafmt: Checking 2 Scala sources (/tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy)...
+[success] Total time: 1 s, completed Nov 26, 2026, 5:16:20 PM
+[info] compiling 10 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/core/target/scala-3.3.9/classes ...
+[info] done compiling
+[info] compiling 7 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/services/common/target/scala-3.3.9/classes ...
+[info] compiling 20 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/storage/target/scala-3.3.9/classes ...
+[info] compiling 18 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/entity-resolution/target/scala-3.3.9/classes ...
+[info] compiling 15 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/hadoop/target/scala-3.3.9/classes ...
+[info] compiling 15 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/spark/target/scala-3.3.9/classes ...
+[info] done compiling
+[info] done compiling
+[info] done compiling
+[info] done compiling
+[info] compiling 15 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/rag/target/scala-3.3.9/classes ...
+[info] compiling 3 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/services/worker/target/scala-3.3.9/classes ...
+[info] compiling 3 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/services/graph/target/scala-3.3.9/classes ...
+[info] done compiling
+[info] done compiling
+[info] done compiling
+[info] done compiling
+[info] compiling 5 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/services/query/target/scala-3.3.9/classes ...
+[info] done compiling
+[success] Total time: 145 s (0:02:25.0), completed Nov 26, 2026, 5:18:45 PM
+[info] compiling 7 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/core/target/scala-3.3.9/test-classes ...
+[info] compiling 11 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/entity-resolution/target/scala-3.3.9/test-classes ...
+[info] compiling 2 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/services/common/target/scala-3.3.9/test-classes ...
+[info] compiling 9 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/hadoop/target/scala-3.3.9/test-classes ...
+[info] compiling 10 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/storage/target/scala-3.3.9/test-classes ...
+[info] compiling 11 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/spark/target/scala-3.3.9/test-classes ...
+[info] compiling 25 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/rag/target/scala-3.3.9/test-classes ...
+[info] compiling 2 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/services/worker/target/scala-3.3.9/test-classes ...
+[info] compiling 3 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/services/graph/target/scala-3.3.9/test-classes ...
+[info] compiling 5 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/modules/services/query/target/scala-3.3.9/test-classes ...
+[info] compiling 22 Scala sources to /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/target/tests/adversarial/scala-3.3.9/test-classes ...
+[info] done compiling
+[info] done compiling
+[info] done compiling
+[info] done compiling
+[info] done compiling
+[info] done compiling
+[info] done compiling
+[info] done compiling
+[info] done compiling
+[info] done compiling
+[info] done compiling
+[success] Total time: 43 s, completed Nov 26, 2026, 5:19:29 PM
+Test run [36mscholarchain.services.common.EmfSuite[0m started
+[32mscholarchain.services.common.EmfSuite[0m: finished [90m0.373s[0m
+Test run [36mscholarchain.services.common.EmfSuite[0m finished: 0 failed, 0 ignored, 1 total [90m0.457s[0m
+Test run [36mscholarchain.services.common.ErrorModelSuite[0m started
+[32mscholarchain.services.common.ErrorModelSuite[0m: finished [90m0.865s[0m
+Test run [36mscholarchain.services.common.ErrorModelSuite[0m finished: 0 failed, 0 ignored, 4 total [90m0.94s[0m
+Test run [36mscholarchain.services.common.DownstreamSuite[0m started
+[32mscholarchain.services.common.DownstreamSuite[0m: finished [90m1.732s[0m
+Test run [36mscholarchain.services.common.DownstreamSuite[0m finished: 0 failed, 0 ignored, 5 total [90m1.736s[0m
+Test run [36mscholarchain.er.TextSimilaritySuite[0m started
+[32mscholarchain.er.TextSimilaritySuite[0m: finished [90m0.625s[0m
+Test run [36mscholarchain.er.TextSimilaritySuite[0m finished: 0 failed, 0 ignored, 2 total [90m0.833s[0m
+Test run [36mscholarchain.services.worker.EmbeddingWorkerSuite[0m started
+[32mscholarchain.services.worker.EmbeddingWorkerSuite[0m: finished [90m3.854s[0m
+Test run [36mscholarchain.services.worker.EmbeddingWorkerSuite[0m finished: 0 failed, 0 ignored, 9 total [90m3.932s[0m
+Test run [36mscholarchain.core.SerializationSuite[0m started
+[32mscholarchain.core.SerializationSuite[0m: finished [90m2.156s[0m
+Test run [36mscholarchain.core.SerializationSuite[0m finished: 0 failed, 0 ignored, 29 total [90m2.205s[0m
+Test run [36mscholarchain.er.eval.EvaluationSuite[0m started
+[32mscholarchain.er.eval.EvaluationSuite[0m: finished [90m2.946s[0m
+Test run [36mscholarchain.er.eval.EvaluationSuite[0m finished: 0 failed, 0 ignored, 14 total [90m2.951s[0m
+SLF4J(W): No SLF4J providers were found.
+SLF4J(W): Defaulting to no-operation (NOP) logger implementation
+SLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.
+Test run [36mscholarchain.core.ValidateSuite[0m started
+[32mscholarchain.core.ValidateSuite[0m: finished [90m0.941s[0m
+Test run [36mscholarchain.core.ValidateSuite[0m finished: 0 failed, 0 ignored, 25 total [90m0.947s[0m
+Test run [36mscholarchain.core.ConfigSuite[0m started
+[32mscholarchain.core.ConfigSuite[0m: finished [90m4.19s[0m
+Test run [36mscholarchain.core.ConfigSuite[0m finished: 0 failed, 0 ignored, 28 total [90m4.215s[0m
+Test run [36mscholarchain.core.aws.SigV4Suite[0m started
+[32mscholarchain.core.aws.SigV4Suite[0m: finished [90m0.726s[0m
+Test run [36mscholarchain.core.aws.SigV4Suite[0m finished: 0 failed, 0 ignored, 6 total [90m0.727s[0m
+Test run [36mscholarchain.services.worker.WorkerHealthSuite[0m started
+[32mscholarchain.services.worker.WorkerHealthSuite[0m: finished [90m8.933s[0m
+Test run [36mscholarchain.services.worker.WorkerHealthSuite[0m finished: 0 failed, 0 ignored, 1 total [90m9.008s[0m
+Test run [36mscholarchain.core.IdsSuite[0m started
+[32mscholarchain.core.IdsSuite[0m: finished [90m0.15s[0m
+Test run [36mscholarchain.core.IdsSuite[0m finished: 0 failed, 0 ignored, 12 total [90m0.151s[0m
+Test run [36mscholarchain.core.NormalizeSuite[0m started
+[32mscholarchain.core.NormalizeSuite[0m: finished [90m0.021s[0m
+Test run [36mscholarchain.core.NormalizeSuite[0m finished: 0 failed, 0 ignored, 4 total [90m0.022s[0m
+embedding-worker: drain failed: IllegalStateException
+Test run [36mscholarchain.services.worker.WorkerWiringSuite[0m started
+[32mscholarchain.services.worker.WorkerWiringSuite[0m: finished [90m8.832s[0m
+Test run [36mscholarchain.services.worker.WorkerWiringSuite[0m finished: 0 failed, 0 ignored, 5 total [90m8.834s[0m
+Test run [36mscholarchain.core.aws.CredentialsSuite[0m started
+[32mscholarchain.core.aws.CredentialsSuite[0m: finished [90m2.275s[0m
+Test run [36mscholarchain.core.aws.CredentialsSuite[0m finished: 0 failed, 0 ignored, 9 total [90m2.277s[0m
+Test run [36mscholarchain.core.aws.AwsHttpSuite[0m started
+[32mscholarchain.core.aws.AwsHttpSuite[0m: finished [90m4.492s[0m
+Test run [36mscholarchain.core.aws.AwsHttpSuite[0m finished: 0 failed, 0 ignored, 10 total [90m4.493s[0m
+Test run [36mscholarchain.rag.PlannerSuite[0m started
+[32mscholarchain.rag.PlannerSuite[0m: finished [90m1.143s[0m
+Test run [36mscholarchain.rag.PlannerSuite[0m finished: 0 failed, 0 ignored, 10 total [90m1.172s[0m
+[warn] In the last 30 seconds, 10.501 (36.1%) were spent in GC. [Heap: 0.63GB free of 0.92GB, max 1.50GB] Consider increasing the JVM heap using `-Xmx` or try a different collector, e.g. `-XX:+UseG1GC`, for better performance.
+Test run [36mscholarchain.services.common.JwtSuite[0m started
+[32mscholarchain.services.common.JwtSuite[0m: finished [90m28.056s[0m
+Test run [36mscholarchain.services.common.JwtSuite[0m finished: 0 failed, 0 ignored, 9 total [90m28.133s[0m
+Test run [36mscholarchain.rag.RendererProviderSuite[0m started
+[32mscholarchain.rag.RendererProviderSuite[0m: finished [90m1.499s[0m
+Test run [36mscholarchain.rag.RendererProviderSuite[0m finished: 0 failed, 0 ignored, 3 total [90m1.503s[0m
+Test run [36mscholarchain.services.common.EvidenceRoutesSuite[0m started
+[32mscholarchain.services.common.EvidenceRoutesSuite[0m: finished [90m2.688s[0m
+Test run [36mscholarchain.services.common.EvidenceRoutesSuite[0m finished: 0 failed, 0 ignored, 2 total [90m2.693s[0m
+Test run [36mscholarchain.services.common.ServiceKitSuite[0m started
+[32mscholarchain.services.common.ServiceKitSuite[0m: finished [90m28.773s[0m
+Test run [36mscholarchain.services.common.ServiceKitSuite[0m finished: 0 failed, 0 ignored, 10 total [90m28.779s[0m
+Test run [36mscholarchain.rag.BedrockLlmSuite[0m started
+[32mscholarchain.rag.BedrockLlmSuite[0m: finished [90m18.587s[0m
+Test run [36mscholarchain.rag.BedrockLlmSuite[0m finished: 0 failed, 0 ignored, 4 total [90m18.612s[0m
+Test run [36mscholarchain.rag.SemanticContextSuite[0m started
+[32mscholarchain.rag.SemanticContextSuite[0m: finished [90m3.489s[0m
+Test run [36mscholarchain.rag.SemanticContextSuite[0m finished: 0 failed, 0 ignored, 12 total [90m3.489s[0m
+query-service: SERVING_RUN_MANIFEST_URI is not set; not ready
+Test run [36mscholarchain.rag.TemplateSuite[0m started
+[32mscholarchain.rag.TemplateSuite[0m: finished [90m1.395s[0m
+Test run [36mscholarchain.rag.TemplateSuite[0m finished: 0 failed, 0 ignored, 18 total [90m1.396s[0m
+Test run [36mscholarchain.rag.PipelineSuite[0m started
+[32mscholarchain.rag.PipelineSuite[0m: finished [90m4.649s[0m
+Test run [36mscholarchain.rag.PipelineSuite[0m finished: 0 failed, 0 ignored, 11 total [90m4.649s[0m
+Test run [36mscholarchain.rag.EmbeddingVersionSuite[0m started
+[32mscholarchain.rag.EmbeddingVersionSuite[0m: finished [90m0.138s[0m
+Test run [36mscholarchain.rag.EmbeddingVersionSuite[0m finished: 0 failed, 0 ignored, 8 total [90m0.138s[0m
+Test run [36mscholarchain.rag.ChunkingSuite[0m started
+[32mscholarchain.rag.ChunkingSuite[0m: finished [90m1.335s[0m
+Test run [36mscholarchain.rag.ChunkingSuite[0m finished: 0 failed, 0 ignored, 10 total [90m1.336s[0m
+Test run [36mscholarchain.rag.SynthesisSuite[0m started
+[32mscholarchain.rag.SynthesisSuite[0m: finished [90m1.677s[0m
+Test run [36mscholarchain.rag.SynthesisSuite[0m finished: 0 failed, 0 ignored, 6 total [90m1.681s[0m
+Test run [36mscholarchain.rag.VerificationSuite[0m started
+[32mscholarchain.rag.VerificationSuite[0m: finished [90m24.481s[0m
+Test run [36mscholarchain.rag.VerificationSuite[0m finished: 0 failed, 0 ignored, 14 total [90m24.481s[0m
+Test run [36mscholarchain.rag.InvariantErrorSuite[0m started
+[32mscholarchain.rag.InvariantErrorSuite[0m: finished [90m0.207s[0m
+Test run [36mscholarchain.rag.InvariantErrorSuite[0m finished: 0 failed, 0 ignored, 5 total [90m0.208s[0m
+Test run [36mscholarchain.rag.IngestionConformanceSuite[0m started
+[32mscholarchain.rag.IngestionConformanceSuite[0m: finished [90m23.996s[0m
+Test run [36mscholarchain.rag.IngestionConformanceSuite[0m finished: 0 failed, 0 ignored, 8 total [90m23.996s[0m
+Test run [36mscholarchain.rag.CommunitySizeSuite[0m started
+[32mscholarchain.rag.CommunitySizeSuite[0m: finished [90m8.197s[0m
+Test run [36mscholarchain.rag.CommunitySizeSuite[0m finished: 0 failed, 0 ignored, 7 total [90m8.198s[0m
+Test run [36mscholarchain.rag.RetrievalSmokeSuite[0m started
+[32mscholarchain.rag.RetrievalSmokeSuite[0m: finished [90m0.692s[0m
+Test run [36mscholarchain.rag.RetrievalSmokeSuite[0m finished: 0 failed, 0 ignored, 10 total [90m0.692s[0m
+Test run [36mscholarchain.rag.ErrorTextSuite[0m started
+[32mscholarchain.rag.ErrorTextSuite[0m: finished [90m1.998s[0m
+Test run [36mscholarchain.rag.ErrorTextSuite[0m finished: 0 failed, 0 ignored, 4 total [90m1.999s[0m
+Test run [36mscholarchain.rag.FilteredRankSuite[0m started
+[32mscholarchain.rag.FilteredRankSuite[0m: finished [90m2.227s[0m
+Test run [36mscholarchain.rag.FilteredRankSuite[0m finished: 0 failed, 0 ignored, 6 total [90m2.227s[0m
+Test run [36mscholarchain.rag.LocalRuntimeSuite[0m started
+[32mscholarchain.rag.LocalRuntimeSuite[0m: finished [90m10.52s[0m
+Test run [36mscholarchain.rag.LocalRuntimeSuite[0m finished: 0 failed, 0 ignored, 6 total [90m10.521s[0m
+Test run [36mscholarchain.rag.StageSuite[0m started
+[32mscholarchain.rag.StageSuite[0m: finished [90m3.141s[0m
+Test run [36mscholarchain.rag.StageSuite[0m finished: 0 failed, 0 ignored, 9 total [90m3.142s[0m
+Test run [36mscholarchain.storage.AwsGateSuite[0m started
+[32mscholarchain.storage.AwsGateSuite[0m: finished [90m2.555s[0m
+Test run [36mscholarchain.storage.AwsGateSuite[0m finished: 0 failed, 0 ignored, 7 total [90m2.613s[0m
+Test run [36mscholarchain.services.graph.GraphWiringSuite[0m started
+[32mscholarchain.services.graph.GraphWiringSuite[0m: finished [90m15.08s[0m
+Test run [36mscholarchain.services.graph.GraphWiringSuite[0m finished: 0 failed, 0 ignored, 2 total [90m15.093s[0m
+Test run [36mscholarchain.storage.SemanticDocumentSuite[0m started
+[32mscholarchain.storage.SemanticDocumentSuite[0m: finished [90m0.782s[0m
+Test run [36mscholarchain.storage.SemanticDocumentSuite[0m finished: 0 failed, 0 ignored, 6 total [90m0.783s[0m
+Test run [36mscholarchain.storage.NeptuneValidationSuite[0m started
+[32mscholarchain.storage.NeptuneValidationSuite[0m: finished [90m3.489s[0m
+Test run [36mscholarchain.storage.NeptuneValidationSuite[0m finished: 0 failed, 0 ignored, 19 total [90m3.538s[0m
+Test run [36mscholarchain.storage.AwsIntegrationSuite[0m started
+[33m==> i [0m[33mscholarchain.storage.AwsIntegrationSuite[0m[33m ignored[0m [90m0.0s[0m
+Test run [36mscholarchain.storage.AwsIntegrationSuite[0m finished: 0 failed, [33m1 ignored[0m, 0 total [90m0.005s[0m
+Test run [36mscholarchain.storage.S3StubSuite[0m started
+[32mscholarchain.storage.S3StubSuite[0m: finished [90m2.542s[0m
+Test run [36mscholarchain.storage.S3StubSuite[0m finished: 0 failed, 0 ignored, 5 total [90m2.543s[0m
+Test run [36mscholarchain.storage.InMemoryVectorStoreSuite[0m started
+[32mscholarchain.storage.InMemoryVectorStoreSuite[0m: finished [90m0.288s[0m
+Test run [36mscholarchain.storage.InMemoryVectorStoreSuite[0m finished: 0 failed, 0 ignored, 3 total [90m0.289s[0m
+Test run [36mscholarchain.services.graph.GraphEvidenceSuite[0m started
+[32mscholarchain.services.graph.GraphEvidenceSuite[0m: finished [90m15.172s[0m
+Test run [36mscholarchain.services.graph.GraphEvidenceSuite[0m finished: 0 failed, 0 ignored, 1 total [90m15.173s[0m
+Test run [36mscholarchain.storage.S3LayoutSuite[0m started
+[32mscholarchain.storage.S3LayoutSuite[0m: finished [90m0.068s[0m
+Test run [36mscholarchain.storage.S3LayoutSuite[0m finished: 0 failed, 0 ignored, 3 total [90m0.068s[0m
+Test run [36mscholarchain.services.graph.GraphNodeSuite[0m started
+[91m==> X [0m[91mscholarchain.services.graph.GraphNodeSuite[0m.[91mGET a node returns id, labels and properties with request and trace IDs[0m [90m42.263s[0m java.util.concurrent.TimeoutException: test timed out after 30 seconds
+[32mscholarchain.services.graph.GraphNodeSuite[0m: finished [90m42.58s[0m
+Test run [36mscholarchain.services.graph.GraphNodeSuite[0m finished: [91m1 failed[0m, 0 ignored, 3 total [90m42.655s[0m
+Test run [36mscholarchain.storage.ArtifactWriterSuite[0m started
+[32mscholarchain.storage.ArtifactWriterSuite[0m: finished [90m0.365s[0m
+Test run [36mscholarchain.storage.ArtifactWriterSuite[0m finished: 0 failed, 0 ignored, 4 total [90m0.368s[0m
+Test run [36mscholarchain.storage.SparkExportContractSuite[0m started
+[32mscholarchain.storage.SparkExportContractSuite[0m: finished [90m2.352s[0m
+Test run [36mscholarchain.storage.SparkExportContractSuite[0m finished: 0 failed, 0 ignored, 3 total [90m2.353s[0m
+Test run [36mscholarchain.services.graph.GraphFailureSuite[0m started
+[32mscholarchain.services.graph.GraphFailureSuite[0m: finished [90m15.706s[0m
+Test run [36mscholarchain.services.graph.GraphFailureSuite[0m finished: 0 failed, 0 ignored, 5 total [90m15.708s[0m
+Test run [36mscholarchain.storage.VectorLimitsSuite[0m started
+[32mscholarchain.storage.VectorLimitsSuite[0m: finished [90m0.19s[0m
+Test run [36mscholarchain.storage.VectorLimitsSuite[0m finished: 0 failed, 0 ignored, 5 total [90m0.191s[0m
+Test run [36mscholarchain.storage.NeptuneCsvSuite[0m started
+[32mscholarchain.storage.NeptuneCsvSuite[0m: finished [90m0.817s[0m
+Test run [36mscholarchain.storage.NeptuneCsvSuite[0m finished: 0 failed, 0 ignored, 8 total [90m0.818s[0m
+Test run [36mscholarchain.storage.ResearcherMetricsLoaderSuite[0m started
+[32mscholarchain.storage.ResearcherMetricsLoaderSuite[0m: finished [90m0.718s[0m
+Test run [36mscholarchain.storage.ResearcherMetricsLoaderSuite[0m finished: 0 failed, 0 ignored, 13 total [90m0.721s[0m
+Test run [36mscholarchain.storage.AwsIntegrationHarnessSuite[0m started
+[32mscholarchain.storage.AwsIntegrationHarnessSuite[0m: finished [90m0.262s[0m
+Test run [36mscholarchain.storage.AwsIntegrationHarnessSuite[0m finished: 0 failed, 0 ignored, 2 total [90m0.263s[0m
+Test run [36mscholarchain.storage.SerializationSuite[0m started
+[32mscholarchain.storage.SerializationSuite[0m: finished [90m0.124s[0m
+Test run [36mscholarchain.storage.SerializationSuite[0m finished: 0 failed, 0 ignored, 2 total [90m0.125s[0m
+Test run [36mscholarchain.storage.KeyValueFakeSuite[0m started
+[32mscholarchain.storage.KeyValueFakeSuite[0m: finished [90m0.267s[0m
+Test run [36mscholarchain.storage.KeyValueFakeSuite[0m finished: 0 failed, 0 ignored, 4 total [90m0.268s[0m
+Test run [36mscholarchain.storage.S3VectorsStubSuite[0m started
+[32mscholarchain.storage.S3VectorsStubSuite[0m: finished [90m4.463s[0m
+Test run [36mscholarchain.storage.S3VectorsStubSuite[0m finished: 0 failed, 0 ignored, 8 total [90m4.511s[0m
+Test run [36mscholarchain.storage.LoadManifestSuite[0m started
+[32mscholarchain.storage.LoadManifestSuite[0m: finished [90m0.208s[0m
+Test run [36mscholarchain.storage.LoadManifestSuite[0m finished: 0 failed, 0 ignored, 2 total [90m0.21s[0m
+Test run [36mscholarchain.services.graph.GraphNeighborsSuite[0m started
+[91m==> X [0m[91mscholarchain.services.graph.GraphNeighborsSuite[0m.[91mpages are cursor-linked, ordered, complete and without duplicates[0m [90m42.387s[0m java.util.concurrent.TimeoutException: test timed out after 30 seconds
+[32mscholarchain.services.graph.GraphNeighborsSuite[0m: finished [90m43.371s[0m
+Test run [36mscholarchain.services.graph.GraphNeighborsSuite[0m finished: [91m1 failed[0m, 0 ignored, 7 total [90m43.446s[0m
+Test run [36mscholarchain.storage.RowSourceSuite[0m started
+[32mscholarchain.storage.RowSourceSuite[0m: finished [90m0.22s[0m
+Test run [36mscholarchain.storage.RowSourceSuite[0m finished: 0 failed, 0 ignored, 2 total [90m0.221s[0m
+Test run [36mscholarchain.storage.NeptuneIdentifierSuite[0m started
+[32mscholarchain.storage.NeptuneIdentifierSuite[0m: finished [90m0.404s[0m
+Test run [36mscholarchain.storage.NeptuneIdentifierSuite[0m finished: 0 failed, 0 ignored, 7 total [90m0.407s[0m
+query-service: serving run run-66774be797cb7a6f
+Test run [36mscholarchain.storage.NeptuneLoadJobSuite[0m started
+[32mscholarchain.storage.NeptuneLoadJobSuite[0m: finished [90m1.049s[0m
+Test run [36mscholarchain.storage.NeptuneLoadJobSuite[0m finished: 0 failed, 0 ignored, 2 total [90m1.05s[0m
+Test run [36mscholarchain.storage.GraphTemplateSuite[0m started
+[32mscholarchain.storage.GraphTemplateSuite[0m: finished [90m1.13s[0m
+Test run [36mscholarchain.storage.GraphTemplateSuite[0m finished: 0 failed, 0 ignored, 8 total [90m1.131s[0m
+query-service: served run not loaded: graph-nodes/label=Researcher: 3 rows, the load manifest says 4
+Test run [36mscholarchain.storage.TablesSuite[0m started
+[32mscholarchain.storage.TablesSuite[0m: finished [90m1.538s[0m
+Test run [36mscholarchain.storage.TablesSuite[0m finished: 0 failed, 0 ignored, 10 total [90m1.539s[0m
+Test run [36mscholarchain.storage.CommunityLoaderSuite[0m started
+[32mscholarchain.storage.CommunityLoaderSuite[0m: finished [90m1.768s[0m
+Test run [36mscholarchain.storage.CommunityLoaderSuite[0m finished: 0 failed, 0 ignored, 7 total [90m1.77s[0m
+Test run [36mscholarchain.storage.BedrockEmbedderSuite[0m started
+[32mscholarchain.storage.BedrockEmbedderSuite[0m: finished [90m1.95s[0m
+Test run [36mscholarchain.storage.BedrockEmbedderSuite[0m finished: 0 failed, 0 ignored, 5 total [90m1.95s[0m
+[info] Passed: Total 31, Failed 0, Errors 0, Passed 31
+[info] Passed: Total 15, Failed 0, Errors 0, Passed 15
+[error] Failed: Total 18, Failed 2, Errors 0, Passed 16
+[error] Failed tests:
+[error] 	scholarchain.services.graph.GraphNeighborsSuite
+[error] 	scholarchain.services.graph.GraphNodeSuite
+[info] Passed: Total 123, Failed 0, Errors 0, Passed 123
+Test run [36mscholarchain.storage.EmbeddingEnqueuerSuite[0m started
+[32mscholarchain.storage.EmbeddingEnqueuerSuite[0m: finished [90m0.458s[0m
+Test run [36mscholarchain.storage.EmbeddingEnqueuerSuite[0m finished: 0 failed, 0 ignored, 4 total [90m0.46s[0m
+Test run [36mscholarchain.rag.WorkflowSuite[0m started
+[32mscholarchain.rag.WorkflowSuite[0m: finished [90m33.37s[0m
+Test run [36mscholarchain.rag.WorkflowSuite[0m finished: 0 failed, 0 ignored, 15 total [90m33.396s[0m
+[info] Passed: Total 166, Failed 0, Errors 0, Passed 166
+Test run [36mscholarchain.storage.NeptuneAdapterSuite[0m started
+[32mscholarchain.storage.NeptuneAdapterSuite[0m: finished [90m1.818s[0m
+Test run [36mscholarchain.storage.NeptuneAdapterSuite[0m finished: 0 failed, 0 ignored, 7 total [90m1.821s[0m
+Test run [36mscholarchain.services.query.DownstreamMappingSuite[0m started
+[91m==> X [0m[91mscholarchain.services.query.DownstreamMappingSuite[0m.[91msync Downstream(evidence) is 502 dependency_failed without the internal message[0m [90m42.285s[0m java.util.concurrent.TimeoutException: test timed out after 30 seconds
+[32mscholarchain.services.query.DownstreamMappingSuite[0m: finished [90m45.342s[0m
+Test run [36mscholarchain.services.query.DownstreamMappingSuite[0m finished: [91m1 failed[0m, 0 ignored, 6 total [90m45.42s[0m
+Test run [36mscholarchain.services.query.QueryWiringSuite[0m started
+[32mscholarchain.services.query.QueryWiringSuite[0m: finished [90m18.607s[0m
+Test run [36mscholarchain.services.query.QueryWiringSuite[0m finished: 0 failed, 0 ignored, 8 total [90m18.612s[0m
+Test run [36mscholarchain.storage.DynamoStubSuite[0m started
+[32mscholarchain.storage.DynamoStubSuite[0m: finished [90m3.047s[0m
+Test run [36mscholarchain.storage.DynamoStubSuite[0m finished: 0 failed, 0 ignored, 5 total [90m3.047s[0m
+Test run [36mscholarchain.storage.VectorLoaderSuite[0m started
+[32mscholarchain.storage.VectorLoaderSuite[0m: finished [90m5.933s[0m
+Test run [36mscholarchain.storage.VectorLoaderSuite[0m finished: 0 failed, 0 ignored, 27 total [90m5.934s[0m
+Test run [36mscholarchain.storage.PipelineCliSuite[0m started
+[32mscholarchain.storage.PipelineCliSuite[0m: finished [90m5.648s[0m
+Test run [36mscholarchain.storage.PipelineCliSuite[0m finished: 0 failed, 0 ignored, 12 total [90m5.648s[0m
+Test run [36mscholarchain.storage.RenderedLoadSuite[0m started
+[32mscholarchain.storage.RenderedLoadSuite[0m: finished [90m7.024s[0m
+Test run [36mscholarchain.storage.RenderedLoadSuite[0m finished: 0 failed, 0 ignored, 15 total [90m7.026s[0m
+Test run [36mscholarchain.storage.LocalIngestionSuite[0m started
+[32mscholarchain.storage.LocalIngestionSuite[0m: finished [90m9.017s[0m
+Test run [36mscholarchain.storage.LocalIngestionSuite[0m finished: 0 failed, 0 ignored, 10 total [90m9.018s[0m
+{
+  "runId": "run-6a2ea72585e9fd62",
+  "decisions": "/tmp/sc-er-job-12837949769919243633/scratch-out/match-decisions/policy=er-v1/snapshot=2026-11-22/run_id=run-6a2ea72585e9fd62",
+  "total": 10,
+  "byOutcome": {
+    "ACCEPTED": 5,
+    "REJECTED": 2,
+    "UNRESOLVED": 1,
+    "CONFLICT": 2
+  },
+  "byKindOutcome": {
+    "RESEARCHER_ACCEPTED": 3,
+    "RESEARCHER_REJECTED": 1,
+    "RESEARCHER_UNRESOLVED": 1,
+    "RESEARCHER_CONFLICT": 1,
+    "WORK_ACCEPTED": 2,
+    "WORK_REJECTED": 1,
+    "WORK_UNRESOLVED": 0,
+    "WORK_CONFLICT": 1
+  },
+  "byPath": {
+    "EXACT_ID": 6,
+    "DETERMINISTIC_BIBLIOGRAPHIC": 2,
+    "PROBABILISTIC": 2,
+    "LLM_ADJUDICATED": 0
+  },
+  "unresolvedRate": 0.1,
+  "counters": {
+    "DECISIONS": 10,
+    "INPUT_RECORDS": 11,
+    "LLM_OFF": 1,
+    "PATH_DETERMINISTIC_BIBLIOGRAPHIC": 2,
+    "PATH_EXACT_ID": 6,
+    "PATH_PROBABILISTIC": 2,
+    "REJECTED_RECORDS": 1,
+    "RESEARCHER_ACCEPTED": 3,
+    "RESEARCHER_CONFLICT": 1,
+    "RESEARCHER_REJECTED": 1,
+    "RESEARCHER_UNRESOLVED": 1,
+    "SCHEMA_FAILURE": 1,
+    "WORK_ACCEPTED": 2,
+    "WORK_CONFLICT": 1,
+    "WORK_REJECTED": 1
+  }
+}
+{
+  "runId": "run-6a2ea72585e9fd62",
+  "decisions": "/tmp/sc-er-job-12837949769919243633/scratch-out/match-decisions/policy=er-v1/snapshot=2026-11-22/run_id=run-6a2ea72585e9fd62",
+  "total": 10,
+  "byOutcome": {
+    "ACCEPTED": 5,
+    "REJECTED": 2,
+    "UNRESOLVED": 1,
+    "CONFLICT": 2
+  },
+  "byKindOutcome": {
+    "RESEARCHER_ACCEPTED": 3,
+    "RESEARCHER_REJECTED": 1,
+    "RESEARCHER_UNRESOLVED": 1,
+    "RESEARCHER_CONFLICT": 1,
+    "WORK_ACCEPTED": 2,
+    "WORK_REJECTED": 1,
+    "WORK_UNRESOLVED": 0,
+    "WORK_CONFLICT": 1
+  },
+  "byPath": {
+    "EXACT_ID": 6,
+    "DETERMINISTIC_BIBLIOGRAPHIC": 2,
+    "PROBABILISTIC": 2,
+    "LLM_ADJUDICATED": 0
+  },
+  "unresolvedRate": 0.1,
+  "counters": {
+    "DECISIONS": 10,
+    "INPUT_RECORDS": 11,
+    "LLM_OFF": 1,
+    "PATH_DETERMINISTIC_BIBLIOGRAPHIC": 2,
+    "PATH_EXACT_ID": 6,
+    "PATH_PROBABILISTIC": 2,
+    "REJECTED_RECORDS": 1,
+    "RESEARCHER_ACCEPTED": 3,
+    "RESEARCHER_CONFLICT": 1,
+    "RESEARCHER_REJECTED": 1,
+    "RESEARCHER_UNRESOLVED": 1,
+    "SCHEMA_FAILURE": 1,
+    "WORK_ACCEPTED": 2,
+    "WORK_CONFLICT": 1,
+    "WORK_REJECTED": 1
+  }
+}
+Test run [36mscholarchain.storage.SharedStageLedgerSuite[0m started
+[32mscholarchain.storage.SharedStageLedgerSuite[0m: finished [90m12.573s[0m
+Test run [36mscholarchain.storage.SharedStageLedgerSuite[0m finished: 0 failed, 0 ignored, 2 total [90m12.573s[0m
+[info] Passed: Total 217, Failed 0, Errors 0, Passed 217, Ignored 1
+entity resolution error: refusing a path in human-only territory: /tmp/sc-er-job-12837949769919243633/x/datasets/gold/out
+entity resolution error: models.llmEnabled is true, but the match job does not wire the bedrock adjudicator yet (task credentials and the cost sign-off come with the cloud phases); use off or fake
+entity resolution error: configured thresholds Thresholds(0.95,0.35,0.7,0.9) differ from the pinned er-v1 thresholds Thresholds(0.9,0.35,0.7,0.9); a threshold change needs a new policy version
+usage error: the match job does not wire the bedrock adjudicator yet (task credentials and the cost sign-off come with the cloud phases); use off or fake
+usage: --run-root <hadoop output root> --output <dir> [--run-id <run-...>] [--adjudicator off|fake] [--adjudication-cache <decision run dir or file>] [--reducers 4] [--compress true]
+usage error: --reducers must be an integer >= 1, got '0'
+usage: --run-root <hadoop output root> --output <dir> [--run-id <run-...>] [--adjudicator off|fake] [--adjudication-cache <decision run dir or file>] [--reducers 4] [--compress true]
+usage error: unknown argument '--surprise'
+usage: --run-root <hadoop output root> --output <dir> [--run-id <run-...>] [--adjudicator off|fake] [--adjudication-cache <decision run dir or file>] [--reducers 4] [--compress true]
+Test run [36mscholarchain.er.MatchJobSuite[0m started
+[32mscholarchain.er.MatchJobSuite[0m: finished [90m52.755s[0m
+Test run [36mscholarchain.er.MatchJobSuite[0m finished: 0 failed, 0 ignored, 9 total [90m52.758s[0m
+Test run [36mscholarchain.er.review.ReviewSupplementSuite[0m started
+[32mscholarchain.er.review.ReviewSupplementSuite[0m: finished [90m0.656s[0m
+Test run [36mscholarchain.er.review.ReviewSupplementSuite[0m finished: 0 failed, 0 ignored, 11 total [90m0.657s[0m
+Test run [36mscholarchain.er.BedrockAdjudicatorSuite[0m started
+[32mscholarchain.er.BedrockAdjudicatorSuite[0m: finished [90m2.198s[0m
+Test run [36mscholarchain.er.BedrockAdjudicatorSuite[0m finished: 0 failed, 0 ignored, 7 total [90m2.198s[0m
+Test run [36mscholarchain.er.AdjudicationSuite[0m started
+[32mscholarchain.er.AdjudicationSuite[0m: finished [90m0.158s[0m
+Test run [36mscholarchain.er.AdjudicationSuite[0m finished: 0 failed, 0 ignored, 12 total [90m0.158s[0m
+Test run [36mscholarchain.er.review.ReviewQueueSuite[0m started
+[32mscholarchain.er.review.ReviewQueueSuite[0m: finished [90m3.705s[0m
+Test run [36mscholarchain.er.review.ReviewQueueSuite[0m finished: 0 failed, 0 ignored, 15 total [90m3.706s[0m
+Test run [36mscholarchain.er.FeaturesSuite[0m started
+[32mscholarchain.er.FeaturesSuite[0m: finished [90m0.055s[0m
+Test run [36mscholarchain.er.FeaturesSuite[0m finished: 0 failed, 0 ignored, 9 total [90m0.056s[0m
+Test run [36mscholarchain.er.MatchPolicySuite[0m started
+[32mscholarchain.er.MatchPolicySuite[0m: finished [90m0.103s[0m
+Test run [36mscholarchain.er.MatchPolicySuite[0m finished: 0 failed, 0 ignored, 15 total [90m0.103s[0m
+Test run [36mscholarchain.er.ExactIdsSuite[0m started
+[32mscholarchain.er.ExactIdsSuite[0m: finished [90m0.017s[0m
+Test run [36mscholarchain.er.ExactIdsSuite[0m finished: 0 failed, 0 ignored, 4 total [90m0.017s[0m
+Test run [36mscholarchain.er.LeakageSuite[0m started
+[32mscholarchain.er.LeakageSuite[0m: finished [90m0.038s[0m
+Test run [36mscholarchain.er.LeakageSuite[0m finished: 0 failed, 0 ignored, 2 total [90m0.038s[0m
+Test run [36mscholarchain.er.ErNormalizeSuite[0m started
+[32mscholarchain.er.ErNormalizeSuite[0m: finished [90m0.035s[0m
+Test run [36mscholarchain.er.ErNormalizeSuite[0m finished: 0 failed, 0 ignored, 11 total [90m0.036s[0m
+Test run [36mscholarchain.er.ResolverSuite[0m started
+[32mscholarchain.er.ResolverSuite[0m: finished [90m0.062s[0m
+Test run [36mscholarchain.er.ResolverSuite[0m finished: 0 failed, 0 ignored, 8 total [90m0.062s[0m
+Test run [36mscholarchain.services.query.QueryServiceSuite[0m started
+[91m==> X [0m[91mscholarchain.services.query.QueryServiceSuite[0m.[91ma synchronous query returns a verified, evidence-backed answer with IDs and a metric[0m [90m45.158s[0m java.util.concurrent.TimeoutException: test timed out after 30 seconds
+[32mscholarchain.services.query.QueryServiceSuite[0m: finished [90m68.238s[0m
+Test run [36mscholarchain.services.query.QueryServiceSuite[0m finished: [91m1 failed[0m, 0 ignored, 25 total [90m68.313s[0m
+[error] Failed: Total 39, Failed 2, Errors 0, Passed 37
+[error] Failed tests:
+[error] 	scholarchain.services.query.DownstreamMappingSuite
+[error] 	scholarchain.services.query.QueryServiceSuite
+SLF4J(W): No SLF4J providers were found.
+SLF4J(W): Defaulting to no-operation (NOP) logger implementation
+SLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.
+Test run [36mscholarchain.hadoop.RejectsAndLimitsSuite[0m started
+[32mscholarchain.hadoop.RejectsAndLimitsSuite[0m: finished [90m43.648s[0m
+Test run [36mscholarchain.hadoop.RejectsAndLimitsSuite[0m finished: 0 failed, 0 ignored, 12 total [90m43.705s[0m
+Test run [36mscholarchain.hadoop.DblpParserSuite[0m started
+[32mscholarchain.hadoop.DblpParserSuite[0m: finished [90m2.709s[0m
+Test run [36mscholarchain.hadoop.DblpParserSuite[0m finished: 0 failed, 0 ignored, 22 total [90m2.711s[0m
+Test run [36mscholarchain.hadoop.NormalizerSuite[0m started
+[32mscholarchain.hadoop.NormalizerSuite[0m: finished [90m0.18s[0m
+Test run [36mscholarchain.hadoop.NormalizerSuite[0m finished: 0 failed, 0 ignored, 10 total [90m0.18s[0m
+Test run [36mscholarchain.hadoop.JobLogicSuite[0m started
+[32mscholarchain.hadoop.JobLogicSuite[0m: finished [90m0.305s[0m
+Test run [36mscholarchain.hadoop.JobLogicSuite[0m finished: 0 failed, 0 ignored, 20 total [90m0.306s[0m
+Test run [36mscholarchain.hadoop.RepairDblpSuite[0m started
+[32mscholarchain.hadoop.RepairDblpSuite[0m: finished [90m9.675s[0m
+Test run [36mscholarchain.hadoop.RepairDblpSuite[0m finished: 0 failed, 0 ignored, 10 total [90m9.676s[0m
+Test run [36mscholarchain.hadoop.RepairLogicSuite[0m started
+[32mscholarchain.hadoop.RepairLogicSuite[0m: finished [90m0.044s[0m
+Test run [36mscholarchain.hadoop.RepairLogicSuite[0m finished: 0 failed, 0 ignored, 6 total [90m0.045s[0m
+usage error: --output <path> is required
+usage: --dblp <path> --output <path> --snapshot <YYYY-MM-DD> [--openalex <path>] [--crossref <path>] [--orcid <path>] [--max-team 300] [--max-block 200] [--reducers 4] [--compress true]
+Test run [36mscholarchain.hadoop.PipelineIntegrationSuite[0m started
+[32mscholarchain.hadoop.PipelineIntegrationSuite[0m: finished [90m42.942s[0m
+Test run [36mscholarchain.hadoop.PipelineIntegrationSuite[0m finished: 0 failed, 0 ignored, 18 total [90m42.942s[0m
+Test run [36mscholarchain.hadoop.RepairArgsSuite[0m started
+[32mscholarchain.hadoop.RepairArgsSuite[0m: finished [90m0.012s[0m
+Test run [36mscholarchain.hadoop.RepairArgsSuite[0m finished: 0 failed, 0 ignored, 2 total [90m0.012s[0m
+17:22:28 WARN Utils: Your hostname, LAPTOP-FCA5P702, resolves to a loopback address: 127.0.1.1; using 10.255.255.254 instead (on interface lo)
+17:22:28 WARN Utils: Set SPARK_LOCAL_IP if you need to bind to another address
+17:22:29 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+Test run [36mscholarchain.spark.ExportSuite[0m started
+[32mscholarchain.spark.ExportSuite[0m: finished [90m74.664s[0m
+Test run [36mscholarchain.spark.ExportSuite[0m finished: 0 failed, 0 ignored, 5 total [90m74.698s[0m
+Test run [36mscholarchain.spark.CanonicalSuite[0m started
+[32mscholarchain.spark.CanonicalSuite[0m: finished [90m71.533s[0m
+Test run [36mscholarchain.spark.CanonicalSuite[0m finished: 0 failed, 0 ignored, 7 total [90m71.533s[0m
+Test run [36mscholarchain.spark.CollaborationSuite[0m started
+[32mscholarchain.spark.CollaborationSuite[0m: finished [90m2.427s[0m
+Test run [36mscholarchain.spark.CollaborationSuite[0m finished: 0 failed, 0 ignored, 3 total [90m2.427s[0m
+Test run [36mscholarchain.spark.WindowAnalyticsSuite[0m started
+[32mscholarchain.spark.WindowAnalyticsSuite[0m: finished [90m54.902s[0m
+Test run [36mscholarchain.spark.WindowAnalyticsSuite[0m finished: 0 failed, 0 ignored, 5 total [90m54.902s[0m
+Test run [36mscholarchain.spark.RunManifestSuite[0m started
+[32mscholarchain.spark.RunManifestSuite[0m: finished [90m0.195s[0m
+Test run [36mscholarchain.spark.RunManifestSuite[0m finished: 0 failed, 0 ignored, 8 total [90m0.196s[0m
+Test run [36mscholarchain.spark.TemporalSuite[0m started
+[32mscholarchain.spark.TemporalSuite[0m: finished [90m37.007s[0m
+Test run [36mscholarchain.spark.TemporalSuite[0m finished: 0 failed, 0 ignored, 2 total [90m37.008s[0m
+Test run [36mscholarchain.spark.GraphAlgorithmsSuite[0m started
+[32mscholarchain.spark.GraphAlgorithmsSuite[0m: finished [90m34.898s[0m
+Test run [36mscholarchain.spark.GraphAlgorithmsSuite[0m finished: 0 failed, 0 ignored, 6 total [90m34.898s[0m
+17:27:01 WARN SparkStringUtils: Truncated the string representation of a plan since it was too large. This behavior can be adjusted by setting 'spark.sql.debug.maxToStringFields'.
+Test run [36mscholarchain.spark.PipelineSuite[0m started
+[32mscholarchain.spark.PipelineSuite[0m: finished [90m126.613s[0m
+Test run [36mscholarchain.spark.PipelineSuite[0m finished: 0 failed, 0 ignored, 8 total [90m126.614s[0m
+Test run [36mscholarchain.spark.PathSelectionSuite[0m started
+[32mscholarchain.spark.PathSelectionSuite[0m: finished [90m48.436s[0m
+Test run [36mscholarchain.spark.PathSelectionSuite[0m finished: 0 failed, 0 ignored, 4 total [90m48.436s[0m
+SLF4J(W): Class path contains multiple SLF4J providers.
+SLF4J(W): Found provider [ch.qos.logback.classic.spi.LogbackServiceProvider@260cf0d5]
+SLF4J(W): Found provider [org.apache.logging.slf4j.SLF4JServiceProvider@74f093cb]
+SLF4J(W): See https://www.slf4j.org/codes.html#multiple_bindings for an explanation.
+SLF4J(I): Actual provider is of type [ch.qos.logback.classic.spi.LogbackServiceProvider@260cf0d5]
+OBSERVE CommonNameSuite J04 counters: HashMap(ACCEPTED_RECORDS -> 84, BLOCKED_CANDIDATES -> 15, REJECTED_RECORDS -> 3, INPUT_RECORDS -> 84, FALLBACK_BLOCKS_COMPARED -> 4, OVERSIZE_BLOCKS -> 3)
+OBSERVE CommonNameSuite J04 rejects: Vector(block wang_w has 10 clusters > 5; not compared whole, split by full name; 1 parts refused: block wang_w/wei wang has 9 clusters > 5, block r:zhang_h has 60 members > hard cap 50; not expanded, work block wk:2019:common+graph has 7 works > 5)
+OBSERVE CommonNameSuite candidates per block key: Vector((fallback_l,1), (qiu_l,1), (ray_b,10), (wang_w|co:zorander_k,1), (wk:2019:common+graph|a:fallback_l,1), (zorander_k,1))
+OBSERVE CommonNameSuite Wang-Wang candidates: Vector((wang_w|co:zorander_k,{"venue_overlap":0,"cross_source":0,"initials_compatible":1,"same_full_name":0,"orcid_conflict":0,"affiliation_overlap":0,"name_jw":0.9249999999999999,"coauthor_overlap":1,"title_token_overlap":0,"orcid_equal":0,"shared_work":0,"year_gap":0,"external_id_conflict":0,"dblp_homonym_distinct":0,"affiliation_known":0,"external_id_equal":0}))
+OBSERVE CommonNameSuite Zhang-Zhang candidates: 0
+OBSERVE CommonNameSuite title-title candidates: Vector((wk:2019:common+graph|a:fallback_l,Set(dblp:c/title6, dblp:c/title7)))
+OBSERVE CommonNameSuite Ray candidates: 10
+OBSERVE CommonNameSuite largestBlockObserved: {"key":"r:zhang_h","members":60}
+OBSERVE CommonNameSuite fallback Wang candidates: Vector({"schemaVersion":"match-candidate-v1","candidateId":"mc:researcher:d3637c8353796b2f3e55","kind":"RESEARCHER","sourceId":"m:601209cc38a196c9131e","targetId":"m:f0eb763fa9533d8d44e2","blockKey":"wang_w|co:zorander_k","features":{"venue_overlap":0,"cross_source":0,"initials_compatible":1,"same_full_name":0,"orcid_conflict":0,"affiliation_overlap":0,"name_jw":0.9249999999999999,"coauthor_overlap":1,"title_token_overlap":0,"orcid_equal":0,"shared_work":0,"year_gap":0,"external_id_conflict":0,"dblp_homonym_distinct":0,"affiliation_known":0,"external_id_equal":0},"sourceIdentifiers":{},"targetIdentifiers":{},"provenance":{"source":"SCHOLARCHAIN","sourceRecordId":"wang_w|co:zorander_k","snapshot":"2026-11-22","runId":"run-6244ba8ed00978b7","schemaVersion":"match-candidate-v1","policyVersion":"norm-v1"}})
+OBSERVE CommonNameSuite fallback title candidates: Vector({"schemaVersion":"match-candidate-v1","candidateId":"mc:work:eb269fe542d90da4f96e","kind":"WORK","sourceId":"dblp:c/title6","targetId":"dblp:c/title7","blockKey":"wk:2019:common+graph|a:fallback_l","features":{"cross_source":0,"same_source_duplicate":1,"title_jaccard":1,"doi_conflict":0,"doi_equal":0,"same_title":1,"year_distance":0,"author_overlap":0.3333333333333333,"same_venue_name":1},"sourceIdentifiers":{},"targetIdentifiers":{},"provenance":{"source":"SCHOLARCHAIN","sourceRecordId":"wk:2019:common+graph|a:fallback_l","snapshot":"2026-11-22","runId":"run-6244ba8ed00978b7","schemaVersion":"match-candidate-v1","policyVersion":"norm-v1"}})
+Test run [36mscholarchain.adversarial.hadoop.CommonNameSuite[0m started
+[32mscholarchain.adversarial.hadoop.CommonNameSuite[0m: finished [90m16.834s[0m
+Test run [36mscholarchain.adversarial.hadoop.CommonNameSuite[0m finished: 0 failed, 0 ignored, 10 total [90m16.891s[0m
+Test run [36mscholarchain.adversarial.rag.WorkflowRepairR3GateSuite[0m started
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR3GateSuite[0m.[33mfree text: every R3 and R4 phrasing with B's number for A is labeled, never VERIFIED[0m[33m skipped[0m [90m0.054s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR3GateSuite[0m.[33mfree text: every V5-1 and V5b phrasing with B's number for A is labeled, never VERIFIED[0m[33m skipped[0m [90m0.003s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR3GateSuite[0m.[33mfree text: the R3, R4 and V5 phrasings with A's true number are labeled, never VERIFIED[0m[33m skipped[0m [90m0.003s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR3GateSuite[0m.[33mfree text: a model summary in R3 form 1 or 4, R4 or V5b form is labeled or replaced[0m[33m skipped[0m [90m0.004s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR3GateSuite[0m.[33mcontrol: one researcher, correct figures VERIFIED, and its correct summary kept (labeled, not replaced)[0m[33m skipped[0m [90m0.003s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR3GateSuite[0m.[33mstructured: A's true tuple is VERIFIED with A's value in every R3 and R4 phrasing[0m[33m skipped[0m [90m0.003s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR3GateSuite[0m.[33mstructured: a wrong value, wrong researcher, wrong metric, or a missing or foreign evidence ID is never VERIFIED[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR3GateSuite[0m.[33mstructured: a figure citing an ID outside its claim's evidence IDs is refused or never VERIFIED[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR3GateSuite[0m.[33mranking: a rank is VERIFIED only as a matching structured tuple; rank prose and bad rank tuples never are[0m[33m skipped[0m [90m0.002s[0m
+[32mscholarchain.adversarial.rag.WorkflowRepairR3GateSuite[0m: finished [90m0.08s[0m
+Test run [36mscholarchain.adversarial.rag.WorkflowRepairR3GateSuite[0m finished: 0 failed, 0 ignored, 9 total [90m0.08s[0m
+Test run [36mscholarchain.adversarial.rag.WorkflowRepairGateSuite[0m started
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairGateSuite[0m.[33mM5: a number of one cited researcher stated for the other is never VERIFIED[0m[33m skipped[0m [90m0.003s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairGateSuite[0m.[33mM5: a number after two names is checked against the grammatical subject, not the nearest name[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairGateSuite[0m.[33mM6: a path question without years (bq-v1-10) plans and answers only from loaded windows[0m[33m skipped[0m [90m0.038s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairGateSuite[0m.[33mM6: a metric question without years states no fact for an unloaded window[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairGateSuite[0m.[33mM6: a pair question without years (bq-v1-07) checks the pair only in a loaded window[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairGateSuite[0m.[33mrepair gate answers: every numerical and path claim cites existing deterministic evidence[0m[33m skipped[0m [90m0.001s[0m
+[32mscholarchain.adversarial.rag.WorkflowRepairGateSuite[0m: finished [90m0.051s[0m
+Test run [36mscholarchain.adversarial.rag.WorkflowRepairGateSuite[0m finished: 0 failed, 0 ignored, 6 total [90m0.052s[0m
+Test run [36mscholarchain.adversarial.services.JwtClaimsSuite[0m started
+[32mscholarchain.adversarial.services.JwtClaimsSuite[0m: finished [90m0.793s[0m
+Test run [36mscholarchain.adversarial.services.JwtClaimsSuite[0m finished: 0 failed, 0 ignored, 7 total [90m0.793s[0m
+OBSERVE UnicodeSuite NFC/NFD candidates: Vector("nunez_j")
+OBSERVE UnicodeSuite normalized names cyr/lat: (аnna kowalska,anna kowalska)
+Test run [36mscholarchain.adversarial.hadoop.UnicodeSuite[0m started
+[32mscholarchain.adversarial.hadoop.UnicodeSuite[0m: finished [90m9.187s[0m
+Test run [36mscholarchain.adversarial.hadoop.UnicodeSuite[0m finished: 0 failed, 0 ignored, 8 total [90m9.189s[0m
+OBSERVE RuntimeEdgeSuite empty: abstained=true reason=Some(no canonical researcher matches 'Alice Arden'; the answer abstains rather than choose a researcher) claims=Vector()
+OBSERVE RuntimeEdgeSuite isolated path: abstained=false reason=None claims=Vector((claim-1,VERIFIED,No coauthorship path of at most 6 hops connects Alice Arden and Ivan Isola in window 2015-2026.), (claim-2,VERIFIED,Alice Arden has 41 distinct coauthors (collaboration breadth) across 12 publications in window 2015-2026, with weighted degree 60 (repeated-collaboration intensity) and 44 coauthor occurrences.), (claim-3,VERIFIED,Ivan Isola has 0 distinct coauthors (collaboration breadth) across 2 publications in window 2015-2026, with weighted degree 0 (repeated-collaboration intensity) and 3 coauthor occurrences.))
+OBSERVE RuntimeEdgeSuite Mia: abstained=false reason=None claims=Vector((claim-1,VERIFIED,Mia Nometa has 1 distinct coauthors (collaboration breadth) across 1 publications in window 2015-2026, with weighted degree 1 (repeated-collaboration intensity) and 4 coauthor occurrences.)); rows Vector(ResearcherAnswer(sc:r:v1:88888888888888888888,Mia Nometa,1,1,1.0,4.0,1,Vector(dblp:conf/nom/Nometa23),cc:00000000000000aa,None,None,None,0.97,Vector(claim-1)))
+OBSERVE RuntimeEdgeSuite unknown topic: abstained=true reason=Some(no researcher matched the ranking in window 2015-2026 (filter: authors of works with topic Nonexistent topic zqx published in 2015-2026)) claims=Vector()
+OBSERVE RuntimeEdgeSuite neptune metrics: resolve failed: neighbors-out-v1: Neptune query timed out after 30000 ms (secret-marker-7f3a)
+OBSERVE RuntimeEdgeSuite neptune path: resolve failed: neighbors-out-v1: Neptune query timed out after 30000 ms (secret-marker-7f3a)
+OBSERVE RuntimeEdgeSuite malformed: calls 3, fallback Some(model output refused 3 times), attempts Vector((1,refused,Some(the reply is not one JSON object)), (2,refused,Some(the reply is not one JSON object)), (3,refused,Some(the reply is not one JSON object)))
+OBSERVE RuntimeEdgeSuite replay conflict: Left(audit failed: an audit record for replay-2 exists and differs; not overwritten)
+Test run [36mscholarchain.adversarial.rag.RuntimeEdgeSuite[0m started
+[32mscholarchain.adversarial.rag.RuntimeEdgeSuite[0m: finished [90m2.371s[0m
+Test run [36mscholarchain.adversarial.rag.RuntimeEdgeSuite[0m finished: 0 failed, 0 ignored, 9 total [90m2.372s[0m
+Test run [36mscholarchain.adversarial.rag.WorkflowGateSuite[0m started
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mno user text as database code: inj-cypher-name runs only allowlisted templates with ID parameters[0m[33m skipped[0m [90m0.005s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mno user text as database code: inj-cypher-union runs only allowlisted templates with ID parameters[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mno user text as database code: inj-cypher-institution runs only allowlisted templates with ID parameters[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mno user text as database code: inj-constraints runs only allowlisted templates with ID parameters[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mno user text as database code: inj-researcher-id runs only allowlisted templates with ID parameters[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mno user text as database code: inj-gremlin-aws runs only allowlisted templates with ID parameters[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mno user text as database code: a smuggled researcher ID is never passed to the graph[0m[33m skipped[0m [90m0.004s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mno user text as database code: every query run by any benchmark or gate request is templated[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mambiguous name: "Wei Wang" abstains, lists several candidates and states no metric[0m[33m skipped[0m [90m0.003s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mambiguous name: variant "wei wang" does not resolve to one identity[0m[33m skipped[0m [90m0.003s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mambiguous name: variant "Wang Wei" does not resolve to one identity[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mambiguous name: variant "WEI WANG" does not resolve to one identity[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mambiguous name: variant "Wéi Wäng" does not resolve to one identity[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mambiguous name: variant "Wei   Wang" does not resolve to one identity[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mambiguous name: a Cyrillic confusable of "Wei Wang" never resolves to a Wei Wang node[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mambiguous name: one ambiguous endpoint stops a path query[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mambiguous name: a chosen candidate ID is answered for that ID only[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33munsupported claims: fabricated, uncited and semantic-only claims are removed; partial ones weakened[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33munsupported claims: a summary with a fabricated value is replaced or labeled UNVERIFIED interpretation[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33munsupported claims: a model that abstains despite deterministic evidence is overridden[0m[33m skipped[0m [90m0.004s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mprompt injection in the question: the deterministic answer keeps the stored value[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mprompt injection in the question: a model that obeys it has its claim and summary removed[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mprompt injection: question text, fence closers and placeholders stay inside the DATA block[0m[33m skipped[0m [90m0.003s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mprompt injection: an injected question reaches no claim in any model-written output[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mbounded retry: malformed output is retried at most 3 times, then the deterministic answer is used[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mbounded retry: one malformed reply, then a valid one; the retry prompt never echoes the reply[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mbounded retry: a failing model call ends in the deterministic answer within the bound[0m[33m skipped[0m [90m0.003s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mvalidation: reasoning fields and thinking markup are refused and never stored[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowGateSuite[0m.[33mevery numerical and path claim cites existing deterministic or identity evidence[0m[33m skipped[0m [90m0.002s[0m
+[32mscholarchain.adversarial.rag.WorkflowGateSuite[0m: finished [90m0.071s[0m
+Test run [36mscholarchain.adversarial.rag.WorkflowGateSuite[0m finished: 0 failed, 0 ignored, 29 total [90m0.072s[0m
+Test run [36mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m started
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mthe store reader matches the rows the generator read[0m[33m skipped[0m [90m0.003s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mthe ambiguous-name gate fixture has several nodes under one display name[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-01 (coauthor-breadth): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.009s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-02 (coauthor-breadth): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-03 (coauthor-breadth): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-04 (maximum-team-size): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-05 (maximum-team-size): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-06 (maximum-team-size): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-07 (direct-collaboration): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-08 (direct-collaboration): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-09 (direct-collaboration): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.0s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-10 (shortest-path): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-11 (shortest-path): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-12 (shortest-path): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-13 (components): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-14 (components): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-15 (components): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-16 (communities): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-17 (communities): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-18 (communities): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-19 (bridge-researchers): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-20 (bridge-researchers): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-21 (bridge-researchers): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-22 (temporal-change): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-23 (temporal-change): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-24 (temporal-change): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-25 (topics): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.003s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-26 (topics): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-27 (topics): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-28 (institutions): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-29 (institutions): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.004s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-30 (institutions): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-31 (evidence): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-32 (evidence): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.003s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m.[33mbq-v1-33 (evidence): the expected answer equals an independent recomputation[0m[33m skipped[0m [90m0.001s[0m
+[32mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m: finished [90m0.121s[0m
+Test run [36mscholarchain.adversarial.rag.BenchmarkQuestionSetSuite[0m finished: 0 failed, 0 ignored, 40 total [90m0.123s[0m
+Test run [36mscholarchain.adversarial.rag.WorkflowRepairR4GateSuite[0m started
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR4GateSuite[0m.[33mcontrol: correct figure tuples for A and B are VERIFIED and a number-free summary is kept, labeled[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR4GateSuite[0m.[33mR4-1/R4-2: B's number in a tuple for A is never VERIFIED in eleven phrasings[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR4GateSuite[0m.[33mR4-1/R4-2 reversed: A's number in a tuple for B is never VERIFIED in eleven phrasings[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR4GateSuite[0m.[33mR4-1/R4-2: a true tuple for A is VERIFIED and shown with A's value in every phrasing[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR4GateSuite[0m.[33mR4-1/R4-2 free text: a literal number with no figure is never VERIFIED, kept only labeled[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR4GateSuite[0m.[33mR4-1/R4-2 wrong metric or unknown researcher: the tuple is never VERIFIED[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR4GateSuite[0m.[33mR4-1 summary: a model summary stating B's number for A in a partial-name form is replaced or labeled[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairR4GateSuite[0m.[33mR4-3: a ranking backs a number or rank only for the researcher at that position[0m[33m skipped[0m [90m0.002s[0m
+[32mscholarchain.adversarial.rag.WorkflowRepairR4GateSuite[0m: finished [90m0.017s[0m
+Test run [36mscholarchain.adversarial.rag.WorkflowRepairR4GateSuite[0m finished: 0 failed, 0 ignored, 8 total [90m0.018s[0m
+Test run [36mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m started
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-01 (coauthor-breadth) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-01 (coauthor-breadth) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.008s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-02 (coauthor-breadth) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-02 (coauthor-breadth) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-03 (coauthor-breadth) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-03 (coauthor-breadth) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-04 (maximum-team-size) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-04 (maximum-team-size) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-05 (maximum-team-size) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-05 (maximum-team-size) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-06 (maximum-team-size) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-06 (maximum-team-size) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-07 (direct-collaboration) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-07 (direct-collaboration) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-08 (direct-collaboration) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-08 (direct-collaboration) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-09 (direct-collaboration) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-09 (direct-collaboration) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-10 (shortest-path) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-10 (shortest-path) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-11 (shortest-path) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-11 (shortest-path) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-12 (shortest-path) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-12 (shortest-path) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-13 (components) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-13 (components) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-14 (components) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-14 (components) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-15 (components) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-15 (components) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-16 (communities) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-16 (communities) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-17 (communities) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-17 (communities) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-18 (communities) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-18 (communities) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-19 (bridge-researchers) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-19 (bridge-researchers) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-20 (bridge-researchers) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-20 (bridge-researchers) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-21 (bridge-researchers) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.006s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-21 (bridge-researchers) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-22 (temporal-change) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-22 (temporal-change) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-23 (temporal-change) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-23 (temporal-change) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-24 (temporal-change) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-24 (temporal-change) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.0s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-25 (topics) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-25 (topics) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-26 (topics) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-26 (topics) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-27 (topics) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-27 (topics) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-28 (institutions) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-28 (institutions) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-29 (institutions) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-29 (institutions) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-30 (institutions) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-30 (institutions) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-31 (evidence) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-31 (evidence) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-32 (evidence) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.002s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-32 (evidence) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-33 (evidence) deterministic retrieval holds the expected graph and metric facts[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mbq-v1-33 (evidence) answer states the expected facts with evidence[0m[33m skipped[0m [90m0.001s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[33mthe planner extracts names, window, topic, institution and operation from the text alone[0m[33m skipped[0m [90m0.001s[0m
+[91m==> X [0m[91mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m.[91msemantic retrieval is scored on the semantic partition only, apart from deterministic[0m [90m0.05s[0m java.lang.IllegalStateException: LocalRuntime.load failed: cannot read /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/datasets/samples/local/2026-11-24-25k/spark-out/run-manifests/run-ccf619c509611f06.json: /tmp/claude-1000/-home-ajcreator-scholarchain/c361468e-31d1-4e60-81d9-722c3f6dd500/scratchpad/clean-copy/datasets/samples/local/2026-11-24-25k/spark-out/run-manifests/run-ccf619c509611f06.json
+[1m    at [0m[1mscholarchain.adversarial.rag.BenchmarkRuntime$.$anonfun$1[0m[1m([0m[1mBenchmarkRuntime.scala[0m:[1m46[0m[1m)[0m
+[90m    at [0m[90mscala.util.Either.fold[0m[90m([0m[90mEither.scala[0m:[90m198[0m[90m)[0m
+[1m    at [0m[1mscholarchain.adversarial.rag.BenchmarkRuntime$.runtime$lzyINIT1[0m[1m([0m[1mBenchmarkRuntime.scala[0m:[1m46[0m[1m)[0m
+[1m    at [0m[1mscholarchain.adversarial.rag.BenchmarkRuntime$.runtime[0m[1m([0m[1mBenchmarkRuntime.scala[0m:[1m40[0m[1m)[0m
+[1m    at [0m[1mscholarchain.adversarial.rag.BenchmarkRuntime$.deterministic[0m[1m([0m[1mBenchmarkRuntime.scala[0m:[1m79[0m[1m)[0m
+[1m    at [0m[1mscholarchain.adversarial.rag.BenchmarkRuntime$.benchmark$lzyINIT1$$anonfun$1[0m[1m([0m[1mBenchmarkRuntime.scala[0m:[1m131[0m[1m)[0m
+[90m    at [0m[90mscala.collection.immutable.Vector2.map[0m[90m([0m[90mVector.scala[0m:[90m2141[0m[90m)[0m
+[90m    at [0m[90mscala.collection.immutable.Vector2.map[0m[90m([0m[90mVector.scala[0m:[90m444[0m[90m)[0m
+[1m    at [0m[1mscholarchain.adversarial.rag.BenchmarkRuntime$.benchmark$lzyINIT1[0m[1m([0m[1mBenchmarkRuntime.scala[0m:[1m128[0m[1m)[0m
+[1m    at [0m[1mscholarchain.adversarial.rag.BenchmarkRuntime$.benchmark[0m[1m([0m[1mBenchmarkRuntime.scala[0m:[1m128[0m[1m)[0m
+[1m    at [0m[1mscholarchain.adversarial.rag.BenchmarkWorkflowSuite.$init$$$anonfun$4[0m[1m([0m[1mBenchmarkWorkflowSuite.scala[0m:[1m699[0m[1m)[0m
+[32mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m: finished [90m0.179s[0m
+Test run [36mscholarchain.adversarial.rag.BenchmarkWorkflowSuite[0m finished: [91m1 failed[0m, 0 ignored, 68 total [90m0.18s[0m
+OBSERVE ReducerWiringSuite ISO J01 counters: HashMap(ACCEPTED_RECORDS -> 3, DBLP_TYPE_ARTICLE -> 3, REJECTED_RECORDS -> 1, UNIQUE_RECORDS -> 3, INPUT_RECORDS -> 4)
+OBSERVE ReducerWiringSuite ISO J01 rejects: Vector(malformed XML: Illegal character ((CTRL-CHAR, code 1))
+ at [row,col {unknown-source}]: [1,104])
+OBSERVE ReducerWiringSuite J03 counters: HashMap(OVERSIZE_BLOCKS -> 1, ACCEPTED_RECORDS -> 10, EXACT_CANDIDATES -> 1, DUPLICATE_RECORDS -> 2, CONFLICT_RECORDS -> 1, REJECTED_RECORDS -> 1, INPUT_RECORDS -> 10, MISSING_DOI -> 4, MISSING_KEY -> 4)
+OBSERVE ReducerWiringSuite J03 rejects: Vector(exact key doi:10.4242/adv.shared.2020 holds 4 works > 3; work pairs not expanded)
+OBSERVE ReducerWiringSuite J04 counters: HashMap(OVERSIZE_BLOCKS -> 1, ACCEPTED_RECORDS -> 10, FALLBACK_BLOCKS_REFUSED -> 2, BLOCKED_CANDIDATES -> 3, REJECTED_RECORDS -> 3, INPUT_RECORDS -> 10)
+OBSERVE ReducerWiringSuite J04 rejects: Vector(block zhang_h has 4 clusters > 3; not compared whole, split by full name, fallback block zhang_h|co:qewy_a has 4 clusters > 3, fallback block zhang_h|y:2020 has 4 clusters > 3)
+OBSERVE ReducerWiringSuite largest block: {"key":"r:qewy_a","members":4}
+Test run [36mscholarchain.adversarial.hadoop.ReducerWiringSuite[0m started
+[32mscholarchain.adversarial.hadoop.ReducerWiringSuite[0m: finished [90m29.616s[0m
+Test run [36mscholarchain.adversarial.hadoop.ReducerWiringSuite[0m finished: 0 failed, 0 ignored, 10 total [90m29.617s[0m
+OBSERVE GiantTeamSuite run1 pairs per work: Vector((dblp:g/n12,66), (dblp:g/n2,1), (dblp:g/n3,3), (dblp:g/rep,3))
+OBSERVE GiantTeamSuite run1 oversize reject stages: Vector(J06)
+OBSERVE GiantTeamSuite run1 summary maxTeamObserved: {"workId":"dblp:g/n13","teamSize":13}
+OBSERVE GiantTeamSuite run1 summary largestPairExpansion: 78
+Test run [36mscholarchain.adversarial.hadoop.GiantTeamSuite[0m started
+[32mscholarchain.adversarial.hadoop.GiantTeamSuite[0m: finished [90m18.566s[0m
+Test run [36mscholarchain.adversarial.hadoop.GiantTeamSuite[0m finished: 0 failed, 0 ignored, 14 total [90m18.567s[0m
+OBSERVE DuplicateIdSuite D1 J01 counters: HashMap(ACCEPTED_RECORDS -> 6, DBLP_TYPE_ARTICLE -> 6, DUPLICATE_RECORDS -> 2, CONFLICT_RECORDS -> 1, UNIQUE_RECORDS -> 4, INPUT_RECORDS -> 6)
+OBSERVE DuplicateIdSuite kept d/conf version: (Conflict Version Alpha,2021,2)
+OBSERVE DuplicateIdSuite D1 team work IDs: Vector(crossref:10.5555/adv.dup.1, dblp:d/conf, dblp:d/doi, dblp:d/same, dblp:d/solo, openalex:W9200000001)
+OBSERVE DuplicateIdSuite DOIs: Vector(Some(10.5555/adv.dup.1), Some(10.5555/adv.dup.1), Some(10.5555/adv.dup.1), Some(10.5555/adv.dup.1))
+OBSERVE DuplicateIdSuite exact candidates: Vector((mc:work:e36f958f1bb2c6407df2,crossref:10.5555/adv.dup.1,dblp:d/doi), (mc:work:1fe869a4ab15a42db2ed,crossref:10.5555/adv.dup.1,openalex:W9200000001), (mc:work:39b7c8922e8eca519d3a,dblp:d/doi,openalex:W9200000001))
+OBSERVE DuplicateIdSuite J03 counters: HashMap(ACCEPTED_RECORDS -> 7, EXACT_CANDIDATES -> 3, DUPLICATE_RECORDS -> 2, INPUT_RECORDS -> 7, MISSING_DOI -> 3, MISSING_KEY -> 3)
+OBSERVE DuplicateIdSuite DUPLICATE/CONFLICT per stage: Vector((J01,2,1), (J02-CROSSREF,0,0), (J02-OPENALEX,0,0), (J03,2,0), (J04,0,0), (J05,1,0), (J06,0,0), (J07,3,0))
+Test run [36mscholarchain.adversarial.hadoop.DuplicateIdSuite[0m started
+[32mscholarchain.adversarial.hadoop.DuplicateIdSuite[0m: finished [90m206.611s[0m
+Test run [36mscholarchain.adversarial.hadoop.DuplicateIdSuite[0m finished: 0 failed, 0 ignored, 11 total [90m206.613s[0m
+Test run [36mscholarchain.adversarial.rag.WorkflowRepairD5GateSuite[0m started
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairD5GateSuite[0m.[33mD5: a number before two names, or in comparative prose, is never VERIFIED for the wrong one[0m[33m skipped[0m [90m0.013s[0m
+[33m==> s [0m[33mscholarchain.adversarial.rag.WorkflowRepairD5GateSuite[0m.[33mD5: a model summary stating B's number before two names is replaced or labeled[0m[33m skipped[0m [90m0.002s[0m
+[32mscholarchain.adversarial.rag.WorkflowRepairD5GateSuite[0m: finished [90m0.017s[0m
+Test run [36mscholarchain.adversarial.rag.WorkflowRepairD5GateSuite[0m finished: 0 failed, 0 ignored, 2 total [90m0.017s[0m
+OBSERVE DblpXmlAttackSuite reader status heads at 64: Vector(Oversize:<article mdate="2026-11-01" key="journals/adv/big">, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ba, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ov, BadEncoding:<article mdate="2026-11-01" key="journals/adv/su, Truncated:<article mdate="2026-11-01" key="journals/adv/cut")
+OBSERVE DblpXmlAttackSuite reader status heads at 100: Vector(Oversize:<article mdate="2026-11-01" key="journals/adv/big">, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ba, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ov, BadEncoding:<article mdate="2026-11-01" key="journals/adv/su, Truncated:<article mdate="2026-11-01" key="journals/adv/cut")
+OBSERVE DblpXmlAttackSuite reader status heads at 128: Vector(Oversize:<article mdate="2026-11-01" key="journals/adv/big">, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ba, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ov, BadEncoding:<article mdate="2026-11-01" key="journals/adv/su, Truncated:<article mdate="2026-11-01" key="journals/adv/cut")
+OBSERVE DblpXmlAttackSuite reader status heads at 257: Vector(Oversize:<article mdate="2026-11-01" key="journals/adv/big">, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ba, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ov, BadEncoding:<article mdate="2026-11-01" key="journals/adv/su, Truncated:<article mdate="2026-11-01" key="journals/adv/cut")
+OBSERVE DblpXmlAttackSuite reader status heads at 1000: Vector(Oversize:<article mdate="2026-11-01" key="journals/adv/big">, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ba, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ov, BadEncoding:<article mdate="2026-11-01" key="journals/adv/su, Truncated:<article mdate="2026-11-01" key="journals/adv/cut")
+OBSERVE DblpXmlAttackSuite reader status heads at 9223372036854775807: Vector(Oversize:<article mdate="2026-11-01" key="journals/adv/big">, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ba, BadEncoding:<article mdate="2026-11-01" key="journals/adv/ov, BadEncoding:<article mdate="2026-11-01" key="journals/adv/su, Truncated:<article mdate="2026-11-01" key="journals/adv/cut")
+OBSERVE DblpXmlAttackSuite hostile J01 reject reasons: Vector(unreadable record (OversizeNone) at byte 264, unreadable record (BadEncodingSome(, UTF-8)) at byte 3649, unreadable record (BadEncodingSome(, UTF-8)) at byte 3831, unreadable record (BadEncodingSome(, UTF-8)) at byte 4017, unreadable record (TruncatedNone) at byte 4377)
+OBSERVE DblpXmlAttackSuite hostile J01 counters: HashMap(ACCEPTED_RECORDS -> 3, DBLP_TYPE_ARTICLE -> 3, REJECTED_RECORDS -> 5, UNIQUE_RECORDS -> 3, INPUT_RECORDS -> 8)
+OBSERVE DblpXmlAttackSuite dtd run output bytes: 10524
+OBSERVE DblpXmlAttackSuite dtd run works: Vector(journals/adv/safe1, journals/adv/safe2)
+OBSERVE DblpXmlAttackSuite dtd run J01 rejects: Vector(undeclared entities: xxe, undeclared entities: lol6, DOCTYPE or ENTITY declaration inside a record)
+Test run [36mscholarchain.adversarial.hadoop.DblpXmlAttackSuite[0m started
+[32mscholarchain.adversarial.hadoop.DblpXmlAttackSuite[0m: finished [90m39.11s[0m
+Test run [36mscholarchain.adversarial.hadoop.DblpXmlAttackSuite[0m finished: 0 failed, 0 ignored, 13 total [90m39.11s[0m
+OBSERVE MissingFieldSuite stages: Vector(J01, J02-CROSSREF, J02-OPENALEX, J02-ORCID, J03, J04, J05, J06, J07)
+OBSERVE MissingFieldSuite J01 counters: HashMap(INVALID_IDENTIFIER -> 2, ACCEPTED_RECORDS -> 8, DBLP_TYPE_ARTICLE -> 8, REJECTED_RECORDS -> 9, MISSING_KEY -> 2, UNIQUE_RECORDS -> 8, INPUT_RECORDS -> 17)
+OBSERVE MissingFieldSuite m/noyear: work=1 reject=0
+OBSERVE MissingFieldSuite m/noauthor: work=1 reject=0
+OBSERVE MissingFieldSuite m/badyear: work=0 reject=1
+OBSERVE MissingFieldSuite m/oldyear: work=0 reject=1
+OBSERVE MissingFieldSuite m/notitle: work=0 reject=1
+OBSERVE MissingFieldSuite m/novenue: work=1 reject=0
+OBSERVE MissingFieldSuite INVALID_IDENTIFIER per stage: Vector((J01,2), (J02-CROSSREF,0), (J02-OPENALEX,0), (J02-ORCID,0), (J03,0), (J04,0), (J05,0), (J06,0), (J07,0))
+OBSERVE MissingFieldSuite J01 _counters.json: HashMap(INVALID_IDENTIFIER -> 2, ACCEPTED_RECORDS -> 8, DBLP_TYPE_ARTICLE -> 8, REJECTED_RECORDS -> 9, MISSING_KEY -> 2, UNIQUE_RECORDS -> 8, INPUT_RECORDS -> 17)
+OBSERVE MissingFieldSuite J02-OPENALEX counters: HashMap(ACCEPTED_RECORDS -> 1, WORKS_WRITTEN -> 1, REJECTED_RECORDS -> 4, INPUT_RECORDS -> 5, TOPICS_WRITTEN -> 1)
+OBSERVE MissingFieldSuite ORCID researchers: Vector(Some(0000-0009-1000-0019))
+Test run [36mscholarchain.adversarial.hadoop.MissingFieldSuite[0m started
+[32mscholarchain.adversarial.hadoop.MissingFieldSuite[0m: finished [90m13.162s[0m
+Test run [36mscholarchain.adversarial.hadoop.MissingFieldSuite[0m finished: 0 failed, 0 ignored, 12 total [90m13.162s[0m
+OBSERVE FilteredRankGateSuite c09-global-probe ranking values: HashMap(window -> 2015-2026, metricField -> distinctCoauthorCount, filter -> none: every researcher with a row in the window, returned -> 7, positions -> 1:sc:r:v1:cccccccccccccccccccc=52;2:sc:r:v1:aaaaaaaaaaaaaaaaaaaa=41;3:sc:r:v1:bbbbbbbbbbbbbbbbbbbb=30;4:sc:r:v1:dddddddddddddddddddd=19;5:sc:r:v1:11111111111111111111=3;6:sc:r:v1:88888888888888888888=1;7:sc:r:v1:99999999999999999999=0, meaning -> C_r, distinct coauthors in the window (collaboration breadth), kind -> ranking, limit -> 10, metricVersion -> metrics-v1, order -> stored value descending, then researcher ID ascending; rows without the value are left out, metric -> DISTINCT_COAUTHOR_COUNT)
+OBSERVE FilteredRankGateSuite c09-global-bridge-probe ranking values: HashMap(window -> 2015-2026, metricField -> bridgeScore, filter -> none: every researcher with a row in the window, returned -> 6, positions -> 1:sc:r:v1:cccccccccccccccccccc=0.65;2:sc:r:v1:bbbbbbbbbbbbbbbbbbbb=0.41;3:sc:r:v1:aaaaaaaaaaaaaaaaaaaa=0.12;4:sc:r:v1:11111111111111111111=0;5:sc:r:v1:99999999999999999999=0;6:sc:r:v1:dddddddddddddddddddd=0, meaning -> sampled-source Brandes betweenness (approximate, unweighted hops): structural bridge importance, kind -> ranking, limit -> 10, metricVersion -> metrics-v1, order -> stored value descending, then researcher ID ascending; rows without the value are left out, metric -> BRIDGE_SCORE)
+OBSERVE FilteredRankGateSuite c09-topic-probe ranking values: HashMap(window -> 2015-2026, metricField -> distinctCoauthorCount, filter -> authors of works with topic Quantum error correction published in 2015-2026, returned -> 3, positions -> 1:sc:r:v1:aaaaaaaaaaaaaaaaaaaa=41;2:sc:r:v1:bbbbbbbbbbbbbbbbbbbb=30;3:sc:r:v1:11111111111111111111=3, meaning -> C_r, distinct coauthors in the window (collaboration breadth), kind -> ranking, limit -> 10, metricVersion -> metrics-v1, order -> stored value descending, then researcher ID ascending; rows without the value are left out, metric -> DISTINCT_COAUTHOR_COUNT)
+OBSERVE FilteredRankGateSuite c09-inst-probe ranking values: HashMap(window -> 2015-2026, metricField -> distinctCoauthorCount, filter -> researchers affiliated with Example Quantum Institute, returned -> 3, positions -> 1:sc:r:v1:aaaaaaaaaaaaaaaaaaaa=41;2:sc:r:v1:bbbbbbbbbbbbbbbbbbbb=30;3:sc:r:v1:11111111111111111111=3, meaning -> C_r, distinct coauthors in the window (collaboration breadth), kind -> ranking, limit -> 10, metricVersion -> metrics-v1, order -> stored value descending, then researcher ID ascending; rows without the value are left out, metric -> DISTINCT_COAUTHOR_COUNT)
+OBSERVE FilteredRankGateSuite c09-bridge-probe ranking values: HashMap(window -> 2015-2026, metricField -> bridgeScore, filter -> authors of works with topic Quantum error correction published in 2015-2026, returned -> 3, positions -> 1:sc:r:v1:bbbbbbbbbbbbbbbbbbbb=0.41;2:sc:r:v1:aaaaaaaaaaaaaaaaaaaa=0.12;3:sc:r:v1:11111111111111111111=0, meaning -> sampled-source Brandes betweenness (approximate, unweighted hops): structural bridge importance, kind -> ranking, limit -> 10, metricVersion -> metrics-v1, order -> stored value descending, then researcher ID ascending; rows without the value are left out, metric -> BRIDGE_SCORE)
+OBSERVE FilteredRankGateSuite c09-control-probe ranking values: HashMap(window -> 2015-2026, metricField -> distinctCoauthorCount, filter -> none: every researcher with a row in the window, returned -> 7, positions -> 1:sc:r:v1:cccccccccccccccccccc=52;2:sc:r:v1:aaaaaaaaaaaaaaaaaaaa=41;3:sc:r:v1:bbbbbbbbbbbbbbbbbbbb=30;4:sc:r:v1:dddddddddddddddddddd=19;5:sc:r:v1:11111111111111111111=3;6:sc:r:v1:88888888888888888888=1;7:sc:r:v1:99999999999999999999=0, meaning -> C_r, distinct coauthors in the window (collaboration breadth), kind -> ranking, limit -> 10, metricVersion -> metrics-v1, order -> stored value descending, then researcher ID ascending; rows without the value are left out, metric -> DISTINCT_COAUTHOR_COUNT)
+OBSERVE FilteredRankGateSuite c09-topic-probe ranking values: HashMap(window -> 2015-2026, metricField -> distinctCoauthorCount, filter -> authors of works with topic Quantum error correction published in 2015-2026, returned -> 3, positions -> 1:sc:r:v1:aaaaaaaaaaaaaaaaaaaa=41;2:sc:r:v1:bbbbbbbbbbbbbbbbbbbb=30;3:sc:r:v1:11111111111111111111=3, meaning -> C_r, distinct coauthors in the window (collaboration breadth), kind -> ranking, limit -> 10, metricVersion -> metrics-v1, order -> stored value descending, then researcher ID ascending; rows without the value are left out, metric -> DISTINCT_COAUTHOR_COUNT)
+OBSERVE FilteredRankGateSuite topic answer: Vector((claim-1,PARTIALLY_SUPPORTED,UNVERIFIED interpretation: The leader holds position 1 (rank of Alice Arden by distinctCoauthorCount among authors of works with topic Quantum error correction published in 2015-2026, window 2015-2026).), (claim-1-figure-1,VERIFIED,rank of Alice Arden (sc:r:v1:aaaaaaaaaaaaaaaaaaaa) by distinctCoauthorCount among authors of works with topic Quantum error correction published in 2015-2026 in window 2015-2026: 1.), (claim-2,PARTIALLY_SUPPORTED,UNVERIFIED interpretation: 1 (rank of Alice Arden by distinctCoauthorCount among authors of works with topic Quantum error correction published in 2015-2026, window 2015-2026) is the position in the ranking.), (claim-2-figure-1,VERIFIED,rank of Alice Arden (sc:r:v1:aaaaaaaaaaaaaaaaaaaa) by distinctCoauthorCount among authors of works with topic Quantum error correction published in 2015-2026 in window 2015-2026: 1.))
+OBSERVE FilteredRankGateSuite c09-institution-probe ranking values: HashMap(window -> 2015-2026, metricField -> distinctCoauthorCount, filter -> researchers affiliated with Example Quantum Institute, returned -> 3, positions -> 1:sc:r:v1:aaaaaaaaaaaaaaaaaaaa=41;2:sc:r:v1:bbbbbbbbbbbbbbbbbbbb=30;3:sc:r:v1:11111111111111111111=3, meaning -> C_r, distinct coauthors in the window (collaboration breadth), kind -> ranking, limit -> 10, metricVersion -> metrics-v1, order -> stored value descending, then researcher ID ascending; rows without the value are left out, metric -> DISTINCT_COAUTHOR_COUNT)
+OBSERVE FilteredRankGateSuite institution answer: Vector((claim-1,PARTIALLY_SUPPORTED,UNVERIFIED interpretation: The leader holds position 1 (rank of Alice Arden by distinctCoauthorCount among researchers affiliated with Example Quantum Institute, window 2015-2026).), (claim-1-figure-1,VERIFIED,rank of Alice Arden (sc:r:v1:aaaaaaaaaaaaaaaaaaaa) by distinctCoauthorCount among researchers affiliated with Example Quantum Institute in window 2015-2026: 1.), (claim-2,PARTIALLY_SUPPORTED,UNVERIFIED interpretation: 1 (rank of Alice Arden by distinctCoauthorCount among researchers affiliated with Example Quantum Institute, window 2015-2026) is the position in the ranking.), (claim-2-figure-1,VERIFIED,rank of Alice Arden (sc:r:v1:aaaaaaaaaaaaaaaaaaaa) by distinctCoauthorCount among researchers affiliated with Example Quantum Institute in window 2015-2026: 1.))
+OBSERVE FilteredRankGateSuite c09-bridge-probe ranking values: HashMap(window -> 2015-2026, metricField -> bridgeScore, filter -> authors of works with topic Quantum error correction published in 2015-2026, returned -> 3, positions -> 1:sc:r:v1:bbbbbbbbbbbbbbbbbbbb=0.41;2:sc:r:v1:aaaaaaaaaaaaaaaaaaaa=0.12;3:sc:r:v1:11111111111111111111=0, meaning -> sampled-source Brandes betweenness (approximate, unweighted hops): structural bridge importance, kind -> ranking, limit -> 10, metricVersion -> metrics-v1, order -> stored value descending, then researcher ID ascending; rows without the value are left out, metric -> BRIDGE_SCORE)
+OBSERVE FilteredRankGateSuite bridge answer: Vector((claim-1,PARTIALLY_SUPPORTED,UNVERIFIED interpretation: The leader holds position 1 (rank of Bob Brandt by bridgeScore among authors of works with topic Quantum error correction published in 2015-2026, window 2015-2026).), (claim-1-figure-1,VERIFIED,rank of Bob Brandt (sc:r:v1:bbbbbbbbbbbbbbbbbbbb) by bridgeScore among authors of works with topic Quantum error correction published in 2015-2026 in window 2015-2026: 1.), (claim-2,PARTIALLY_SUPPORTED,UNVERIFIED interpretation: 1 (rank of Bob Brandt by bridgeScore among authors of works with topic Quantum error correction published in 2015-2026, window 2015-2026) is the position in the ranking.), (claim-2-figure-1,VERIFIED,rank of Bob Brandt (sc:r:v1:bbbbbbbbbbbbbbbbbbbb) by bridgeScore among authors of works with topic Quantum error correction published in 2015-2026 in window 2015-2026: 1.))
+OBSERVE FilteredRankGateSuite c09-outsider-probe ranking values: HashMap(window -> 2015-2026, metricField -> distinctCoauthorCount, filter -> authors of works with topic Quantum error correction published in 2015-2026, returned -> 3, positions -> 1:sc:r:v1:aaaaaaaaaaaaaaaaaaaa=41;2:sc:r:v1:bbbbbbbbbbbbbbbbbbbb=30;3:sc:r:v1:11111111111111111111=3, meaning -> C_r, distinct coauthors in the window (collaboration breadth), kind -> ranking, limit -> 10, metricVersion -> metrics-v1, order -> stored value descending, then researcher ID ascending; rows without the value are left out, metric -> DISTINCT_COAUTHOR_COUNT)
+OBSERVE FilteredRankGateSuite deterministic topic: Vector((claim-1,VERIFIED,Ranked by distinct coauthors (collaboration breadth, C_r) in window 2015-2026 among authors of works with topic Quantum error correction published in 2015-2026: 1. Alice Arden (41), 2. Bob Brandt (30), 3. Wei Wang (3).), (claim-2,VERIFIED,Alice Arden has 41 distinct coauthors (collaboration breadth) across 12 publications in window 2015-2026, with weighted degree 60 (repeated-collaboration intensity) and 44 coauthor occurrences.), (claim-3,VERIFIED,Bob Brandt has 30 distinct coauthors (collaboration breadth) across 9 publications in window 2015-2026, with weighted degree 35 (repeated-collaboration intensity) and 33 coauthor occurrences.), (claim-4,VERIFIED,Wei Wang has 3 distinct coauthors (collaboration breadth) across 1 publications in window 2015-2026, with weighted degree 3 (repeated-collaboration intensity) and 6 coauthor occurrences.))
+OBSERVE FilteredRankGateSuite deterministic institution: Vector((claim-1,VERIFIED,Ranked by distinct coauthors (collaboration breadth, C_r) in window 2015-2026 among researchers affiliated with Example Quantum Institute: 1. Alice Arden (41), 2. Bob Brandt (30), 3. Wei Wang (3).), (claim-2,VERIFIED,Alice Arden has 41 distinct coauthors (collaboration breadth) across 12 publications in window 2015-2026, with weighted degree 60 (repeated-collaboration intensity) and 44 coauthor occurrences.), (claim-3,VERIFIED,Bob Brandt has 30 distinct coauthors (collaboration breadth) across 9 publications in window 2015-2026, with weighted degree 35 (repeated-collaboration intensity) and 33 coauthor occurrences.), (claim-4,VERIFIED,Wei Wang has 3 distinct coauthors (collaboration breadth) across 1 publications in window 2015-2026, with weighted degree 3 (repeated-collaboration intensity) and 6 coauthor occurrences.))
+OBSERVE FilteredRankGateSuite deterministic bridge: Vector((claim-1,VERIFIED,Ranked by bridge score (sampled betweenness, structural bridge importance) in window 2015-2026 among authors of works with topic Quantum error correction published in 2015-2026: 1. Bob Brandt (0.41), 2. Alice Arden (0.12), 3. Wei Wang (0).), (claim-2,VERIFIED,Bob Brandt has 30 distinct coauthors (collaboration breadth) across 9 publications in window 2015-2026, with weighted degree 35 (repeated-collaboration intensity) and 33 coauthor occurrences.), (claim-3,VERIFIED,Bob Brandt's bridge importance in window 2015-2026: bridge score 0.41 (sampled betweenness), participation coefficient 0.32, 2 cross-community coauthors, touching 2 communities, its own included.), (claim-4,VERIFIED,Alice Arden has 41 distinct coauthors (collaboration breadth) across 12 publications in window 2015-2026, with weighted degree 60 (repeated-collaboration intensity) and 44 coauthor occurrences.), (claim-5,VERIFIED,Alice Arden's bridge importance in window 2015-2026: bridge score 0.12 (sampled betweenness), participation coefficient 0.32, 2 cross-community coauthors, touching 2 communities, its own included.), (claim-6,VERIFIED,Wei Wang has 3 distinct coauthors (collaboration breadth) across 1 publications in window 2015-2026, with weighted degree 3 (repeated-collaboration intensity) and 6 coauthor occurrences.), (claim-7,VERIFIED,Wei Wang's bridge importance in window 2015-2026: bridge score 0 (sampled betweenness), participation coefficient 0.32, 2 cross-community coauthors, touching 2 communities, its own included.), (claim-8,VERIFIED,Bob Brandt is in community cm:1111111111111111 (weighted label propagation) in window 2015-2026; neighbouring communities on the retrieved coauthor edges: cm:2222222222222222.), (claim-9,VERIFIED,Alice Arden is in community cm:1111111111111111 (weighted label propagation) in window 2015-2026; neighbouring communities on the retrieved coauthor edges: none.), (claim-10,VERIFIED,Wei Wang is in community cm:1111111111111111 (weighted label propagation) in window 2015-2026; neighbouring communities on the retrieved coauthor edges: none.), (claim-11,VERIFIED,Bob Brandt's coauthor Carol Chen is in another community (cm:2222222222222222, not cm:1111111111111111); joint publications in window 2015-2026: 1.))
+Test run [36mscholarchain.adversarial.rag.FilteredRankGateSuite[0m started
+[32mscholarchain.adversarial.rag.FilteredRankGateSuite[0m: finished [90m0.722s[0m
+Test run [36mscholarchain.adversarial.rag.FilteredRankGateSuite[0m finished: 0 failed, 0 ignored, 7 total [90m0.723s[0m
+[info] Passed: Total 119, Failed 0, Errors 0, Passed 119
+[info] Passed: Total 100, Failed 0, Errors 0, Passed 100
+[info] Passed: Total 48, Failed 0, Errors 0, Passed 48
+[error] Failed: Total 263, Failed 1, Errors 0, Passed 106, Skipped 156
+[error] Failed tests:
+[error] 	scholarchain.adversarial.rag.BenchmarkWorkflowSuite
+[error] (graphService / Test / test) sbt.TestsFailedException: Tests unsuccessful
+[error] (adversarialTests / Test / test) sbt.TestsFailedException: Tests unsuccessful
+[error] (queryService / Test / test) sbt.TestsFailedException: Tests unsuccessful
+[error] Total time: 975 s (0:16:15.0), completed Nov 26, 2026, 5:35:43 PM
+==> [check] FAIL sbt (exit 1)
+==> [check] RESULT FAIL: 1 of 7 gates failed: sbt
+exit code: 1

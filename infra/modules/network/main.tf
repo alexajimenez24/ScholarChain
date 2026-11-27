@@ -1,15 +1,15 @@
 # Network: one VPC across two Availability Zones.
 # - Private subnets (one per AZ) hold every workload: ECS tasks, EMR, Neptune and the
 #   API Gateway VPC Link ENIs.
-# - Public subnets (one per AZ) hold only the optional NAT gateway. No workload, load
+# - Public subnets (one per AZ) hold only the app stack's NAT gateway. No workload, load
 #   balancer or instance gets a public address (map_public_ip_on_launch = false).
 # - Gateway endpoints for S3 and DynamoDB (free) keep that traffic off the NAT, and the
 #   Neptune bulk loader requires the S3 gateway endpoint.
-# - Egress: at most one NAT gateway in the first AZ, created only while enable_nat is
-#   true. Interface endpoints are optional (see the interface-endpoints module); the
-#   default set is empty, because one NAT gateway covers every service the workloads call
-#   for less per hour than the six or more interface endpoints that would otherwise be
-#   needed (decision recorded in infra/README.md).
+# - Egress (Phase 13): this module creates no NAT. The ECS tasks' egress path (one NAT
+#   gateway in the first AZ, plus the 0.0.0.0/0 route in the private route table below)
+#   belongs to the app stack (infra/stacks/app/egress.tf), so the app plan shows it and it
+#   exists only while the services run. Interface endpoints stay optional (see the
+#   interface-endpoints module and the compute stack's pipeline endpoints).
 # - The default security group of the VPC is stripped of all rules.
 
 terraform {
@@ -30,12 +30,6 @@ variable "cidr" {
   description = "VPC CIDR block."
   type        = string
   default     = "10.42.0.0/16"
-}
-
-variable "enable_nat" {
-  description = "Create one NAT gateway (billed per hour and per GB) in the first AZ. Off between cloud windows."
-  type        = bool
-  default     = false
 }
 
 locals {
@@ -123,38 +117,12 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-resource "aws_eip" "nat" {
-  count = var.enable_nat ? 1 : 0
-
-  domain = "vpc"
-
-  tags = { Name = "${var.name}-nat" }
-}
-
-resource "aws_nat_gateway" "this" {
-  count = var.enable_nat ? 1 : 0
-
-  allocation_id = aws_eip.nat[0].id
-  subnet_id     = aws_subnet.public[0].id
-
-  tags = { Name = "${var.name}-nat" }
-
-  depends_on = [aws_internet_gateway.this]
-}
-
 # One private route table for both private subnets, because there is at most one NAT.
+# Its default route to the NAT is an app-stack resource (aws_route, egress.tf there).
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.this.id
 
   tags = { Name = "${var.name}-private" }
-}
-
-resource "aws_route" "private_nat" {
-  count = var.enable_nat ? 1 : 0
-
-  route_table_id         = aws_route_table.private.id
-  destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.this[0].id
 }
 
 resource "aws_route_table_association" "private" {

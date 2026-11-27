@@ -4,7 +4,15 @@
 # Usage:
 #   bash scripts/cleanup.sh --env dev            # list mode (default): deletes nothing
 #   SCHOLARCHAIN_CLEANUP_CONFIRM=destroy-dev bash scripts/cleanup.sh --env dev --execute
+#   bash scripts/cleanup.sh --env dev --dry-run  # no AWS call, no terraform command
 # (The file is deliberately not executable; agents cannot run it.)
+#
+# --dry-run names the targets by policy (the stacks in destroy order, what each loses
+# and what is kept), and evaluates, as PASS or WOULD-REFUSE, the human-invocation checks
+# --execute needs (the confirmation variable, an interactive terminal, no agent session
+# marker, the plan-time inputs); it lists no state and makes no AWS call. List mode is
+# the one that reads every state and the live tagged resources. Exit 0 = the checks
+# pass, 3 = --execute would refuse.
 #
 # List mode prints every resource each stack's Terraform state holds, marks what is kept,
 # and lists live project resources outside Terraform (active EMR clusters, anything
@@ -20,16 +28,17 @@
 #   (foundation also destroys AWSServiceRoleForEMRCleanup when it created it, that is
 #    with create_emr_service_linked_role=true; EMR recreates it at the next cluster),
 #   1. observability: full destroy (dashboard, alarms, SSM parameters),
-#   2. app: full destroy (ECS services and cluster, Cloud Map and its hosted zone, VPC
-#      Link, API Gateway, Cognito, log groups, the execution role's inline policy),
-#   3. compute: full destroy (EMR endpoint, state machine, SQS queues, ECR repositories
-#      with their images, security configuration, log group),
+#   2. app: full destroy (ECS services and cluster, the NAT gateway with its address and
+#      the private default route, Cloud Map and its hosted zone, VPC Link, API Gateway,
+#      Cognito, log groups, the execution role's inline policy),
+#   3. compute: full destroy (EMR and SQS endpoints, state machine, SQS queues, ECR
+#      repositories with their images, security configuration, log group),
 #   4. data: targeted destroy of everything EXCEPT module.data_lake (Neptune, DynamoDB
 #      tables, S3 Vectors bucket and indexes, the workload roles' inline policies, SSM
 #      parameters). The
 #      buckets are not destroyed, so the "bucket not empty" stop of a full destroy never
 #      happens; their evidence survives,
-#   5. foundation: full destroy (NAT gateway and its address, interface endpoints, VPC,
+#   5. foundation: full destroy (interface endpoints, VPC,
 #      security groups, deployment role, boundary, every workload role with its trust and
 #      instance profile, budget and its action). Needs the human's administrator
 #      credentials (the deployment role cannot change these). Run the whole cleanup with
@@ -52,27 +61,59 @@ source "$(dirname "$0")/lib/common.sh"
 
 usage() { sed -n '2,6p' "$0"; exit 2; }
 
-ENV="" EXECUTE=false
+ENV="" EXECUTE=false DRY_RUN=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --env) ENV="${2:-}"; shift 2 ;;
     --execute) EXECUTE=true; shift ;;
+    --dry-run) DRY_RUN=true; shift ;;
     -h | --help) usage ;;
     *) sc_die "unknown argument: $1" ;;
   esac
 done
 [[ -n "$ENV" ]] || usage
 
+# The terminal test is made by the caller (a dry run checks inside a subshell whose
+# stdout is redirected, where -t 1 is always false).
+TTY=no
+if [[ -t 0 && -t 1 ]]; then TTY=yes; fi
+human_invocation() {
+  [[ "${SCHOLARCHAIN_CLEANUP_CONFIRM:-}" == "destroy-$ENV" ]] || sc_die "set SCHOLARCHAIN_CLEANUP_CONFIRM=destroy-$ENV to confirm"
+  [[ "$TTY" == yes ]] || sc_die "--execute needs an interactive terminal (a human runs it, not an agent)"
+  if [[ -n "${CLAUDECODE:-}" || -n "${SCHOLARCHAIN_ROLE:-}" ]] || env | grep -q '^CODEX_'; then
+    sc_die "an agent session marker is set; cleanup is run only by the human"
+  fi
+}
+all_tf_vars() {
+  local s
+  for s in "${SC_STACKS[@]}"; do sc_require_tf_vars "$s"; done
+}
+
+if [[ "$DRY_RUN" == true ]]; then
+  [[ "$EXECUTE" == false ]] || sc_die "give --dry-run or --execute, not both"
+  sc_step dry-run "env=$ENV (no AWS call, no terraform command, nothing deleted)"
+  sc_dry_check "tools (terraform aws git)" sc_need_tools terraform aws git timeout sed awk grep
+  sc_dry_check "environment name and backend file" sc_check_env "$ENV"
+  sc_dry_check "--execute confirmation: SCHOLARCHAIN_CLEANUP_CONFIRM, interactive terminal, no agent marker" human_invocation
+  sc_dry_check "plan-time inputs for every stack (names only)" all_tf_vars
+  sc_dry_aws "caller is NOT scholarchain-$ENV-deployment (--execute needs administrator credentials)"
+  sc_would "0. terminate every active EMR cluster named scholarchain-$ENV-* and check it is TERMINATING (stop before any destroy otherwise)"
+  sc_would "1. observability: full destroy (dashboard, alarms, SSM parameters)"
+  sc_would "2. app: full destroy (ECS services and cluster, NAT gateway, its address and route, Cloud Map, VPC Link, API Gateway, Cognito, log groups, execution policy)"
+  sc_would "3. compute: full destroy (EMR and SQS endpoints, state machine, SQS queues, ECR repositories and images, security configuration, log group)"
+  sc_would "4. data: targeted destroy of everything except module.data_lake (Neptune, DynamoDB tables, S3 Vectors, inline policies, SSM parameters); KEEP the data-lake buckets (evidence)"
+  sc_would "5. foundation: full destroy (endpoints, VPC, security groups, deployment role, boundaries, workload roles, budget and action)"
+  sc_would "KEEP the Terraform state bucket and the registered ECS task definition revisions; fail if any other tagged resource remains"
+  sc_would "each destroy is a saved destroy plan printed in full before it is applied"
+  sc_dry_end
+fi
+
 sc_step preflight "env=$ENV execute=$EXECUTE"
 sc_need_tools terraform aws git timeout sed awk grep
 sc_check_env "$ENV"
 if [[ "$EXECUTE" == true ]]; then
-  [[ "${SCHOLARCHAIN_CLEANUP_CONFIRM:-}" == "destroy-$ENV" ]] || sc_die "set SCHOLARCHAIN_CLEANUP_CONFIRM=destroy-$ENV to confirm"
-  [[ -t 0 && -t 1 ]] || sc_die "--execute needs an interactive terminal (a human runs it, not an agent)"
-  if [[ -n "${CLAUDECODE:-}" || -n "${SCHOLARCHAIN_ROLE:-}" ]] || env | grep -q '^CODEX_'; then
-    sc_die "an agent session marker is set; cleanup is run only by the human"
-  fi
-  for s in "${SC_STACKS[@]}"; do sc_require_tf_vars "$s"; done
+  human_invocation
+  all_tf_vars
 fi
 
 sc_step identity "caller identity"
